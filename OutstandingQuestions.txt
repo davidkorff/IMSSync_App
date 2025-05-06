@@ -1,0 +1,47 @@
+# Outstanding Questions for IMS Integration
+
+## Business Questions
+- Do we need to track producers and underwriter information from external systems (like Tritan)?
+- Get the IMS config details from Alyson.
+- Do we vary the billing type by submission? What are the valid BillingTypeID values?
+- Does commission vary by policy? How should we calculate CompanyCommission vs ProducerCommission?
+- What should QuoteStatusID be set to for new submissions? What states are available?
+- What are the expected values for TermsOfPayment?
+- Do we need to set all fields in RiskInformation or are some optional?
+- What is the process for handling invalid/missing GUIDs? Should we create new entities or require pre-existence?
+- What entities should we create programmatically vs. requiring manual setup first?
+- What is the appropriate match threshold for producer matching in production use?
+- Should producer matching be interactive in production or fully automated?
+- How should we handle cases where producer names don't match well between systems?
+
+## Technical Questions
+- How do we map text identifiers from source systems to IMS GUIDs?
+- What are the appropriate IMS API calls to look up entities by name/text?
+- What is the authentication token lifespan? Do we need to refresh it during long runs?
+- How should we handle errors and retries? Is there a rate limit for API calls?
+- Are there any batch processing capabilities in IMS API to improve performance?
+- How do we handle duplicate submissions (same policy number)?
+- How to handle or validate the encrypted passwords in the config?
+- What format should dates be in for the IMS API calls?
+- How should we handle timezone differences between systems?
+- How frequently should we regenerate the producer mapping file?
+- What algorithms provide the best fuzzy matching results for producer names?
+- Should we implement a feedback loop for improving producer matching over time?
+
+## Integration Challenges
+- How do we map Program and Line of business from source system to IMS?
+- What fields in the source data should be used to identify unique policies?
+- What validation should be performed on source data before attempting to create IMS submissions?
+- How do we handle missing required fields in the source data?
+- Should we generate a mapping file for external producer/underwriter to IMS GUIDs?
+- How frequently will the integration run? Is it a one-time load or ongoing?
+- How do we ensure producer mappings remain accurate when producers change in either system?
+- What performance requirements exist for batch producer matching?
+- Should producer matching be centralized or implemented in each gatherer?
+
+## CSV Source Data Specifics
+- Do we need to handle all columns in the CSV or just the core data?
+- How do we parse the limit and deductible fields which contain currency formatting?
+- How should we handle the count vs. count (prior) fields?
+- What is the meaning of "O/P" in the Transaction Type?
+- How should producer information be formatted in CSV files for most reliable matching? 
