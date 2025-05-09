@@ -6,13 +6,18 @@
 - Do we vary the billing type by submission? What are the valid BillingTypeID values?
 - Does commission vary by policy? How should we calculate CompanyCommission vs ProducerCommission?
 - What should QuoteStatusID be set to for new submissions? What states are available?
-- What are the expected values for TermsOfPayment?
+- What are the expected values for TermsOfPayment? (Specifically for `ims_one` environment)
 - Do we need to set all fields in RiskInformation or are some optional?
 - What is the process for handling invalid/missing GUIDs? Should we create new entities or require pre-existence?
 - What entities should we create programmatically vs. requiring manual setup first?
 - What is the appropriate match threshold for producer matching in production use?
 - Should producer matching be interactive in production or fully automated?
 - How should we handle cases where producer names don't match well between systems?
+- For a given Producer (e.g., "H&H Insurance Services", `ProducerLocationID = 19817`), what is its `ProducerLocationGUID` in `ims_one`? (Or confirm lookup strategy via `ProducerContactGUID` or name is sufficient).
+- How do we map the incoming CSV "Program" column (e.g., "Allied Health", "Middle Market") to a specific IMS `ProgramCode` or `ProgramID` for the `ims_one` environment, especially in conjunction with `LineGUID`?
+- What are the valid `TermsOfPaymentID` values for `ims_one`, or is it auto-assigned?
+- Insured Business Type `InsuredBusinessTypeID = 21` was used in the sample quote for "Amit Test". What business type string does this ID represent? Should "Individual" map to ID 4 or another ID based on `ims_one` practice?
+- Coverage from CSV: If a policy from Tritan (via CSV structure) has multiple distinct coverage types (e.g., implied by "Limit" vs "Limit (General Liability)"), how should these be represented in the initial API call (Part 1 of intake)? Does each need to be a separate entry in `PolicySubmission.coverages`? How is premium allocated if only a total is provided?
 
 ## Technical Questions
 - How do we map text identifiers from source systems to IMS GUIDs?
@@ -27,6 +32,9 @@
 - How frequently should we regenerate the producer mapping file?
 - What algorithms provide the best fuzzy matching results for producer names?
 - Should we implement a feedback loop for improving producer matching over time?
+- What logging requirements do we need for tracking policies migrated to IMS?
+- How should we implement an alerting system for integration errors?
+- If using DataAccess calls for integration, what are the limitations vs direct API calls?
 
 ## Integration Challenges
 - How do we map Program and Line of business from source system to IMS?
@@ -38,10 +46,14 @@
 - How do we ensure producer mappings remain accurate when producers change in either system?
 - What performance requirements exist for batch producer matching?
 - Should producer matching be centralized or implemented in each gatherer?
+- Is a push model from Tritan to IMS (using DataAccess) more efficient than our current approach?
 
 ## CSV Source Data Specifics
 - Do we need to handle all columns in the CSV or just the core data?
 - How do we parse the limit and deductible fields which contain currency formatting?
 - How should we handle the count vs. count (prior) fields?
 - What is the meaning of "O/P" in the Transaction Type?
-- How should producer information be formatted in CSV files for most reliable matching? 
+- How should producer information be formatted in CSV files for most reliable matching?
+
+## Additional Question
+- What is the recommended method for storing detailed third-party rater data within IMS, beyond just premium components or attached documents? Is there a "Dynamic_data" table or similar concept, and how would it be populated via web services (e.g., custom stored procedure via DataAccess.asmx)?

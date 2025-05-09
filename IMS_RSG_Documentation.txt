@@ -1,0 +1,181 @@
+# IMS Integration API - Data Requirements and Mapping
+
+## 1. Objective
+
+This document outlines the data payload structure and field descriptions required by the IMS Integration API. This API serves as an intermediary, accepting policy data from source systems (e.g., Tritan) and processing it to create corresponding entities within the IMS (Insurance Management System) via its SOAP web services.
+
+## 2. API Endpoint
+
+- **Method:** `POST`
+- **URL:** `/api/policy`
+  - (Example: `http://your-server-address/api/policy`)
+
+## 3. Authentication
+
+- **Header Name:** `X-API-Key`
+- **Value:** The API key provided for authentication.
+  - (Example during development: `test_api_key`)
+
+## 4. Request Body Format
+
+The request body must be in JSON format and conform to the `PolicySubmission` model.
+
+```json
+// Example PolicySubmission Payload
+{
+  "policy_number": "STRING (Required) - Unique identifier for the policy from the source system.",
+  "effective_date": "DATE (YYYY-MM-DD, Required) - Policy effective date.",
+  "expiration_date": "DATE (YYYY-MM-DD, Required) - Policy expiration date.",
+  "bound_date": "DATE (YYYY-MM-DD, Required) - Date the policy was bound.",
+  "program": "STRING (Required) - Name of the insurance program (e.g., 'Commercial Auto', 'General Liability'). Will be mapped to IMS Program ID/GUID.",
+  "line_of_business": "STRING (Required) - Specific line of business (e.g., 'CA', 'GL'). Will be mapped to IMS Line GUID.",
+  "state": "STRING (Required, 2-letter code) - State where the policy is primarily written (e.g., 'CA', 'NY'). Maps to IMS StateID.",
+  "insured": { // (OBJECT, Required)
+    "name": "STRING (Required) - Full legal name of the insured.",
+    "dba": "STRING (Optional) - Doing Business As name, if applicable.",
+    "contact": { // (OBJECT, Required)
+      "name": "STRING (Required) - Primary contact person for the insured.",
+      "email": "STRING (Optional) - Contact email address.",
+      "phone": "STRING (Optional) - Contact phone number.",
+      "address": "STRING (Optional) - Primary mailing address line 1 for the insured.",
+      "city": "STRING (Optional) - City for the insured's mailing address.",
+      "state": "STRING (Optional, 2-letter code) - State for the insured's mailing address.",
+      "zip_code": "STRING (Optional) - Zip code for the insured's mailing address."
+    },
+    "tax_id": "STRING (Optional) - Insured's Tax ID (SSN/FEIN).",
+    "business_type": "STRING (Optional) - Type of business (e.g., 'Corporation', 'Partnership'). Will be mapped to IMS BusinessType ID."
+  },
+  "locations": [ // (ARRAY of OBJECTS, Required, at least one)
+    {
+      "address": "STRING (Required) - Street address of the location.",
+      "city": "STRING (Required) - City of the location.",
+      "state": "STRING (Required, 2-letter code) - State of the location.",
+      "zip_code": "STRING (Required) - Zip code of the location.",
+      "country": "STRING (Default: 'USA') - Country of the location.",
+      "description": "STRING (Optional) - Description of the location."
+    }
+  ],
+  "producer": { // (OBJECT, Required)
+    "name": "STRING (Required) - Name of the producing agency/agent. Will be used to look up IMS ProducerContactGUID and ProducerLocationGUID.",
+    "contact": { // (OBJECT, Optional) - Contact details for the producer.
+      "name": "STRING (Optional)",
+      "email": "STRING (Optional)",
+      "phone": "STRING (Optional)"
+    },
+    "commission": "NUMBER (Float, Optional) - Producer's commission rate (e.g., 0.15 for 15%)."
+  },
+  "underwriter": "STRING (Optional) - Name of the underwriter. Will be used to look up IMS UnderwriterGUID.",
+  "coverages": [ // (ARRAY of OBJECTS, Required) - Details of coverages and their premiums.
+    {
+      "type": "STRING (Required) - Type of coverage (e.g., 'Bodily Injury', 'Property Damage').",
+      "limit": "NUMBER (Float, Required) - Coverage limit amount.",
+      "deductible": "NUMBER (Float, Optional) - Coverage deductible amount.",
+      "premium": "NUMBER (Float, Optional) - Premium for this specific coverage. This will be used for premium application."
+    }
+  ],
+  "premium": "NUMBER (Float, Required) - Total policy premium. This might be a sum of coverage premiums or a separately provided figure.",
+  "billing_type": "STRING (Optional) - Billing type (e.g., 'Agency Bill', 'Direct Bill'). Will be mapped to IMS BillingTypeID.",
+  "additional_data": { // (OBJECT, Optional) - Key-value pairs for any additional data from the source system not fitting standard fields.
+    "rater_output_field_1": "VALUE",
+    "source_system_id": "VALUE"
+  }
+}
+```
+
+## 5. IMS Web Service Mapping (High-Level Integration Flow)
+
+The IMS Integration API will perform the following sequence of operations using IMS SOAP Web Services based on the received `PolicySubmission` data:
+
+1.  **Authentication (`Logon.asmx -> LoginIMSUser`)**
+    *   The API service handles authentication internally using configured credentials.
+    *   Obtains: IMS security token.
+
+2.  **Initial Configuration Data (`DataAccess.asmx`)**
+    *   The API service may load and cache necessary configuration data (e.g., `ValidCompanyLinesXml`, `SupplementaryData`) for lookups.
+
+3.  **Insured Clearance (`Clearance.asmx -> ClearInsuredAsXml`)**
+    *   Uses: `PolicySubmission.insured.name` and other identifying insured details.
+    *   Determines: If the insured already exists and retrieves `InsuredGUID` if found.
+
+4.  **Insured Management (`InsuredFunctions.asmx -> AddInsuredWithLocation`)**
+    *   Triggered if insured is new or needs updating.
+    *   Uses: `PolicySubmission.insured.*` fields, `PolicySubmission.locations[*]`.
+    *   Creates/Updates: Insured record in IMS.
+    *   Obtains: `InsuredGUID`.
+
+5.  **Submission Creation (`QuoteFunctions.asmx -> AddSubmission`)**
+    *   Uses:
+        *   `InsuredGUID` (from step 3 or 4).
+        *   `ProducerContactGUID` (looked up from `PolicySubmission.producer.name`).
+        *   `UnderwriterGUID` (looked up from `PolicySubmission.underwriter`).
+        *   `SubmissionDate` (derived from `PolicySubmission.bound_date` or current date).
+        *   `ProducerLocationGUID` (looked up).
+        *   Other necessary fields (e.g., `TACSRGUID` if applicable).
+    *   Creates: Submission record in IMS.
+    *   Obtains: `SubmissionGroupGUID`.
+
+6.  **Quote Creation (`QuoteFunctions.asmx -> AddQuoteWithAutocalculateDetails`)**
+    *   Uses:
+        *   `SubmissionGroupGUID` (from step 5).
+        *   `QuotingLocationGUID`, `IssuingLocationGUID`, `CompanyLocationGUID` (looked up or default).
+        *   `LineGUID` (looked up from `PolicySubmission.line_of_business`).
+        *   `StateID` (from `PolicySubmission.state`).
+        *   `EffectiveDate` (from `PolicySubmission.effective_date`).
+        *   `ExpirationDate` (from `PolicySubmission.expiration_date`).
+        *   `BillingTypeID` (looked up from `PolicySubmission.billing_type`).
+        *   `ProgramCode` or `ProgramID` (looked up from `PolicySubmission.program`).
+        *   `CompanyCommission` (calculated or default).
+        *   `ProducerCommission` (from `PolicySubmission.producer.commission`).
+        *   `QuoteStatusID` (e.g., a default "Quoted" status).
+    *   Creates: Quote record in IMS.
+    *   Obtains: `QuoteGUID`.
+
+7.  **Rater Data Processing & Storage**
+    *   Uses: `PolicySubmission.coverages[*]` and `PolicySubmission.additional_data`.
+    *   Method: (Decision pending - `ImportExcelRater`, `ImportNetRateXml`, or custom storage via `DataAccess.asmx` into a dynamic_data table linked to `QuoteGUID`).
+    *   Stores: Detailed rater output and coverage-specific data.
+
+8.  **Premium Application (`QuoteFunctions.asmx -> AddPremium` or `AddPremiumHistoric`)**
+    *   Uses: `PolicySubmission.premium`, `PolicySubmission.coverages[*].premium`, and `QuoteGUID`.
+    *   Applies: Premiums to appropriate charge codes in IMS.
+
+9.  **Policy Binding (`QuoteFunctions.asmx -> BindQuote`, then `QuoteFunctions.asmx -> IssuePolicy`)**
+    *   Uses: `QuoteGUID`.
+    *   Updates: Quote status to Bound and then Issues the policy.
+    *   Obtains: `PolicyNumber` (from IMS).
+
+10. **Document Management (`DocumentFunctions.asmx`)**
+    *   (If applicable) Attaches any necessary documents, potentially including rater output.
+
+## 6. Key Lookup Requirements
+
+The integration service will need to perform lookups to translate human-readable names from the `PolicySubmission` payload into IMS-specific GUIDs or IDs. This includes, but is not limited to:
+
+-   **Producer Name:** to `ProducerContactGUID`, `ProducerLocationGUID`.
+-   **Underwriter Name:** to `UnderwriterGUID`.
+-   **Program Name:** to `ProgramID` / `ProgramGUID` / `ProgramCode`.
+-   **Line of Business Name:** to `LineGUID`.
+-   **Billing Type Name:** to `BillingTypeID` (integer).
+-   **Business Type Name:** to `BusinessTypeID` (integer).
+-   **Company/Issuing/Quoting Locations:** to respective `LocationGUIDs`.
+-   **Quote Status:** to `QuoteStatusID` (integer).
+
+These lookups might involve calls to `DataAccess.asmx` or rely on cached configuration data.
+
+## 7. Data Formatting Notes
+
+-   **Dates:** All dates should be provided in `YYYY-MM-DD` format.
+-   **Numeric Values (Currency, Rates):** Standard decimal format (e.g., `1234.56`).
+-   **State Codes:** Standard 2-letter US state abbreviations (e.g., 'CA', 'TX', 'NY').
+
+## 8. Error Handling
+
+The API will return standard HTTP status codes. In case of errors during IMS processing, the response body will include:
+```json
+{
+  "success": false,
+  "error_message": "Detailed error message from the integration process."
+  // Potentially other fields like policy_number if some initial steps succeeded.
+}
+```
+Successful responses will have `success: true` and include relevant GUIDs and the IMS Policy Number. 

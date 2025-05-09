@@ -1,0 +1,123 @@
+# IMS Integration Plan
+
+## Architecture Overview
+
+### External Web Service Layer
+- Acts as a platform-agnostic intermediary between source systems (Tritan, etc.) and IMS
+- Handles authentication, data transformation, and orchestration of IMS API calls
+- Provides a single, consistent interface for all source systems
+- Manages logging, monitoring, and error handling
+
+### Data Flow
+
+1. Source System (e.g., Tritan) -> External Web Service
+   - Sends comprehensive payload including:
+     * Submission details
+     * Insured information
+     * Location data
+     * Rater output data
+     * Any additional metadata
+
+2. External Web Service -> IMS Integration
+   a. Authentication
+      - Call Logon.asmx -> LoginIMSUser
+      - Store and manage token lifecycle
+      - Handle token refresh as needed
+
+   b. Initial Configuration
+      - Call DataAccess.asmx -> ExecuteCommand for ValidCompanyLinesXml
+      - Call DataAccess.asmx -> ExecuteDataSet for SupplementaryData
+      - Cache configuration data for subsequent operations
+
+   c. Clearance Check
+      - Call Clearance.asmx -> ClearInsuredAsXml
+      - Determine if insured/policy already exists
+      - Handle duplicate scenarios based on business rules
+
+   d. Insured Management
+      - If new insured: Call InsuredFunctions.asmx -> AddInsuredWithLocation
+      - Store returned InsuredGUID for subsequent operations
+
+   e. Submission & Quote Creation
+      - Call QuoteFunctions.asmx -> AddSubmission
+      - Store returned SubmissionGroupGUID
+      - Call QuoteFunctions.asmx -> AddQuoteWithAutocalculateDetails
+      - Store returned QuoteGUID
+
+   f. Rater Data Processing
+      - [DECISION PENDING] Choose between:
+        * ImportExcelRater
+        * ImportNetRateXml
+      - Store rater output in dynamic_data table:
+        * Query tblQuotes for QuoteGUID
+        * Insert rater data row with QuoteGUID reference
+        * Store all rater-specific fields and calculations
+
+   g. Premium Application
+      - Call QuoteFunctions.asmx -> AddPremium or AddPremiumHistoric
+      - Apply calculated premiums to appropriate charge codes
+      - Handle any fee calculations
+
+   h. Policy Binding
+      - Call QuoteFunctions.asmx -> BindQuote
+      - Call QuoteFunctions.asmx -> IssuePolicy
+      - Store returned PolicyNumber
+
+   i. Document Management
+      - Call DocumentFunctions.asmx for any required documents
+      - Store rater output as associated document if needed
+
+## Error Handling & Monitoring
+
+1. Logging Requirements
+   - All API calls and responses
+   - Data transformations
+   - Error conditions and retry attempts
+   - Performance metrics
+   - Token lifecycle events
+
+2. Alerting System
+   - Failed API calls
+   - Data validation errors
+   - Token expiration
+   - Performance degradation
+   - Integration timeouts
+
+3. Retry Strategy
+   - Exponential backoff for transient failures
+   - Maximum retry attempts
+   - Circuit breaker for persistent failures
+
+## Outstanding Decisions
+
+1. Rater Data Import Method
+   - Evaluate pros/cons of ImportExcelRater vs ImportNetRateXml
+   - Consider data volume and complexity
+   - Assess performance implications
+   - Review maintenance requirements
+
+2. Dynamic Data Storage
+   - Confirm table structure for rater data
+   - Define required fields and relationships
+   - Establish indexing strategy
+   - Plan for data archival/retention
+
+## Next Steps
+
+1. Technical Implementation
+   - Design external web service API
+   - Create data models and validation
+   - Implement IMS integration layer
+   - Develop monitoring and alerting
+
+2. Testing Strategy
+   - Unit tests for data transformations
+   - Integration tests for IMS API calls
+   - Performance testing
+   - Error scenario testing
+
+3. Documentation
+   - API documentation for source systems
+   - Integration specifications
+   - Operational procedures
+   - Troubleshooting guides 

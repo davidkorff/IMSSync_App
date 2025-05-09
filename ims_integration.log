@@ -1,0 +1,24 @@
+2025-05-09 11:23:38,139 - app.api.routes - INFO - Received policy submission from external system
+2025-05-09 11:23:38,141 - app.services.ims_integration_service - INFO - Processing submission for policy POL123456
+2025-05-09 11:23:38,142 - app.services.ims_integration_service - INFO - Authenticating with IMS using dkorff
+2025-05-09 11:23:38,142 - app.services.ims_soap_client - INFO - Logging in to IMS with username dkorff
+2025-05-09 11:23:38,143 - app.services.ims_integration_service - INFO - Loading configuration data
+2025-05-09 11:23:38,144 - app.services.ims_integration_service - INFO - Checking insured clearance for ABC Company
+2025-05-09 11:23:38,144 - app.services.ims_integration_service - INFO - Creating insured ABC Company
+2025-05-09 11:23:38,145 - app.services.ims_integration_service - INFO - Creating submission for policy POL123456
+2025-05-09 11:23:38,145 - app.services.ims_integration_service - INFO - Creating quote for submission new-submission-guid
+2025-05-09 11:23:38,145 - app.services.ims_integration_service - INFO - Processing rater data for quote new-quote-guid
+2025-05-09 11:23:38,146 - app.services.ims_integration_service - INFO - Applying premium for quote new-quote-guid
+2025-05-09 11:23:38,147 - app.services.ims_integration_service - INFO - Binding quote new-quote-guid
+2025-05-09 18:51:23,210 - app.api.routes - INFO - Received policy submission from external system
+2025-05-09 18:51:23,212 - app.services.ims_integration_service - INFO - Processing submission for policy GAH-102352-250402
+2025-05-09 18:51:23,213 - app.services.ims_integration_service - INFO - Authenticating with IMS using dkorff
+2025-05-09 18:51:23,213 - app.services.ims_soap_client - INFO - Logging in to IMS with username dkorff
+2025-05-09 18:51:23,213 - app.services.ims_integration_service - INFO - Loading configuration data
+2025-05-09 18:51:23,214 - app.services.ims_integration_service - INFO - Checking insured clearance for Community Comfort Care Incorporated
+2025-05-09 18:51:23,214 - app.services.ims_integration_service - INFO - Creating insured Community Comfort Care Incorporated
+2025-05-09 18:51:23,214 - app.services.ims_integration_service - INFO - Creating submission for policy GAH-102352-250402
+2025-05-09 18:51:23,214 - app.services.ims_integration_service - INFO - Creating quote for submission new-submission-guid
+2025-05-09 18:51:23,214 - app.services.ims_integration_service - INFO - Processing rater data for quote new-quote-guid
+2025-05-09 18:51:23,215 - app.services.ims_integration_service - INFO - Applying premium for quote new-quote-guid
+2025-05-09 18:51:23,215 - app.services.ims_integration_service - INFO - Binding quote new-quote-guid
