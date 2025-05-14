@@ -15,6 +15,11 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Set log levels for specific modules
+logging.getLogger("app.api.routes").setLevel(logging.DEBUG)
+logging.getLogger("app.services.transaction_service").setLevel(logging.DEBUG)
+logging.getLogger("app.services.transaction_processor").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -34,6 +39,17 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(api_router, prefix="/api")
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("===================================================")
+    logger.info("IMS Integration Service started and ready to receive transactions")
+    logger.info("Endpoints:")
+    logger.info("  POST /api/transaction/new - Create a new policy transaction")
+    logger.info("  POST /api/transaction/update - Create a policy update transaction")
+    logger.info("  GET /api/transaction/{id} - Check transaction status")
+    logger.info("  GET /api/health - Health check")
+    logger.info("===================================================")
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
