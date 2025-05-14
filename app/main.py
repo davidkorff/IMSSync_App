@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 import uvicorn
 from app.api.routes import router as api_router
+from app.api.source_routes import router as source_router
 from app.core.config import settings
 
 # Configure logging
@@ -18,8 +19,10 @@ logging.basicConfig(
 
 # Set log levels for specific modules
 logging.getLogger("app.api.routes").setLevel(logging.DEBUG)
+logging.getLogger("app.api.source_routes").setLevel(logging.DEBUG)
 logging.getLogger("app.services.transaction_service").setLevel(logging.DEBUG)
-logging.getLogger("app.services.transaction_processor").setLevel(logging.DEBUG)
+logging.getLogger("app.integrations.triton").setLevel(logging.DEBUG)
+logging.getLogger("app.integrations.xuber").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -40,6 +43,9 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api")
 
+# Include source-specific routes
+app.include_router(source_router, prefix="/api")
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("===================================================")
@@ -49,7 +55,13 @@ async def startup_event():
     logger.info("  POST /api/transaction/update - Create a policy update transaction")
     logger.info("  GET /api/transaction/{id} - Check transaction status")
     logger.info("  GET /api/health - Health check")
+    logger.info("")
+    logger.info("Source-specific endpoints:")
+    logger.info("  POST /api/triton/transaction/new - Create new Triton transaction")
+    logger.info("  POST /api/triton/transaction/update - Create Triton update transaction")
+    logger.info("  POST /api/xuber/transaction/new - Create new Xuber transaction")
+    logger.info("  POST /api/xuber/transaction/update - Create Xuber update transaction")
     logger.info("===================================================")
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
