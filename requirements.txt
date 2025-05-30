@@ -1,12 +1,30 @@
+# Core Web Framework
 fastapi>=0.100.0
-uvicorn>=0.22.0
+uvicorn[standard]>=0.22.0
+
+# Data Validation and Settings
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
+
+# Environment Variables
 python-dotenv>=1.0.0
+
+# HTTP Requests
 requests>=2.31.0
+
+# Date/Time Utilities
 python-dateutil>=2.8.2
+
+# XML Processing (for SOAP)
 xmltodict>=0.13.0
 lxml>=4.9.3
-asyncio>=3.4.3
+
+# Database Connectivity
+mysql-connector-python>=8.0.33
+
+# Excel Processing
 openpyxl>=3.1.2
-pandas>=2.0.0 
+pandas>=2.0.0
+
+# Additional Dependencies
+python-multipart>=0.0.6  # For file uploads in FastAPI

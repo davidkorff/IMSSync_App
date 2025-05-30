@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Body, Query, Header
 from fastapi.responses import JSONResponse
-from app.api.dependencies import get_api_key
+from app.api.dependencies import get_api_key, validate_triton_api_key
 from app.services.transaction_service import TransactionService
+from app.services.ims_integration_service import IMSIntegrationService
 from app.models.transaction_models import TransactionResponse, TransactionType, TransactionStatus, TransactionSearchParams
 import logging
 import json
@@ -12,8 +13,9 @@ from datetime import date
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Initialize transaction service
+# Initialize services
 transaction_service = TransactionService()
+ims_service = IMSIntegrationService()
 
 @router.post("/transaction/{transaction_type}")
 async def create_transaction(
@@ -176,3 +178,78 @@ async def health_check():
     Health check endpoint
     """
     return {"status": "healthy"}
+
+# Triton Integration API Endpoints
+@router.post("/triton/api/v1/transactions", tags=["triton"])
+async def receive_triton_transaction(
+    request: Request,
+    x_api_key: str = Header(..., description="API key for authentication"),
+    x_client_id: str = Header(..., description="Client ID for identification"),
+    x_triton_version: Optional[str] = Header(None, description="Triton version info"),
+    source: str = Query("triton", description="Source system identifier")
+):
+    """
+    Receive a transaction from Triton IMS system.
+    
+    This endpoint accepts transaction data in JSON format from the Triton system
+    and processes it in our IMS integration pipeline.
+    
+    The transaction type is expected within the transaction_data and must be one of:
+    - binding: New policy binding
+    - midterm_endorsement: Policy endorsement
+    - cancellation: Policy cancellation
+    """
+    # Authenticate the request
+    validate_triton_api_key(x_api_key)
+    
+    try:
+        # Get and parse the request body
+        body = await request.body()
+        data = json.loads(body)
+        logger.info(f"Received Triton transaction: {json.dumps(data, indent=2)}")
+        
+        # Validate required fields
+        if "transaction_type" not in data:
+            raise HTTPException(status_code=400, detail="Missing transaction_type in request")
+            
+        transaction_type = data["transaction_type"]
+        
+        # Map Triton transaction types to our internal types
+        type_mapping = {
+            "binding": TransactionType.NEW,
+            "midterm_endorsement": TransactionType.ENDORSEMENT,
+            "cancellation": TransactionType.CANCELLATION
+        }
+        
+        if transaction_type not in type_mapping:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid transaction type: {transaction_type}. Must be one of: binding, midterm_endorsement, cancellation"
+            )
+        
+        # Create internal transaction object from Triton data
+        internal_type = type_mapping[transaction_type]
+        external_id = data.get("transaction_id", None)
+        
+        # Create transaction in our system
+        transaction = transaction_service.create_transaction(internal_type, source, data, external_id)
+        logger.info(f"Created transaction {transaction.transaction_id} from Triton data" + 
+                  (f" with external ID {external_id}" if external_id else ""))
+        
+        # Start processing in background (non-blocking)
+        asyncio.create_task(process_transaction_async(transaction.transaction_id))
+        logger.info(f"Started async processing for Triton transaction {transaction.transaction_id}")
+        
+        return TransactionResponse(
+            transaction_id=transaction.transaction_id,
+            status=transaction.status,
+            message=f"Triton {transaction_type} transaction received successfully and queued for processing",
+            reference_id=f"RSG-{transaction.transaction_id}"
+        )
+        
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON received from Triton")
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+    except Exception as e:
+        logger.error(f"Error processing Triton transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

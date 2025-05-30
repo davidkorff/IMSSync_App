@@ -44,4 +44,69 @@ logs/
 # OS-specific
 .DS_Store
 Thumbs.db
-**/.claude/settings.local.json
+
+# Claude
+**/.claude/
+.claude/
+claude.json
+settings.local.json
+
+# BDX Samples - contains sensitive client data
+BDX_Samples/
+
+# Test and utility scripts (not part of core application)
+test_*.py
+check_*.py
+pull_*.py
+examine_*.py
+find_*.py
+load_*.py
+simple_*.py
+create_*.py
+update_*.py
+get-pip.py
+minimum_required_data.py
+run_service.py
+test_data_config.py
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+transactions.db
+
+# Environment and config files with credentials
+mysql_config.env
+*.env
+IMS_Configs/
+
+# Documentation drafts and notes
+integration_status_update_email*.md
+integration_summary.txt
+OutstandingQuestions.txt
+
+# AWS/Infrastructure files (handled separately)
+aws_rds_setup.md
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cer
+
+# Archive files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup
+*~

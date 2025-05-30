@@ -1,0 +1,266 @@
+# RSG Integration Service - Triton API Access Instructions
+
+## Service Overview
+The RSG Integration Service provides a REST API interface for Triton to submit insurance policy transactions (bindings, endorsements, cancellations) that are then processed and sent to IMS (Insurance Management System).
+
+## Endpoints and Access
+
+### Base URLs
+- Development: http://localhost:8000
+- Staging: https://api-staging.rsgims.com  
+- Production: https://api.rsgims.com
+
+### Authentication Credentials
+For development/testing:
+- API Key: test_api_key
+- Triton API Key: triton_test_key
+- Client ID: triton
+
+For production (contact RSG team for actual values):
+- API Key: [To be provided]
+- Client ID: [To be provided]
+
+### Primary API Endpoints
+
+#### 1. Submit Transaction (Recommended)
+```
+POST /api/triton/api/v1/transactions
+```
+
+Required Headers:
+- Content-Type: application/json
+- X-API-Key: triton_test_key
+- X-Client-ID: triton
+
+Request Body:
+```json
+{
+  "transaction_type": "binding",  // Options: "binding", "midterm_endorsement", "cancellation"
+  "transaction_id": "TRITON-12345",
+  "policy_number": "POL-123456",
+  "effective_date": "2025-06-01",
+  "expiration_date": "2026-06-01",
+  "insured": {
+    "name": "Company Name LLC",
+    "tax_id": "12-3456789",
+    "address": {
+      "street_1": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zip": "10001"
+    }
+  },
+  "producer": {
+    "name": "John Smith",
+    "email": "john.smith@agency.com",
+    "agency_name": "Smith Insurance Agency"
+  },
+  "premiums": {
+    "annual_premium": 5000.00,
+    "policy_fee": 250.00,
+    "taxes_and_fees": 125.00,
+    "grand_total": 5375.00
+  }
+  // Additional fields as per transaction type
+}
+```
+
+Response:
+```json
+{
+  "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "pending",
+  "message": "Transaction created successfully and queued for processing",
+  "reference_id": "RSG-550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 2. Check Transaction Status
+```
+GET /api/transaction/{transaction_id}
+```
+
+Required Headers:
+- X-API-Key: triton_test_key
+
+Response:
+```json
+{
+  "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",  // Options: "pending", "processing", "completed", "failed"
+  "ims_status": "issued",
+  "ims_policy_number": "IMS-POL-123456",
+  "messages": ["Policy successfully created in IMS"],
+  "created_at": "2025-05-29T10:30:00Z",
+  "updated_at": "2025-05-29T10:35:00Z"
+}
+```
+
+#### 3. Search Transactions
+```
+GET /api/transactions?source=triton&status=pending&limit=50
+```
+
+Required Headers:
+- X-API-Key: triton_test_key
+
+Query Parameters:
+- source: Filter by source system (e.g., "triton")
+- status: Filter by status (pending, completed, failed)
+- external_id: Search by your transaction ID
+- start_date: Filter by date range (ISO 8601 format)
+- end_date: Filter by date range (ISO 8601 format)
+- limit: Results per page (1-100, default: 10)
+- offset: Pagination offset
+
+#### 4. Health Check
+```
+GET /api/health
+```
+
+No authentication required. Returns:
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2025-05-29T10:30:00Z"
+}
+```
+
+## Testing the Integration
+
+### 1. Test Connection
+```bash
+# Health check
+curl https://api-staging.rsgims.com/api/health
+
+# Test authentication
+curl -X GET https://api-staging.rsgims.com/api/transactions \
+  -H "X-API-Key: triton_test_key"
+```
+
+### 2. Submit Test Transaction
+```bash
+curl -X POST https://api-staging.rsgims.com/api/triton/api/v1/transactions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: triton_test_key" \
+  -H "X-Client-ID: triton" \
+  -d '{
+    "transaction_type": "binding",
+    "transaction_id": "TEST-001",
+    "policy_number": "TEST-POL-001",
+    "effective_date": "2025-06-01",
+    "expiration_date": "2026-06-01",
+    "insured": {
+      "name": "Test Company LLC",
+      "tax_id": "12-3456789",
+      "address": {
+        "street_1": "123 Test St",
+        "city": "New York",
+        "state": "NY",
+        "zip": "10001"
+      }
+    },
+    "producer": {
+      "name": "Test Producer",
+      "email": "test@agency.com",
+      "agency_name": "Test Agency"
+    },
+    "premiums": {
+      "annual_premium": 1000.00,
+      "policy_fee": 100.00,
+      "taxes_and_fees": 50.00,
+      "grand_total": 1150.00
+    }
+  }'
+```
+
+### 3. Check Status
+```bash
+# Replace {transaction_id} with the ID from the response
+curl -X GET https://api-staging.rsgims.com/api/transaction/{transaction_id} \
+  -H "X-API-Key: triton_test_key"
+```
+
+## Error Handling
+
+### HTTP Status Codes
+- 200: Success
+- 201: Transaction created
+- 400: Bad request (invalid data)
+- 401: Unauthorized (invalid API key)
+- 403: Forbidden (invalid client ID)
+- 422: Validation error (missing required fields)
+- 429: Rate limit exceeded
+- 500: Server error (will be retried automatically)
+
+### Error Response Format
+```json
+{
+  "error": "Validation error",
+  "details": {
+    "field": "insured.name",
+    "message": "This field is required"
+  }
+}
+```
+
+## Rate Limits
+- Default: 60 requests per minute
+- Triton: 100 requests per minute
+- Exceeded limits return 429 status with retry-after header
+
+## Data Requirements
+
+### For All Transactions
+- transaction_type: Type of transaction
+- transaction_id: Your unique identifier
+- policy_number: Policy number from Triton
+
+### For Binding
+- All insured information (name, address, tax ID)
+- Producer/agency details
+- Policy dates (effective, expiration)
+- Premium breakdown
+- Coverage details (limits, deductibles, territories)
+
+### For Endorsements
+- Original policy number
+- Endorsement effective date
+- Changes being made
+- Premium adjustments
+
+### For Cancellations
+- Policy number
+- Cancellation date
+- Cancellation reason
+- Return premium calculation
+
+## Processing Notes
+
+1. All transactions are processed asynchronously
+2. Typical processing time: 1-5 minutes
+3. Failed transactions are automatically retried up to 3 times
+4. Transaction history is maintained for 90 days
+5. Supports both JSON and XML content types (JSON recommended)
+
+## Support Contacts
+
+For technical issues or questions:
+- Email: support@rsgims.com
+- Phone: 1-800-RSG-HELP
+- Documentation: https://docs.rsgims.com
+
+For API credentials and access:
+- Contact: David Korff
+- Email: david.korff@rsgims.com
+
+## Change Log
+
+- v1.0.0 (2025-05-29): Initial release
+- Support for binding, endorsement, and cancellation transactions
+- Async processing with status tracking
+- Rate limiting and retry logic
+
+---
+Last Updated: May 29, 2025

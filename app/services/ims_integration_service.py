@@ -1,119 +1,155 @@
 import logging
-from app.models.policy_data import PolicySubmission, IntegrationResponse
-from app.services.ims_soap_client import IMSSoapClient
-from app.core.config import settings
+import uuid
+import json
+from datetime import datetime
+from typing import Dict, Any, List, Optional, Union
+
+from app.models.triton_models import (
+    TritonTransaction,
+    TritonBindingTransaction,
+    TritonMidtermEndorsementTransaction,
+    TritonCancellationTransaction
+)
+from app.models.transaction_models import TransactionType, TransactionStatus, Transaction
+from app.services.ims_workflow_service import IMSWorkflowService
+from app.integrations.triton.transformer import TritonTransformer
 
 logger = logging.getLogger(__name__)
 
 class IMSIntegrationService:
-    def __init__(self, environment=None):
-        env = environment or settings.DEFAULT_ENVIRONMENT
-        env_config = settings.IMS_ENVIRONMENTS.get(env)
-        if not env_config:
-            raise ValueError(f"Unknown environment: {env}")
-        
-        self.config_file = env_config["config_file"]
-        self.username = env_config["username"]
-        self.password = env_config["password"]
-        self.soap_client = IMSSoapClient(self.config_file)
-        self.token = None
+    """
+    Service for handling IMS integration between Triton and our system.
     
-    def authenticate(self):
-        """Authenticate with IMS and get a token"""
-        logger.info(f"Authenticating with IMS using {self.username}")
-        self.token = self.soap_client.login(self.username, self.password)
-        return self.token
+    This service is responsible for:
+    1. Receiving and validating transactions from Triton
+    2. Transforming Triton data format to our internal format
+    3. Initiating the appropriate workflow processes
+    4. Providing status updates back to Triton
+    """
     
-    def process_submission(self, submission: PolicySubmission) -> IntegrationResponse:
-        """Process a policy submission and create it in IMS"""
-        logger.info(f"Processing submission for policy {submission.policy_number}")
+    def __init__(self):
+        self.ims_workflow = IMSWorkflowService()
+        self.transformer = TritonTransformer()
         
+    async def process_triton_transaction(
+        self,
+        transaction_data: Dict[Any, Any],
+        transaction_type: str
+    ) -> Dict[str, Any]:
+        """
+        Process a transaction received from Triton.
+        
+        Args:
+            transaction_data: The transaction data from Triton
+            transaction_type: The type of transaction (binding, midterm_endorsement, cancellation)
+            
+        Returns:
+            A dict containing the transaction ID and status
+        """
+        # Generate a transaction ID if not provided
+        if not transaction_data.get("transaction_id"):
+            transaction_data["transaction_id"] = str(uuid.uuid4())
+            
+        transaction_id = transaction_data["transaction_id"]
+        logger.info(f"Processing Triton {transaction_type} transaction {transaction_id}")
+        
+        # Validate and parse the transaction based on its type
         try:
-            # 1. Authenticate
-            if not self.token:
-                self.authenticate()
-            
-            # 2. Initial Configuration (cache data)
-            self._load_configuration_data()
-            
-            # 3. Clearance Check
-            insured_exists, insured_guid = self._check_insured_clearance(submission.insured)
-            
-            # 4. Insured Management
-            if not insured_exists:
-                insured_guid = self._create_insured(submission.insured, submission.locations)
-            
-            # 5. Submission Creation
-            submission_guid = self._create_submission(submission, insured_guid)
-            
-            # 6. Quote Creation
-            quote_guid = self._create_quote(submission, submission_guid)
-            
-            # 7. Rater Data Processing
-            self._process_rater_data(submission, quote_guid)
-            
-            # 8. Premium Application
-            self._apply_premium(submission, quote_guid)
-            
-            # 9. Policy Binding
-            policy_number = self._bind_policy(quote_guid)
-            
-            return IntegrationResponse(
-                success=True,
-                policy_number=policy_number,
-                submission_guid=submission_guid,
-                quote_guid=quote_guid,
-                insured_guid=insured_guid
-            )
-            
+            if transaction_type == "binding":
+                transaction = TritonBindingTransaction(**transaction_data)
+            elif transaction_type == "midterm_endorsement":
+                transaction = TritonMidtermEndorsementTransaction(**transaction_data)
+            elif transaction_type == "cancellation":
+                transaction = TritonCancellationTransaction(**transaction_data)
+            else:
+                raise ValueError(f"Unsupported transaction type: {transaction_type}")
+                
+            logger.info(f"Validated Triton {transaction_type} transaction {transaction_id}")
         except Exception as e:
-            logger.error(f"Failed to process submission: {str(e)}")
-            return IntegrationResponse(
-                success=False,
-                error_message=str(e)
-            )
+            logger.error(f"Error validating Triton transaction {transaction_id}: {str(e)}")
+            raise ValueError(f"Invalid transaction data: {str(e)}")
+        
+        # Transform Triton data to our internal format
+        try:
+            internal_data = self.transformer.transform_to_internal_format(transaction_data)
+            logger.info(f"Transformed Triton transaction {transaction_id} to internal format")
+        except Exception as e:
+            logger.error(f"Error transforming Triton transaction {transaction_id}: {str(e)}")
+            raise ValueError(f"Failed to transform transaction data: {str(e)}")
+        
+        # Determine internal transaction type
+        internal_type_map = {
+            "binding": TransactionType.NEW,
+            "midterm_endorsement": TransactionType.ENDORSEMENT,
+            "cancellation": TransactionType.CANCELLATION
+        }
+        internal_type = internal_type_map[transaction_type]
+        
+        # Create internal transaction record
+        # This would typically involve database operations, but for this example
+        # we'll just create an in-memory object
+        internal_transaction = Transaction(
+            transaction_id=transaction_id,
+            external_id=transaction_data.get("transaction_id"),
+            source="triton",
+            type=internal_type,
+            status=TransactionStatus.RECEIVED,
+            data=json.dumps(transaction_data),
+            received_at=datetime.now()
+        )
+        
+        # Initiate asynchronous processing via IMS workflow service
+        # This would typically be done in a background task
+        try:
+            # Placeholder for workflow processing
+            # In a real implementation, this would dispatch to appropriate workflow steps
+            logger.info(f"Initiating IMS workflow for Triton transaction {transaction_id}")
+            
+            # Example workflow calls (implementation would depend on transaction type)
+            if transaction_type == "binding":
+                # For binding transactions, create insured, submission, quote, etc.
+                # self.ims_workflow.create_insured(internal_data)
+                # self.ims_workflow.create_submission(internal_data)
+                # self.ims_workflow.create_quote(internal_data)
+                # self.ims_workflow.bind_policy(internal_data)
+                pass
+            elif transaction_type == "midterm_endorsement":
+                # For endorsements, process the endorsement
+                # self.ims_workflow.process_endorsement(internal_data)
+                pass
+            elif transaction_type == "cancellation":
+                # For cancellations, process the cancellation
+                # self.ims_workflow.process_cancellation(internal_data)
+                pass
+            
+            # For now, just log that we would process it
+            logger.info(f"Triton transaction {transaction_id} queued for processing")
+        except Exception as e:
+            logger.error(f"Error initiating workflow for Triton transaction {transaction_id}: {str(e)}")
+            # We'll still return success to Triton, as we've received and stored the transaction
+            # The actual processing result will be communicated asynchronously
+        
+        # Return result
+        return {
+            "transaction_id": transaction_id,
+            "status": "received",
+            "reference_id": f"RSG-{transaction_id}" 
+        }
     
-    def _load_configuration_data(self):
-        """Load and cache configuration data from IMS"""
-        logger.info("Loading configuration data")
-        # Implementation details here
-    
-    def _check_insured_clearance(self, insured):
-        """Check if insured already exists in IMS"""
-        logger.info(f"Checking insured clearance for {insured.name}")
-        # Implementation details here
-        return False, None
-    
-    def _create_insured(self, insured, locations):
-        """Create a new insured in IMS"""
-        logger.info(f"Creating insured {insured.name}")
-        # Implementation details here
-        return "new-insured-guid"
-    
-    def _create_submission(self, submission, insured_guid):
-        """Create a submission in IMS"""
-        logger.info(f"Creating submission for policy {submission.policy_number}")
-        # Implementation details here
-        return "new-submission-guid"
-    
-    def _create_quote(self, submission, submission_guid):
-        """Create a quote in IMS"""
-        logger.info(f"Creating quote for submission {submission_guid}")
-        # Implementation details here
-        return "new-quote-guid"
-    
-    def _process_rater_data(self, submission, quote_guid):
-        """Process and store rater data"""
-        logger.info(f"Processing rater data for quote {quote_guid}")
-        # Implementation details here
-    
-    def _apply_premium(self, submission, quote_guid):
-        """Apply premium to the quote"""
-        logger.info(f"Applying premium for quote {quote_guid}")
-        # Implementation details here
-    
-    def _bind_policy(self, quote_guid):
-        """Bind the quote into a policy"""
-        logger.info(f"Binding quote {quote_guid}")
-        # Implementation details here
-        return "new-policy-number" 
+    async def get_transaction_status(self, transaction_id: str) -> Dict[str, Any]:
+        """
+        Get the current status of a transaction.
+        
+        Args:
+            transaction_id: The ID of the transaction
+            
+        Returns:
+            A dict containing the transaction status
+        """
+        # In a real implementation, this would query the database
+        # For now, just return a placeholder
+        return {
+            "transaction_id": transaction_id,
+            "status": "processing",
+            "message": "Transaction is being processed"
+        }

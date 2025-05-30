@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     API_KEY_NAME: str = "X-API-Key"
     API_KEYS: List[str] = json.loads(os.getenv("API_KEYS", '["test_api_key"]'))
     
+    # Triton-specific security settings
+    TRITON_API_KEYS: List[str] = json.loads(os.getenv("TRITON_API_KEYS", '["triton_test_key"]'))
+    TRITON_CLIENT_IDS: List[str] = json.loads(os.getenv("TRITON_CLIENT_IDS", '["triton"]'))
+    
     # IMS settings
     IMS_ENVIRONMENTS: Dict = {
         "ims_one": {
