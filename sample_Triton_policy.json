@@ -1,0 +1,45 @@
+{
+    "policy": {
+      "umr": null,
+      "agreement_number": null,
+      "section_number": null,
+      "class_of_business": "Nanny Services (No Live-Ins)",
+      "program_name": "Small Business",
+      "policy_number": "SPG0000033-251",
+      "underwriter_name": "Allied Health Care / Social Services",
+      "producer_name": "Harry Rubenstein",
+      "invoice_date": "07/07/2025",
+      "policy_fee": 250.0,
+      "surplus_lines_tax": "",
+      "stamping_fee": "",
+      "other_fee": "",
+      "insured_name": "Anahata Productions LLC dba Aspen Babysitting Company",
+      "insured_state": "CO",
+      "insured_zip": "81623",
+      // NEEDED: Additional insured address fields for IMS AddInsured/AddInsuredLocation
+      // "insured_address": "123 Main Street",
+      // "insured_city": "Aspen",
+      // "insured_phone": "970-555-1234",
+      // "insured_email": "contact@anahataproductions.com",
+      "effective_date": "07/07/2025",
+      "expiration_date": "07/07/2026",
+      "bound_date": "06/04/2025",
+      "business_type": "New",
+      // NEEDED: More specific business type for IMS business_type_id mapping
+      // Should be one of: "Corporation", "LLC", "Partnership", "Individual", "Sole Proprietor"
+      // Current "New" doesn't map to IMS business types (1=Corporation, 2=Partnership, 3=Individual, 4=Sole Proprietor)
+      // Recommend: "LLC" (based on company name "Anahata Productions LLC")
+      "status": "bound",
+      "transaction_type": "O/P",
+      "limit_amount": "$1,000,000/$3,000,000",
+      "limit_prior": null,
+      "deductible_amount": "$1,000",
+      "gross_premium": 1500,
+      "commission_rate": 20.0,
+      "commission_percent": 0,
+      "commission_amount": 0,
+      "net_premium": 1500,
+      "base_premium": 730
+    }
+  }
+  

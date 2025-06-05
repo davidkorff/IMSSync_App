@@ -767,3 +767,37 @@ class IMSSoapClient:
         except Exception as e:
             logger.error(f"Error executing command: {str(e)}")
             raise
+    
+    def update_external_quote_id(self, quote_guid, external_quote_id, external_system_id):
+        """Update external quote ID for linking back to source system"""
+        logger.info(f"Updating external quote ID for quote: {quote_guid}")
+        
+        body_content = f"""
+        <UpdateExternalQuoteId xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
+            <quoteGuid>{quote_guid}</quoteGuid>
+            <externalQuoteId>{external_quote_id}</externalQuoteId>
+            <externalSystemId>{external_system_id}</externalSystemId>
+        </UpdateExternalQuoteId>
+        """
+        
+        try:
+            response = self._make_soap_request(
+                self.quote_functions_url,
+                "http://tempuri.org/IMSWebServices/QuoteFunctions/UpdateExternalQuoteId",
+                body_content
+            )
+            
+            # Check if the operation was successful
+            if response and 'soap:Body' in response:
+                update_response = response['soap:Body'].get('UpdateExternalQuoteIdResponse', {})
+                
+                # UpdateExternalQuoteId returns an empty response on success
+                logger.info(f"Successfully updated external quote ID: {external_quote_id}")
+                return True
+            
+            logger.error("Failed to update external quote ID: Unexpected response format")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error updating external quote ID: {str(e)}")
+            raise

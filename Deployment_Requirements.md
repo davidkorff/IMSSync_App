@@ -6,7 +6,7 @@ The RSG Integration API is a FastAPI-based middleware service that facilitates i
 
 ## Application Overview
 
-- **Application Type**: REST API Service with optional background polling service
+- **Application Type**: REST API Service with MySQL polling service for Triton integration
 - **Framework**: FastAPI (Python 3.11)
 - **Architecture**: Microservice with asynchronous processing capabilities
 - **Primary Function**: Transform and route insurance policy transactions between systems
@@ -21,6 +21,7 @@ The RSG Integration API is a FastAPI-based middleware service that facilitates i
 - **Storage**: 20 GB (SSD preferred)
   - Application: ~500 MB
   - SQLite Database: ~5 GB (grows with transaction volume)
+  - MySQL Database: ~2 GB (for IMS transaction logs)
   - Logs: ~5 GB (with rotation)
   - Temporary files: ~1 GB
 
@@ -104,12 +105,20 @@ The RSG Integration API is a FastAPI-based middleware service that facilitates i
      - Host: `triton-staging.ctfcgagzmyca.us-east-1.rds.amazonaws.com`
      - Port: 3306
      - Protocol: MySQL
+     - Purpose: Polling for new transactions
    
    - **Via SSM Tunnel** (if direct connection not available):
      - AWS SSM endpoints
      - Local tunnel port: 13306
+     - EC2 Instance ID required for tunnel
 
-3. **External Services**
+3. **Local MySQL Database** (for IMS transaction logs)
+   - **Host**: localhost or dedicated MySQL server
+   - **Port**: 3306
+   - **Database**: Create database for `ims_transaction_logs` table
+   - **Purpose**: Track IMS transaction processing status
+
+4. **External Services**
    - DNS resolution
    - NTP for time synchronization
    - Package repositories for updates
@@ -143,8 +152,8 @@ PROJECT_NAME="IMS Integration API"
 LOG_LEVEL="INFO"
 DEFAULT_ENVIRONMENT="iscmga_test"
 
-# CORS Settings (adjust for production)
-CORS_ORIGINS='["https://your-domain.com"]'
+# CORS Settings (IMPORTANT: Change from default ["*"] for production)
+CORS_ORIGINS='["https://your-domain.com"]'  # Default is ["*"] - MUST be restricted in production
 
 # Security - API Keys (generate secure keys for production)
 API_KEYS='["your-secure-api-key-1","your-secure-api-key-2"]'
@@ -172,16 +181,28 @@ XUBER_DEFAULT_LINE_GUID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 XUBER_PRIMARY_RATER_ID=11111
 XUBER_PRIMARY_FACTOR_SET_GUID="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
-# MySQL Database Settings (for Triton)
+# MySQL Database Settings (for Triton polling)
 TRITON_MYSQL_HOST="triton-staging.ctfcgagzmyca.us-east-1.rds.amazonaws.com"
 TRITON_MYSQL_PORT="3306"
 TRITON_MYSQL_DATABASE="triton_staging"
 TRITON_MYSQL_USER="your_mysql_user"
 TRITON_MYSQL_PASSWORD="your_mysql_password"
 
+# Local MySQL Settings (for IMS transaction logs)
+LOCAL_MYSQL_HOST="localhost"
+LOCAL_MYSQL_PORT="3306"
+LOCAL_MYSQL_DATABASE="ims_integration"
+LOCAL_MYSQL_USER="your_local_mysql_user"
+LOCAL_MYSQL_PASSWORD="your_local_mysql_password"
+
 # Polling Service Settings
 POLL_INTERVAL_SECONDS=60
 POLL_BATCH_SIZE=10
+ENABLE_TRITON_POLLING="true"  # Set to "false" to disable polling
+
+# SSM Tunnel Settings (if needed)
+SSM_INSTANCE_ID="i-xxxxxxxxxxxxxxxxx"  # EC2 instance ID for SSM tunnel
+USE_SSM_TUNNEL="false"  # Set to "true" if using SSM tunnel
 ```
 
 ### AWS Credentials (if using SSM tunnel)
@@ -228,10 +249,14 @@ chmod 755 /opt/rsg-integration/temp
 
 ### Storage Considerations
 
-1. **Database Growth**: SQLite database grows ~1KB per transaction
+1. **Database Growth**: 
+   - SQLite database (`transactions.db`): ~1KB per transaction
+   - MySQL IMS logs table: ~500 bytes per transaction
 2. **Log Rotation**: Configure logrotate for application logs
 3. **Temp Files**: Cleaned automatically, but monitor /tmp usage
-4. **Backup Requirements**: Daily backup of SQLite database recommended
+4. **Backup Requirements**: 
+   - Daily backup of SQLite database recommended
+   - Weekly backup of MySQL IMS transaction logs table
 
 ## Deployment Options
 
@@ -304,11 +329,92 @@ chmod 755 /opt/rsg-integration/temp
    docker-compose up -d
    ```
 
+## Polling Service
+
+### Overview
+
+The application includes an optional MySQL polling service that monitors the Triton database for new transactions. When enabled, it automatically:
+
+1. Polls the Triton MySQL database at configurable intervals
+2. Identifies new transactions that need processing
+3. Transforms Triton data to IMS format
+4. Submits transactions to IMS via SOAP API
+5. Updates transaction status in both local and remote databases
+
+### Configuration
+
+Enable polling in the `.env` file:
+```bash
+ENABLE_TRITON_POLLING="true"
+POLL_INTERVAL_SECONDS=60
+POLL_BATCH_SIZE=10
+```
+
+### Database Schema
+
+The polling service requires this table in your local MySQL database:
+
+```sql
+CREATE TABLE ims_transaction_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    transaction_id VARCHAR(255) UNIQUE NOT NULL,
+    source_system VARCHAR(50) NOT NULL,
+    transaction_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    ims_response TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+);
+```
+
+## API Endpoints
+
+### Public API Endpoints
+
+1. **Health Check**
+   - `GET /api/health`
+   - No authentication required
+   - Returns service status and version
+
+2. **Generic Transaction Endpoints**
+   - `POST /api/transaction/new` - Submit new business transaction
+   - `POST /api/transaction/update` - Update existing transaction
+   - `GET /api/transaction/{transaction_id}` - Get transaction status
+   - Requires API key authentication
+
+3. **Source-Specific Endpoints**
+   
+   **Triton:**
+   - `POST /api/triton/transaction/new` - Triton-specific new business
+   - `POST /api/triton/transaction/update` - Triton-specific updates
+   - `POST /api/triton/api/v1/transactions` - Triton webhook endpoint
+   
+   **Xuber:**
+   - `POST /api/xuber/transaction/new` - Xuber-specific new business
+   - `POST /api/xuber/transaction/update` - Xuber-specific updates
+
+### Authentication
+
+All endpoints except `/api/health` require API key authentication:
+
+```bash
+X-API-Key: your-api-key
+```
+
+For Triton webhook endpoint, use:
+```bash
+X-API-Key: triton-specific-key
+X-Client-ID: triton
+```
+
 ## Monitoring and Logging
 
 ### Application Logs
 
-- **Location**: `/opt/rsg-integration/logs/ims_integration.log`
+- **Location**: `./ims_integration.log` (relative to application directory)
+- **Full Path Example**: `/opt/rsg-integration/ims_integration.log`
 - **Format**: JSON structured logging
 - **Rotation**: Configure with logrotate
 - **Retention**: 30-90 days recommended
@@ -487,16 +593,42 @@ A complete `.env.example` file is provided in the repository. Copy this to `.env
    curl http://localhost:8000/api/health
    ```
 
-2. **Test Transaction**
+2. **Test Generic Transaction**
    ```bash
-   curl -X POST http://localhost:8000/api/transaction/new_business \
+   # New Business
+   curl -X POST http://localhost:8000/api/transaction/new \
      -H "X-API-Key: your-api-key" \
      -H "Content-Type: application/json" \
      -d @test_transaction.json
+   
+   # Update Transaction
+   curl -X POST http://localhost:8000/api/transaction/update \
+     -H "X-API-Key: your-api-key" \
+     -H "Content-Type: application/json" \
+     -d @test_update.json
    ```
 
-3. **Check Transaction Status**
+3. **Test Triton Webhook**
+   ```bash
+   curl -X POST http://localhost:8000/api/triton/api/v1/transactions \
+     -H "X-API-Key: triton-api-key" \
+     -H "X-Client-ID: triton" \
+     -H "Content-Type: application/json" \
+     -d @triton_transaction.json
+   ```
+
+4. **Check Transaction Status**
    ```bash
    curl http://localhost:8000/api/transaction/{transaction_id} \
      -H "X-API-Key: your-api-key"
+   ```
+
+5. **Test Polling Service**
+   ```bash
+   # Check if polling is running (check logs)
+   tail -f ims_integration.log | grep "Polling"
+   
+   # Manually trigger polling (if endpoint available)
+   curl -X POST http://localhost:8000/api/admin/poll \
+     -H "X-API-Key: admin-api-key"
    ```

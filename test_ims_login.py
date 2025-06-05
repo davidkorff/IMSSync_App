@@ -1,74 +1,139 @@
 #!/usr/bin/env python3
 """
-Test script to verify IMS login
+Test script to verify IMS login and configuration
+Run this first to ensure IMS connectivity works
 """
 
-import logging
 import os
 import sys
+import logging
+from dotenv import load_dotenv
+
+# Add app directory to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
+
 from app.services.ims_soap_client import IMSSoapClient
 from app.core.config import settings
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+# Load environment variables
+load_dotenv()
 
-def test_ims_login(environment="ims_one"):
-    """Test IMS login with the specified environment"""
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def test_ims_login():
+    """Test IMS login functionality"""
     try:
-        # Get environment settings
-        env_config = settings.IMS_ENVIRONMENTS.get(environment)
+        # Get environment configuration
+        env = os.getenv('DEFAULT_ENVIRONMENT', 'iscmga_test')
+        env_config = settings.IMS_ENVIRONMENTS.get(env)
+        
         if not env_config:
-            print(f"Error: Unknown environment '{environment}'")
+            print(f"❌ Environment '{env}' not found in configuration")
             print(f"Available environments: {list(settings.IMS_ENVIRONMENTS.keys())}")
             return False
+            
+        print(f"🔧 Using environment: {env}")
+        print(f"📁 Config file: {env_config['config_file']}")
+        print(f"👤 Username: {env_config['username']}")
         
-        config_file = env_config["config_file"]
-        username = env_config["username"]
-        password = env_config["password"]
-        
-        print(f"Testing IMS login for environment: {environment}")
-        print(f"Config file: {config_file}")
-        print(f"Username: {username}")
+        # Check if config file exists
+        config_path = os.path.join("IMS_Configs", env_config['config_file'])
+        if not os.path.exists(config_path):
+            print(f"❌ Config file not found: {config_path}")
+            print("Available config files:")
+            config_dir = "IMS_Configs"
+            if os.path.exists(config_dir):
+                for file in os.listdir(config_dir):
+                    print(f"  - {file}")
+            return False
+        else:
+            print(f"✅ Config file found: {config_path}")
         
         # Initialize SOAP client
-        client = IMSSoapClient(config_file)
+        print("\n🔌 Initializing SOAP client...")
+        soap_client = IMSSoapClient(env_config['config_file'])
+        
+        print(f"🌐 Logon URL: {soap_client.logon_url}")
+        print(f"🌐 Quote Functions URL: {soap_client.quote_functions_url}")
+        print(f"🌐 Insured Functions URL: {soap_client.insured_functions_url}")
+        print(f"🌐 Producer Functions URL: {soap_client.producer_functions_url}")
         
         # Test login
-        print("Attempting login...")
-        token = client.login(username, password)
+        print("\n🔐 Testing login...")
+        token = soap_client.login(env_config['username'], env_config['password'])
         
         if token:
-            print(f"Login successful! Token: {token}")
-            
-            # Test parsing configuration
-            print("\nURL Configuration:")
-            print(f"Logon URL: {client.logon_url}")
-            print(f"QuoteFunctions URL: {client.quote_functions_url}")
-            print(f"InsuredFunctions URL: {client.insured_functions_url}")
-            print(f"DataAccess URL: {client.data_access_url}")
-            
+            print(f"✅ Login successful!")
+            print(f"🎫 Token: {token[:20]}...")
+            print(f"🎫 Full token length: {len(token)} characters")
             return True
         else:
-            print("Login failed: No token returned")
+            print("❌ Login failed - no token received")
             return False
             
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
         import traceback
+        print("Full error details:")
         traceback.print_exc()
         return False
 
-if __name__ == "__main__":
-    # Use command line argument for environment if provided
-    environment = "ims_one"
-    if len(sys.argv) > 1:
-        environment = sys.argv[1]
+def test_basic_connectivity():
+    """Test basic network connectivity to IMS endpoints"""
+    import requests
     
-    success = test_ims_login(environment)
-    sys.exit(0 if success else 1)
+    try:
+        # Test environments
+        environments = ['iscmga_test', 'ims_one']
+        
+        for env in environments:
+            env_config = settings.IMS_ENVIRONMENTS.get(env)
+            if not env_config:
+                continue
+                
+            print(f"\n🌐 Testing connectivity to {env}...")
+            
+            # Try to initialize client and get URLs
+            soap_client = IMSSoapClient(env_config['config_file'])
+            
+            # Test logon URL
+            try:
+                response = requests.get(soap_client.logon_url + "?WSDL", timeout=10)
+                if response.status_code == 200:
+                    print(f"  ✅ Logon endpoint accessible")
+                else:
+                    print(f"  ❌ Logon endpoint returned {response.status_code}")
+            except Exception as e:
+                print(f"  ❌ Logon endpoint unreachable: {str(e)}")
+                
+    except Exception as e:
+        print(f"❌ Connectivity test error: {str(e)}")
+
+if __name__ == "__main__":
+    print("🧪 Testing IMS Login and Configuration")
+    print("=" * 50)
+    
+    # Test basic connectivity first
+    test_basic_connectivity()
+    
+    print("\n" + "=" * 50)
+    
+    # Test login
+    success = test_ims_login()
+    
+    if success:
+        print("\n✅ IMS login test completed successfully")
+        print("\n🔄 Next steps:")
+        print("1. Run: python test_producer_search.py")
+        print("2. Update .env with real Producer GUIDs")
+        print("3. Run: python run_mysql_polling.py")
+    else:
+        print("\n❌ IMS login test failed")
+        print("\n🔧 Troubleshooting:")
+        print("1. Check your .env file configuration")
+        print("2. Verify IMS config files exist in IMS_Configs/")
+        print("3. Confirm network access to IMS endpoints")
+        print("4. Validate username/password credentials")
+        sys.exit(1)

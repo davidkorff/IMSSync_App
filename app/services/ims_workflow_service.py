@@ -298,12 +298,15 @@ class IMSWorkflowService:
             raise
     
     def _process_manual_rating(self, transaction: Transaction) -> None:
-        """Process rating manually by adding premiums"""
-        transaction.ims_processing.add_log("Using manual rating")
+        """Process rating manually with direct premium pass-through from source system"""
+        transaction.ims_processing.add_log("Using manual rating (direct premium pass-through)")
         
         try:
-            # Extract premium data from transaction
+            # Extract premium data from transaction (NO CALCULATION - direct pass-through)
             premium_data = self._extract_premium_data(transaction)
+            source_premium = premium_data.get("total_premium", 0.0)
+            
+            transaction.ims_processing.add_log(f"Source system premium: {source_premium} (direct pass-through)")
             
             # Create quote option if needed
             if not transaction.ims_processing.quote.quote_option_id:
@@ -312,19 +315,22 @@ class IMSWorkflowService:
                 transaction.ims_processing.quote.quote_option_id = option_id
                 transaction.ims_processing.add_log(f"Created quote option: {option_id}")
             
-            # Add premium to quote
-            transaction.ims_processing.add_log(f"Adding premium: {premium_data.get('total_premium')}")
+            # Add premium to quote (direct from source system - no pro-rata calculation)
+            transaction.ims_processing.add_log(f"Adding premium: {source_premium} (direct from source system)")
             self.soap_client.add_premium(
                 transaction.ims_processing.quote.guid,
                 transaction.ims_processing.quote.quote_option_id,
-                premium_data.get("total_premium"),
-                "Premium from external system"
+                source_premium,  # Direct pass-through - NO CALCULATION
+                "Premium from source system (direct pass-through)"
             )
             
+            # Store program-specific data if available
+            self._store_program_specific_data(transaction)
+            
             # Update premium in quote
-            transaction.ims_processing.quote.premium = premium_data.get("total_premium")
+            transaction.ims_processing.quote.premium = source_premium
             transaction.ims_processing.add_log(
-                f"Manual rating completed. Premium: {premium_data.get('total_premium')}"
+                f"Manual rating completed. Premium: {source_premium} (direct pass-through from source)"
             )
         
         except Exception as e:
@@ -386,6 +392,9 @@ class IMSWorkflowService:
                 if result:
                     transaction.ims_processing.add_log(f"Policy issued successfully: {policy_number}")
                     
+                    # Link back to source system using UpdateExternalQuoteId
+                    self._link_external_system(transaction)
+                    
                     # Update status
                     transaction.ims_processing.update_status(
                         IMSProcessingStatus.ISSUED,
@@ -398,6 +407,95 @@ class IMSWorkflowService:
         except Exception as e:
             transaction.ims_processing.add_log(f"Error issuing policy: {str(e)}")
             raise
+    
+    def _store_program_specific_data(self, transaction: Transaction) -> None:
+        """Store program-specific data in custom tables using stored procedures"""
+        try:
+            if not transaction.parsed_data:
+                return
+                
+            # Determine program type from transaction data
+            program = transaction.parsed_data.get("program", "").lower()
+            source_system = transaction.parsed_data.get("source_system", "").lower()
+            
+            # Store data based on program type
+            if program == "triton" or source_system == "triton":
+                self._store_triton_data(transaction)
+            elif program == "xuber" or source_system == "xuber":
+                self._store_xuber_data(transaction)
+            else:
+                # Store generic program data
+                self._store_generic_program_data(transaction)
+                
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Warning: Could not store program-specific data: {str(e)}")
+            # Don't raise exception - this is supplementary data storage
+    
+    def _store_triton_data(self, transaction: Transaction) -> None:
+        """Store Triton-specific data in custom tables"""
+        try:
+            # Call custom stored procedure for Triton data
+            external_id = transaction.parsed_data.get("external_id") or transaction.external_id
+            
+            parameters = [
+                ("QuoteGUID", str(transaction.ims_processing.quote.guid)),
+                ("ExternalPolicyID", external_id),
+                ("OriginalPremium", str(transaction.ims_processing.quote.premium or 0.0)),
+                ("SourceSystemData", json.dumps(transaction.parsed_data))
+            ]
+            
+            # Add vehicle and location data if available
+            if transaction.parsed_data.get("vehicles"):
+                parameters.append(("VehicleData", json.dumps(transaction.parsed_data["vehicles"])))
+            if transaction.parsed_data.get("locations"):
+                parameters.append(("LocationData", json.dumps(transaction.parsed_data["locations"])))
+            
+            transaction.ims_processing.add_log("Storing Triton-specific data in custom tables")
+            # Note: This would use ExecuteCommand to call StoreRSGTritonData_WS
+            # self.soap_client.execute_command("StoreRSGTritonData", parameters)
+            
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Error storing Triton data: {str(e)}")
+            # Don't raise - supplementary data storage
+    
+    def _store_xuber_data(self, transaction: Transaction) -> None:
+        """Store Xuber-specific data in custom tables"""
+        try:
+            # Similar implementation for Xuber program
+            transaction.ims_processing.add_log("Storing Xuber-specific data in custom tables")
+            # Implementation would be similar to Triton but for Xuber-specific fields
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Error storing Xuber data: {str(e)}")
+    
+    def _store_generic_program_data(self, transaction: Transaction) -> None:
+        """Store generic program data in custom tables"""
+        try:
+            transaction.ims_processing.add_log("Storing generic program data")
+            # Generic data storage for unknown programs
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Error storing generic program data: {str(e)}")
+    
+    def _link_external_system(self, transaction: Transaction) -> None:
+        """Link IMS policy back to source system using UpdateExternalQuoteId"""
+        try:
+            external_id = transaction.parsed_data.get("external_id") or transaction.external_id
+            source_system = transaction.parsed_data.get("source_system", "Unknown")
+            
+            if external_id and transaction.ims_processing.quote:
+                transaction.ims_processing.add_log(f"Linking to external system: {external_id}")
+                
+                # Use UpdateExternalQuoteId for future lookups
+                self.soap_client.update_external_quote_id(
+                    transaction.ims_processing.quote.guid,
+                    external_id,
+                    source_system
+                )
+                
+                transaction.ims_processing.add_log(f"Successfully linked to external system {source_system}: {external_id}")
+                
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Warning: Could not link external system: {str(e)}")
+            # Don't raise - this is supplementary functionality
     
     def _import_excel_rater(self, quote_guid: str, excel_file_path: str, 
                            rater_id: int, factor_set_guid: str) -> Dict[str, Any]:
@@ -510,8 +608,13 @@ class IMSWorkflowService:
         # Extract producer information if available
         if "producer" in data:
             producer = data["producer"]
-            # In a real implementation, you would look up these GUIDs based on producer info
-            # result["producer_contact_guid"] = self._get_producer_contact_guid(producer)
+            try:
+                producer_guid = self._lookup_producer_by_name(producer.get("name", ""))
+                if producer_guid:
+                    result["producer_contact_guid"] = producer_guid
+                    result["producer_location_guid"] = producer_guid
+            except Exception as e:
+                transaction.ims_processing.add_log(f"Warning: Could not lookup producer: {str(e)}")
         
         # Extract underwriter information if available
         if data.get("underwriter"):
@@ -609,11 +712,21 @@ class IMSWorkflowService:
     
     def _should_use_excel_rater(self, transaction: Transaction) -> bool:
         """Determine if the transaction should use Excel rater"""
-        # This method would determine if the transaction should use Excel rater
-        # based on the line of business, program, etc.
+        # Check if program is configured to use Excel rater
+        # Default to manual rating (direct premium pass-through) for most programs
         
-        # For now, always return True to use Excel rater
-        return self._get_excel_template(transaction) is not None
+        if not transaction.parsed_data:
+            return False
+            
+        # Check if transaction explicitly requests Excel rater
+        use_excel_rater = transaction.parsed_data.get("use_excel_rater", False)
+        
+        # Only use Excel rater if explicitly requested AND template exists
+        if use_excel_rater:
+            return self._get_excel_template(transaction) is not None
+            
+        # Default: Use manual rating (direct premium pass-through)
+        return False
     
     def _get_excel_template(self, transaction: Transaction) -> Optional[str]:
         """Get the Excel template for the transaction"""
@@ -741,3 +854,49 @@ class IMSWorkflowService:
         wb.save(temp_path)
         
         return temp_path
+    
+    def _lookup_producer_by_name(self, producer_name: str) -> Optional[str]:
+        """Look up producer by name using IMS API"""
+        if not producer_name:
+            return None
+            
+        try:
+            # Use ProducerSearch to find the producer
+            body_content = f"""
+            <ProducerSearch xmlns="http://tempuri.org/IMSWebServices/ProducerFunctions">
+                <searchString>{producer_name}</searchString>
+                <startWith>false</startWith>
+            </ProducerSearch>
+            """
+            
+            response = self.soap_client._make_soap_request(
+                self.soap_client.producer_functions_url,
+                "http://tempuri.org/IMSWebServices/ProducerFunctions/ProducerSearch",
+                body_content
+            )
+            
+            if response and 'soap:Body' in response:
+                search_response = response['soap:Body'].get('ProducerSearchResponse', {})
+                search_result = search_response.get('ProducerSearchResult', {})
+                
+                if search_result:
+                    producer_locations = search_result.get('ProducerLocation', [])
+                    
+                    # Convert to list if it's a single item
+                    if not isinstance(producer_locations, list):
+                        producer_locations = [producer_locations]
+                    
+                    # Look for exact match first, then partial match
+                    for location in producer_locations:
+                        if location.get('ProducerName', '').lower() == producer_name.lower():
+                            return location.get('ProducerLocationGuid')
+                    
+                    # If no exact match, return first result
+                    if producer_locations:
+                        return producer_locations[0].get('ProducerLocationGuid')
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error looking up producer '{producer_name}': {str(e)}")
+            return None

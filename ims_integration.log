@@ -7894,3 +7894,605 @@ POST /api/xuber/transaction/update - Create Xuber update transaction
 2025-06-04 18:12:48,721 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
 2025-06-04 18:12:48,721 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
 2025-06-04 18:12:48,722 - app.main - INFO - ===================================================
+2025-06-04 23:54:11,514 - app.main - INFO - ===================================================
+2025-06-04 23:54:11,515 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-04 23:54:11,515 - app.main - INFO - Endpoints:
+2025-06-04 23:54:11,516 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-04 23:54:11,516 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-04 23:54:11,516 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-04 23:54:11,517 - app.main - INFO -   GET /api/health - Health check
+2025-06-04 23:54:11,518 - app.main - INFO - 
+2025-06-04 23:54:11,518 - app.main - INFO - Source-specific endpoints:
+2025-06-04 23:54:11,519 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-04 23:54:11,519 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-04 23:54:11,520 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-04 23:54:11,520 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-04 23:54:11,521 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,174 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,178 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:02:55,184 - app.main - INFO - Endpoints:
+2025-06-05 00:02:55,185 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:02:55,186 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:02:55,188 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:02:55,188 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:02:55,189 - app.main - INFO - 
+2025-06-05 00:02:55,189 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:02:55,190 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:02:55,191 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:02:55,191 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:02:55,193 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:02:55,198 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,519 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,520 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:02:55,521 - app.main - INFO - Endpoints:
+2025-06-05 00:02:55,521 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:02:55,522 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:02:55,522 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:02:55,523 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:02:55,523 - app.main - INFO - 
+2025-06-05 00:02:55,523 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:02:55,524 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:02:55,524 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:02:55,525 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:02:55,526 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:02:55,526 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,745 - app.main - INFO - ===================================================
+2025-06-05 00:02:55,746 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:02:55,746 - app.main - INFO - Endpoints:
+2025-06-05 00:02:55,747 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:02:55,747 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:02:55,747 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:02:55,747 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:02:55,748 - app.main - INFO - 
+2025-06-05 00:02:55,748 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:02:55,748 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:02:55,748 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:02:55,749 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:02:55,749 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:02:55,749 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,150 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,152 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:03:02,153 - app.main - INFO - Endpoints:
+2025-06-05 00:03:02,154 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:03:02,154 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:03:02,155 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:03:02,157 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:03:02,158 - app.main - INFO - 
+2025-06-05 00:03:02,158 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:03:02,159 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:03:02,160 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:03:02,160 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:03:02,161 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:03:02,161 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,287 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,287 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:03:02,288 - app.main - INFO - Endpoints:
+2025-06-05 00:03:02,288 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:03:02,289 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:03:02,289 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:03:02,290 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:03:02,290 - app.main - INFO - 
+2025-06-05 00:03:02,291 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:03:02,291 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:03:02,292 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:03:02,292 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:03:02,293 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:03:02,293 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,487 - app.main - INFO - ===================================================
+2025-06-05 00:03:02,488 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:03:02,488 - app.main - INFO - Endpoints:
+2025-06-05 00:03:02,488 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:03:02,488 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:03:02,489 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:03:02,489 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:03:02,489 - app.main - INFO - 
+2025-06-05 00:03:02,490 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:03:02,490 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:03:02,491 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:03:02,491 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:03:02,491 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:03:02,491 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,512 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,513 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:02,513 - app.main - INFO - Endpoints:
+2025-06-05 00:04:02,513 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:02,513 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:02,513 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:02,513 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:04:02,513 - app.main - INFO - 
+2025-06-05 00:04:02,513 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:02,513 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:02,513 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:02,513 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:02,514 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:02,514 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,534 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,534 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:02,535 - app.main - INFO - Endpoints:
+2025-06-05 00:04:02,535 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:02,535 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:02,536 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:02,536 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:04:02,536 - app.main - INFO - 
+2025-06-05 00:04:02,536 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:02,537 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:02,537 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:02,537 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:02,538 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:02,538 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,546 - app.main - INFO - ===================================================
+2025-06-05 00:04:02,546 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:02,547 - app.main - INFO - Endpoints:
+2025-06-05 00:04:02,547 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:02,547 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:02,547 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:02,548 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:04:02,548 - app.main - INFO - 
+2025-06-05 00:04:02,548 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:02,549 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:02,549 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:02,549 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:02,549 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:02,549 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,955 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,955 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:30,956 - app.main - INFO - Endpoints:
+2025-06-05 00:04:30,957 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:30,957 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:30,957 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:30,957 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:04:30,958 - app.main - INFO - 
+2025-06-05 00:04:30,958 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:30,958 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:30,958 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:30,958 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:30,959 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:30,959 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,986 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,986 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:30,986 - app.main - INFO - Endpoints:
+2025-06-05 00:04:30,986 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:30,987 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:30,987 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:30,987 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,987 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:04:30,987 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:04:30,987 - app.main - INFO - Endpoints:
+2025-06-05 00:04:30,987 - app.main - INFO - 
+2025-06-05 00:04:30,987 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:04:30,987 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:04:30,988 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:30,988 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:30,988 - app.main - INFO - 
+2025-06-05 00:04:30,988 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:30,988 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:04:30,988 - app.main - INFO - ===================================================
+2025-06-05 00:04:30,988 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,432 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,433 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:09:41,434 - app.main - INFO - Endpoints:
+2025-06-05 00:09:41,435 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:09:41,435 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:09:41,435 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:09:41,436 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:09:41,436 - app.main - INFO - 
+2025-06-05 00:09:41,437 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:09:41,437 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:09:41,437 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:09:41,439 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:09:41,440 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:09:41,441 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,453 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,454 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:09:41,454 - app.main - INFO - Endpoints:
+2025-06-05 00:09:41,455 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:09:41,455 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:09:41,456 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:09:41,457 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:09:41,457 - app.main - INFO - 
+2025-06-05 00:09:41,457 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:09:41,458 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:09:41,458 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:09:41,458 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:09:41,458 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:09:41,459 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,461 - app.main - INFO - ===================================================
+2025-06-05 00:09:41,461 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:09:41,461 - app.main - INFO - Endpoints:
+2025-06-05 00:09:41,462 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:09:41,462 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:09:41,462 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:09:41,462 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:09:41,462 - app.main - INFO - 
+2025-06-05 00:09:41,462 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:09:41,463 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:09:41,463 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:09:41,464 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:09:41,464 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:09:41,464 - app.main - INFO - ===================================================
+2025-06-05 00:14:40,549 - app.main - INFO - ===================================================
+2025-06-05 00:14:40,550 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:14:40,551 - app.main - INFO - Endpoints:
+2025-06-05 00:14:40,552 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:14:40,553 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:14:40,554 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:14:40,555 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:14:40,556 - app.main - INFO - 
+2025-06-05 00:14:40,557 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:14:40,558 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:14:40,558 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:14:40,559 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber 2025-06-05 00:14:40,560 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:14:40,560 - app.main - INFO - Endpoints:
+2025-06-05 00:14:40,560 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+saction
+2025-06-05 00:14:40,561 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:14:40,561 - app.main - INFO - ===================================================
+2025-06-05 00:14:40,561 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:14:40,561 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:14:40,562 - app.main - INFO - 
+2025-06-05 00:14:40,562 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:14:40,562 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:14:40,563 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:14:40,563 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:14:40,563 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:14:40,563 - app.main - INFO - ===================================================
+2025-06-05 00:14:44,034 - app.main - INFO - ===================================================
+2025-06-05 00:14:44,035 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:14:44,036 - app.main - INFO - Endpoints:
+2025-06-05 00:14:44,036 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:14:44,036 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:14:44,037 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:14:44,037 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:14:44,038 - app.main - INFO - 
+2025-06-05 00:14:44,038 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:14:44,039 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:14:44,039 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:14:44,040 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:14:44,040 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:14:44,041 - app.main - INFO - ===================================================
+2025-06-05 00:14:44,056 - app.main - INFO - ===================================================
+2025-06-05 00:14:44,057 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:14:44,058 - app.main - INFO - Endpoints:
+2025-06-05 00:14:44,058 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:14:44,059 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:14:44,059 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:14:44,060 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:14:44,060 - app.main - INFO - 
+2025-06-05 00:14:44,061 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:14:44,061 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:14:44,062 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:14:44,062 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:14:44,063 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:14:44,064 - app.main - INFO - ===================================================
+2025-06-05 00:15:52,670 - app.main - INFO - ===================================================
+2025-06-05 00:15:52,671 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:15:52,671 - app.main - INFO - Endpoints:
+2025-06-05 00:15:52,671 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:15:52,672 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:15:52,672 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:15:52,672 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:15:52,672 - app.main - INFO - 
+2025-06-05 00:15:52,673 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:15:52,673 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:15:52,673 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:15:52,673 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:15:52,673 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:15:52,673 - app.main - INFO - ===================================================
+2025-06-05 00:15:52,692 - app.main - INFO - ===================================================
+2025-06-05 00:15:52,692 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:15:52,692 - app.main - INFO - Endpoints:
+2025-06-05 00:15:52,692 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:15:52,692 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:15:52,692 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:15:52,692 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:15:52,693 - app.main - INFO - 
+2025-06-05 00:15:52,693 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:15:52,693 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:15:52,693 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:15:52,693 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:15:52,693 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:15:52,693 - app.main - INFO - ===================================================
+2025-06-05 00:15:54,809 - app.main - INFO - ===================================================
+2025-06-05 00:15:54,809 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:15:54,810 - app.main - INFO - Endpoints:
+2025-06-05 00:15:54,810 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:15:54,811 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:15:54,811 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:15:54,811 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:15:54,812 - app.main - INFO - 
+2025-06-05 00:15:54,812 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:15:54,812 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:15:54,812 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:15:54,813 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:15:54,813 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:15:54,813 - app.main - INFO - ===================================================
+2025-06-05 00:15:54,940 - app.main - INFO - ===================================================
+2025-06-05 00:15:54,940 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:15:54,941 - app.main - INFO - Endpoints:
+2025-06-05 00:15:54,941 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:15:54,942 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:15:54,942 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:15:54,942 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:15:54,943 - app.main - INFO - 
+2025-06-05 00:15:54,943 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:15:54,944 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:15:54,944 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:15:54,945 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:15:54,950 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:15:54,950 - app.main - INFO - ===================================================
+2025-06-05 00:16:28,738 - app.main - INFO - ===================================================
+2025-06-05 00:16:28,738 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:16:28,739 - app.main - INFO - Endpoints:
+2025-06-05 00:16:28,739 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:16:28,739 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:16:28,739 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:16:28,740 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:16:28,740 - app.main - INFO - 
+2025-06-05 00:16:28,740 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:16:28,740 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:16:28,741 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:16:28,741 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:16:28,741 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:16:28,742 - app.main - INFO - ===================================================
+2025-06-05 00:16:28,747 - app.main - INFO - ===================================================
+2025-06-05 00:16:28,748 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:16:28,748 - app.main - INFO - Endpoints:
+2025-06-05 00:16:28,749 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:16:28,749 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:16:28,750 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:16:28,751 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:16:28,751 - app.main - INFO - 
+2025-06-05 00:16:28,752 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:16:28,752 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:16:28,752 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:16:28,753 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:16:28,753 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:16:28,753 - app.main - INFO - ===================================================
+2025-06-05 00:16:31,009 - app.main - INFO - ===================================================
+2025-06-05 00:16:31,009 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:16:31,010 - app.main - INFO - Endpoints:
+2025-06-05 00:16:31,010 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:16:31,010 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:16:31,010 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:16:31,010 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:16:31,010 - app.main - INFO - 
+2025-06-05 00:16:31,011 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:16:31,011 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:16:31,011 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:16:31,011 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:16:31,011 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:16:31,011 - app.main - INFO - ===================================================
+2025-06-05 00:16:31,042 - app.main - INFO - ===================================================
+2025-06-05 00:16:31,042 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 00:16:31,042 - app.main - INFO - Endpoints:
+2025-06-05 00:16:31,043 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 00:16:31,043 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 00:16:31,043 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 00:16:31,043 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 00:16:31,044 - app.main - INFO - 
+2025-06-05 00:16:31,044 - app.main - INFO - Source-specific endpoints:
+2025-06-05 00:16:31,044 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 00:16:31,044 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 00:16:31,044 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 00:16:31,045 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 00:16:31,045 - app.main - INFO - ===================================================
+2025-06-05 10:43:10,547 - app.main - INFO - ===================================================
+2025-06-05 10:43:10,548 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:43:10,548 - app.main - INFO - Endpoints:
+2025-06-05 10:43:10,549 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:43:10,549 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:43:10,550 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:43:10,550 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:43:10,550 - app.main - INFO - 
+2025-06-05 10:43:10,550 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:43:10,551 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:43:10,551 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:43:10,551 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:43:10,551 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:43:10,551 - app.main - INFO - ===================================================
+2025-06-05 10:43:10,559 - app.main - INFO - ===================================================
+2025-06-05 10:43:10,560 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:43:10,560 - app.main - INFO - Endpoints:
+2025-06-05 10:43:10,560 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:43:10,561 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:43:10,561 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:43:10,561 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:43:10,562 - app.main - INFO - 
+2025-06-05 10:43:10,562 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:43:10,562 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:43:10,562 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:43:10,563 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:43:10,563 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:43:10,563 - app.main - INFO - ===================================================
+2025-06-05 10:43:13,039 - app.main - INFO - ===================================================
+2025-06-05 10:43:13,039 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:43:13,040 - app.main - INFO - Endpoints:
+2025-06-05 10:43:13,040 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:43:13,040 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:43:13,040 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:43:13,041 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:43:13,041 - app.main - INFO - 
+2025-06-05 10:43:13,041 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:43:13,041 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:43:13,041 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:43:13,042 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:43:13,042 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:43:13,042 - app.main - INFO - ===================================================
+2025-06-05 10:43:13,044 - app.main - INFO - ===================================================
+2025-06-05 10:43:13,045 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:43:13,045 - app.main - INFO - Endpoints:
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:43:13,045 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:43:13,045 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:43:13,045 - app.main - INFO - 
+2025-06-05 10:43:13,045 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:43:13,045 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:43:13,045 - app.main - INFO - ===================================================
+2025-06-05 10:44:31,985 - app.main - INFO - ===================================================
+2025-06-05 10:44:31,985 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:44:31,985 - app.main - INFO - Endpoints:
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:44:31,986 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:44:31,986 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:44:31,986 - app.main - INFO - 
+2025-06-05 10:44:31,986 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:44:31,986 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:44:31,986 - app.main - INFO - ===================================================
+2025-06-05 10:44:31,996 - app.main - INFO - ===================================================
+2025-06-05 10:44:31,996 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:44:31,996 - app.main - INFO - Endpoints:
+2025-06-05 10:44:31,997 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:44:31,997 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:44:31,997 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:44:31,997 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:44:31,998 - app.main - INFO - 
+2025-06-05 10:44:31,998 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:44:31,998 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:44:31,998 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:44:31,999 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:44:31,999 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:44:31,999 - app.main - INFO - ===================================================
+2025-06-05 10:45:15,805 - app.main - INFO - ===================================================
+2025-06-05 10:45:15,806 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:45:15,806 - app.main - INFO - Endpoints:
+2025-06-05 10:45:15,806 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:45:15,806 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:45:15,806 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:45:15,806 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:45:15,807 - app.main - INFO - 
+2025-06-05 10:45:15,807 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:45:15,807 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:45:15,807 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:45:15,807 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:45:15,807 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:45:15,808 - app.main - INFO - ===================================================
+2025-06-05 10:45:15,866 - app.main - INFO - ===================================================
+2025-06-05 10:45:15,866 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:45:15,866 - app.main - INFO - Endpoints:
+2025-06-05 10:45:15,866 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:45:15,866 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:45:15,867 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:45:15,867 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:45:15,867 - app.main - INFO - 
+2025-06-05 10:45:15,867 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:45:15,867 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:45:15,867 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:45:15,867 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:45:15,867 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:45:15,867 - app.main - INFO - ===================================================
+2025-06-05 10:47:21,111 - app.main - INFO - ===================================================
+2025-06-05 10:47:21,111 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:47:21,111 - app.main - INFO - Endpoints:
+2025-06-05 10:47:21,112 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:47:21,112 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:47:21,112 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:47:21,113 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:47:21,113 - app.main - INFO - 
+2025-06-05 10:47:21,113 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:47:21,113 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:47:21,113 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:47:21,114 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:47:21,114 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:47:21,114 - app.main - INFO - ===================================================
+2025-06-05 10:47:21,135 - app.main - INFO - ===================================================
+2025-06-05 10:47:21,135 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:47:21,136 - app.main - INFO - Endpoints:
+2025-06-05 10:47:21,136 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:47:21,137 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:47:21,137 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:47:21,137 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:47:21,137 - app.main - INFO - 
+2025-06-05 10:47:21,138 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:47:21,138 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:47:21,138 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:47:21,139 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:47:21,139 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:47:21,139 - app.main - INFO - ===================================================
+2025-06-05 10:49:45,442 - app.main - INFO - ===================================================
+2025-06-05 10:49:45,442 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:49:45,442 - app.main - INFO - Endpoints:
+2025-06-05 10:49:45,442 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:49:45,442 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:49:45,442 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:49:45,442 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:49:45,443 - app.main - INFO - 
+2025-06-05 10:49:45,443 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:49:45,443 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:49:45,443 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:49:45,443 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:49:45,443 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:49:45,443 - app.main - INFO - ===================================================
+2025-06-05 10:49:45,457 - app.main - INFO - ===================================================
+2025-06-05 10:49:45,457 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:49:45,457 - app.main - INFO - Endpoints:
+2025-06-05 10:49:45,457 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:49:45,458 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:49:45,458 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:49:45,458 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:49:45,458 - app.main - INFO - 
+2025-06-05 10:49:45,458 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:49:45,458 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:49:45,459 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:49:45,459 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:49:45,459 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:49:45,459 - app.main - INFO - ===================================================
+2025-06-05 10:57:04,086 - app.main - INFO - ===================================================
+2025-06-05 10:57:04,087 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:57:04,087 - app.main - INFO - Endpoints:
+2025-06-05 10:57:04,087 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:57:04,088 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:57:04,088 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:57:04,088 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:57:04,088 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:57:04,089 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:57:04,089 - app.main - INFO - 
+2025-06-05 10:57:04,090 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:57:04,090 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:57:04,090 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:57:04,091 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:57:04,091 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:57:04,091 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:57:04,092 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:57:04,092 - app.main - INFO - ===================================================
+2025-06-05 10:58:31,456 - app.main - INFO - ===================================================
+2025-06-05 10:58:31,456 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:58:31,457 - app.main - INFO - Endpoints:
+2025-06-05 10:58:31,458 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:58:31,459 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:58:31,459 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-05 10:58:31,459 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:58:31,460 - app.main - INFO - 
+2025-06-05 10:58:31,461 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:58:31,461 - app.main - INFO - ===================================================
+2025-06-05 10:58:31,461 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:58:31,461 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-05 10:58:31,462 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:58:31,462 - app.main - INFO - Endpoints:
+2025-06-05 10:58:31,462 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-05 10:58:31,462 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:58:31,462 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-05 10:58:31,462 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:58:31,462 - app.main - INFO -   GET /api/health - Health check
+2025-06-05 10:58:31,462 - app.main - INFO - ===================================================
+2025-06-05 10:58:31,462 - app.main - INFO - 
+2025-06-05 10:58:31,463 - app.main - INFO - Source-specific endpoints:
+2025-06-05 10:58:31,463 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-05 10:58:31,463 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-05 10:58:31,463 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-05 10:58:31,463 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-05 10:58:31,463 - app.main - INFO - ===================================================
