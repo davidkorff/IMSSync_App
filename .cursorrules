@@ -1,0 +1,25 @@
+# Cursor Rules for IMS Integration Project
+
+# Python settings
+tab_width = 4
+use_tabs = false
+trim_trailing_whitespace = true
+insert_final_newline = true
+max_line_length = 100
+
+# Ignore patterns
+ignore_patterns = [
+  "*.log",
+  "*.json",
+  "/__pycache__/",
+  "*.pyc",
+  ".DS_Store"
+]
+
+# Editor settings
+auto_format_on_save = true
+auto_import_on_save = true
+
+# Python linting
+python_linting_enabled = true
+python_linting_rules = ["E501", "F401", "F403"] 

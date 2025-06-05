@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, validator
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Literal
 from datetime import date, datetime
 from enum import Enum
 
@@ -81,7 +81,7 @@ class TritonMidtermEndorsementData(BaseModel):
 class TritonBindingTransaction(BaseModel):
     """Model for policy binding transactions"""
     # Transaction metadata
-    transaction_type: str = Field("binding", const=True)
+    transaction_type: Literal["binding"] = "binding"
     transaction_id: Optional[str] = None
     transaction_date: Union[str, date, datetime]
     sent_at: Optional[Union[str, date, datetime]] = None
@@ -113,7 +113,7 @@ class TritonBindingTransaction(BaseModel):
 class TritonMidtermEndorsementTransaction(BaseModel):
     """Model for midterm endorsement transactions"""
     # Transaction metadata
-    transaction_type: str = Field("midterm_endorsement", const=True)
+    transaction_type: Literal["midterm_endorsement"] = "midterm_endorsement"
     transaction_id: Optional[str] = None
     transaction_date: Union[str, date, datetime]
     transaction_status: str
@@ -137,7 +137,7 @@ class TritonMidtermEndorsementTransaction(BaseModel):
 class TritonCancellationTransaction(BaseModel):
     """Model for policy cancellation transactions"""
     # Transaction metadata
-    transaction_type: str = Field("cancellation", const=True)
+    transaction_type: Literal["cancellation"] = "cancellation"
     transaction_id: Optional[str] = None
     transaction_date: Union[str, date, datetime]
     sent_at: Optional[Union[str, date, datetime]] = None

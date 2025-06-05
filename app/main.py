@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException, Security, status
+from fastapi import FastAPI, Depends, HTTPException, Security, status, Request
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import uvicorn
+import time
 from app.api.routes import router as api_router
 from app.api.source_routes import router as source_router
 from app.core.config import settings
@@ -39,6 +40,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    
+    # Get client IP - check for X-Forwarded-For header first (for proxies)
+    client_ip = request.headers.get("X-Forwarded-For")
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+    
+    # Log incoming request
+    logger.info(f"INCOMING REQUEST - IP: {client_ip}, Method: {request.method}, Path: {request.url.path}, Headers: {dict(request.headers)}")
+    
+    response = await call_next(request)
+    
+    # Log response
+    process_time = time.time() - start_time
+    logger.info(f"RESPONSE - IP: {client_ip}, Method: {request.method}, Path: {request.url.path}, Status: {response.status_code}, Time: {process_time:.3f}s")
+    
+    return response
 
 # Include API routes
 app.include_router(api_router, prefix="/api")

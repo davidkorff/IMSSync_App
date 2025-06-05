@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "0.0.0.0:8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./templates:/app/templates
+      - ./.env:/app/.env
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    networks:
+      - integration-network
+
+  # Uncomment to add Nginx as a reverse proxy for SSL and additional security
+  # nginx:
+  #   image: nginx:latest
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/conf.d:/etc/nginx/conf.d
+  #     - ./nginx/ssl:/etc/nginx/ssl
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - integration-network
+
+networks:
+  integration-network:
+    driver: bridge 
