@@ -1,4 +1,9 @@
 {
+    // NEEDED: Transaction-level identification (separate from policy)
+    // "transaction_id": "TXN_789123456",        // Unique Triton transaction ID
+    // "transaction_date": "06/04/2025",         // When transaction was created in Triton
+    // "transaction_type": "NEW_BUSINESS",       // NEW_BUSINESS, ENDORSEMENT, CANCELLATION
+    // "source_system": "triton",                // Source system identifier
     "policy": {
       "umr": null,
       "agreement_number": null,
@@ -43,3 +48,22 @@
     }
   }
   
+
+  //AHC Primary vs AHC Excess differ by policy number Primary is prefixed with SPG and SPEXG for Excess
+
+        // NEEDED: More specific business type for IMS business_type_id mapping
+      // Should be one of: "Corporation", "LLC", "Partnership", "Individual", "Sole Proprietor"
+      // Current "New" doesn't map to IMS business types (1=Corporation, 2=Partnership, 3=Individual, 4=Sole Proprietor)
+      // Recommend: "LLC" (based on company name "Anahata Productions LLC")
+     // NEEDED: Additional insured address fields for IMS AddInsured/AddInsuredLocation
+      // "insured_address": "123 Main Street",
+      // "insured_city": "Aspen",
+      // "insured_phone": "970-555-1234",
+      // "insured_email": "contact@anahataproductions.com",
+
+      
+          // NEEDED: Transaction-level identification (separate from policy)
+    // "transaction_id": "TXN_789123456",        // Unique Triton transaction ID
+    // "transaction_date": "06/04/2025",         // When transaction was created in Triton
+    // "transaction_type": "NEW_BUSINESS",       // NEW_BUSINESS, ENDORSEMENT, CANCELLATION
+    // "source_system": "triton",                // Source system identifier
