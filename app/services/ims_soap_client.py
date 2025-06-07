@@ -151,8 +151,6 @@ class IMSSoapClient:
                 include_token=False
             )
 
-            logger.info(f"***** raw response: {response}")
-
             # Navigate the namespaced keys
             body = response.get('ns0:Body') or response.get('soap:Body')
             if not body:
