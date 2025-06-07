@@ -150,27 +150,34 @@ class IMSSoapClient:
                 body_content,
                 include_token=False
             )
-            
-            # Extract token from response
-            if response and 'soap:Body' in response:
-                login_response = response['soap:Body'].get('LoginIMSUserResponse', {})
-                login_result = login_response.get('LoginIMSUserResult', {})
-                
-                token = login_result.get('Token')
-                user_guid = login_result.get('UserGuid')
-                
-                if token:
-                    self.token = token
-                    logger.info(f"Successfully logged in, received token for user {user_guid}")
-                    return token
-                else:
-                    error_message = login_result.get('ErrorMessage', 'Unknown error')
-                    logger.error(f"Login failed: {error_message}")
-                    raise ValueError(f"Login failed: {error_message}")
-            
-            logger.error("Login failed: Unexpected response format")
-            raise ValueError("Login failed: Unexpected response format")
-            
+
+            logger.info(f"***** raw response: {response}")
+
+            # Navigate the namespaced keys
+            body = response.get('ns0:Body') or response.get('soap:Body')
+            if not body:
+                raise ValueError("Login failed: Missing SOAP body")
+
+            login_response = body.get('ns1:LoginIMSUserResponse') or body.get('LoginIMSUserResponse')
+            if not login_response:
+                raise ValueError("Login failed: Missing LoginIMSUserResponse")
+
+            login_result = login_response.get('ns1:LoginIMSUserResult') or login_response.get('LoginIMSUserResult')
+            if not login_result:
+                raise ValueError("Login failed: Missing LoginIMSUserResult")
+
+            token = login_result.get('ns1:Token') or login_result.get('Token')
+            user_guid = login_result.get('ns1:UserGuid') or login_result.get('UserGuid')
+
+            if token:
+                self.token = token
+                logger.info(f"Successfully logged in, received token for user {user_guid}")
+                return token
+            else:
+                error_message = login_result.get('ErrorMessage', 'Unknown error')
+                logger.error(f"Login failed: {error_message}")
+                raise ValueError(f"Login failed: {error_message}")
+
         except Exception as e:
             logger.error(f"Error logging in to IMS: {str(e)}")
             raise
