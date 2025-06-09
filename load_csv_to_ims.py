@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Load CSV submissions into IMS
+Load CSV submissions into IMS.
 Processes each row as a New Business transaction with generated transaction IDs
 """
 
