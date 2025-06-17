@@ -8608,3 +8608,17 @@ saction
 2025-06-09 10:49:43,099 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
 2025-06-09 10:49:43,099 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
 2025-06-09 10:49:43,099 - app.main - INFO - ===================================================
+2025-06-09 18:25:08,389 - app.main - INFO - ===================================================
+2025-06-09 18:25:08,389 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-09 18:25:08,389 - app.main - INFO - Endpoints:
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-09 18:25:08,389 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-09 18:25:08,389 - app.main - INFO -   GET /api/health - Health check
+2025-06-09 18:25:08,389 - app.main - INFO - 
+2025-06-09 18:25:08,389 - app.main - INFO - Source-specific endpoints:
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-09 18:25:08,389 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-09 18:25:08,389 - app.main - INFO - ===================================================
