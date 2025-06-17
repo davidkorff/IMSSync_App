@@ -59,8 +59,8 @@ class CSVToIMSLoader:
             logger.info("-" * 40)
             
             # Health check with detailed info
-            response = self.session.get(f"{self.base_url}/health")
-            logger.info(f"📡 Health Check Request: GET {self.base_url}/health")
+            response = self.session.get(f"{self.base_url}/api/health")
+            logger.info(f"📡 Health Check Request: GET {self.base_url}/api/health")
             logger.info(f"📊 Health Check Response: {response.status_code}")
             
             if response.status_code == 200:

@@ -8608,3 +8608,23 @@ saction
 2025-06-09 10:49:43,099 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
 2025-06-09 10:49:43,099 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
 2025-06-09 10:49:43,099 - app.main - INFO - ===================================================
+2025-06-09 10:57:55,842 - app.main - INFO - INCOMING REQUEST - IP: 127.0.0.1, Method: GET, Path: /, Headers: {'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'upgrade-insecure-requests': '1', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36', 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7', 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?1', 'sec-fetch-dest': 'document', 'accept-encoding': 'gzip, deflate, br, zstd', 'accept-language': 'en-US,en;q=0.9'}
+2025-06-09 10:57:55,847 - app.main - INFO - RESPONSE - IP: 127.0.0.1, Method: GET, Path: /, Status: 404, Time: 0.005s
+2025-06-09 10:57:56,249 - app.main - INFO - INCOMING REQUEST - IP: 127.0.0.1, Method: GET, Path: /favicon.ico, Headers: {'host': 'localhost:8000', 'connection': 'keep-alive', 'sec-ch-ua-platform': '"Windows"', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36', 'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"', 'sec-ch-ua-mobile': '?0', 'accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8', 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'no-cors', 'sec-fetch-dest': 'image', 'referer': 'http://localhost:8000/', 'accept-encoding': 'gzip, deflate, br, zstd', 'accept-language': 'en-US,en;q=0.9'}
+2025-06-09 10:57:56,264 - app.main - INFO - RESPONSE - IP: 127.0.0.1, Method: GET, Path: /favicon.ico, Status: 404, Time: 0.015s
+2025-06-09 10:59:48,523 - app.main - INFO - INCOMING REQUEST - IP: 127.0.0.1, Method: GET, Path: /, Headers: {'host': 'localhost:8000', 'connection': 'keep-alive', 'cache-control': 'max-age=0', 'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"', 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'upgrade-insecure-requests': '1', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36', 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7', 'sec-fetch-site': 'none', 'sec-fetch-mode': 'navigate', 'sec-fetch-user': '?1', 'sec-fetch-dest': 'document', 'accept-encoding': 'gzip, deflate, br, zstd', 'accept-language': 'en-US,en;q=0.9'}
+2025-06-09 10:59:48,544 - app.main - INFO - RESPONSE - IP: 127.0.0.1, Method: GET, Path: /, Status: 404, Time: 0.021s
+2025-06-09 11:19:15,732 - app.main - INFO - ===================================================
+2025-06-09 11:19:15,733 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-09 11:19:15,735 - app.main - INFO - Endpoints:
+2025-06-09 11:19:15,738 - app.main - INFO -   POST /api/transaction/new - Create a new policy transaction
+2025-06-09 11:19:15,742 - app.main - INFO -   POST /api/transaction/update - Create a policy update transaction
+2025-06-09 11:19:15,758 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-09 11:19:15,760 - app.main - INFO -   GET /api/health - Health check
+2025-06-09 11:19:15,762 - app.main - INFO - 
+2025-06-09 11:19:15,763 - app.main - INFO - Source-specific endpoints:
+2025-06-09 11:19:15,763 - app.main - INFO -   POST /api/triton/transaction/new - Create new Triton transaction
+2025-06-09 11:19:15,764 - app.main - INFO -   POST /api/triton/transaction/update - Create Triton update transaction
+2025-06-09 11:19:15,765 - app.main - INFO -   POST /api/xuber/transaction/new - Create new Xuber transaction
+2025-06-09 11:19:15,766 - app.main - INFO -   POST /api/xuber/transaction/update - Create Xuber update transaction
+2025-06-09 11:19:15,766 - app.main - INFO - ===================================================
