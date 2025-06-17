@@ -358,7 +358,7 @@ class CSVToIMSLoader:
     def test_health(self):
         """Test if the API service is running"""
         try:
-            response = self.session.get(f"{self.base_url}/health")
+            response = self.session.get(f"{self.base_url}/api/health")
             if response.status_code == 200:
                 print("✅ API service is healthy")
                 return True
