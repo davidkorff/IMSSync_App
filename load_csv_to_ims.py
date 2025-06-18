@@ -267,7 +267,7 @@ class CSVToIMSLoader:
             logger.info(f"🆔 Generated Transaction ID: {transaction_data['transaction_id']}")
             
             # Send to API with detailed logging
-            url = f"{self.base_url}/transaction/new"
+            url = f"{self.base_url}/api/transaction/new"
             params = {"source": "triton"}
             
             logger.info("📡 SENDING TO INTEGRATION API")
