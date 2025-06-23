@@ -98,6 +98,15 @@ This checklist ensures all requirements are met before deploying the RSG Integra
   - [ ] Producer GUIDs valid
   - [ ] Line GUIDs valid
   - [ ] Underwriter GUIDs valid
+
+> **⚠️ IMPORTANT SECURITY NOTE**: 
+> - For TEST environments: The `.env` file may be included in the repository for convenience
+> - For PRODUCTION: **NEVER** commit `.env` to version control
+> - Before production deployment:
+>   1. Remove `.env` from repository if it was included for testing
+>   2. Re-add `.env` to `.gitignore`
+>   3. Use proper secret management (AWS Secrets Manager, environment variables, etc.)
+>   4. Ensure all production credentials are stored securely
   - [ ] Rater IDs configured
 
 #### Configuration Files

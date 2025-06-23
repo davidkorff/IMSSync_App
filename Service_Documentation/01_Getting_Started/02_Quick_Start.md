@@ -33,12 +33,16 @@ pip install -r requirements.txt
 ## Step 2: Configure Environment
 
 ```bash
-# Copy example environment file
-cp .env.example .env
+# For TEST environments: .env may already exist in the repo
+# For PRODUCTION: Copy from example and configure
+cp .env.example .env  # Skip if .env already exists
 
 # Edit .env with your configuration
 # At minimum, set these values:
 ```
+
+> **Note**: In test environments, the `.env` file may be committed to the repository for convenience. 
+> For production deployments, always use proper secret management and never commit credentials.
 
 Edit `.env` with these essential values:
 ```env
