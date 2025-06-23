@@ -8637,3 +8637,140 @@ saction
 2025-06-22 17:15:08,930 - app.main - INFO - Transaction types: new, update, cancellation, endorsement, reinstatement
 2025-06-22 17:15:08,930 - app.main - INFO - Example: POST /api/transaction/new?source=triton
 2025-06-22 17:15:08,930 - app.main - INFO - ===================================================
+2025-06-23 04:16:58,926 - app.main - INFO - ===================================================
+2025-06-23 04:16:58,926 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-23 04:16:58,926 - app.main - INFO - Endpoints:
+2025-06-23 04:16:58,926 - app.main - INFO -   POST /api/transaction/{transaction_type} - Create a transaction (new, update, cancellation, etc.)
+2025-06-23 04:16:58,926 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-23 04:16:58,926 - app.main - INFO -   GET /api/transactions - Search transactions
+2025-06-23 04:16:58,926 - app.main - INFO -   GET /api/health - Health check
+2025-06-23 04:16:58,926 - app.main - INFO - 
+2025-06-23 04:16:58,927 - app.main - INFO - Source-specific endpoints:
+2025-06-23 04:16:58,927 - app.main - INFO -   POST /api/triton/transaction/{transaction_type} - Create Triton transaction
+2025-06-23 04:16:58,927 - app.main - INFO -   POST /api/xuber/transaction/{transaction_type} - Create Xuber transaction
+2025-06-23 04:16:58,927 - app.main - INFO - 
+2025-06-23 04:16:58,927 - app.main - INFO - Transaction types: new, update, cancellation, endorsement, reinstatement
+2025-06-23 04:16:58,927 - app.main - INFO - Example: POST /api/transaction/new?source=triton
+2025-06-23 04:16:58,927 - app.main - INFO - ===================================================
+2025-06-23 04:18:41,930 - app.main - INFO - INCOMING REQUEST - IP: 172.31.20.70, Method: POST, Path: /api/transaction/new, Headers: {'x-api-key': 'test_api_key', 'user-agent': 'Faraday v2.7.11', 'content-type': 'application/json', 'accept-encoding': 'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 'accept': '*/*', 'sentry-trace': '7d17472684534c1db8319655760a50e6-154690bad9b4478b', 'baggage': 'sentry-trace_id=7d17472684534c1db8319655760a50e6,sentry-environment=dev,sentry-public_key=f90b389431e99b3e3ee625f6fbec9213', 'host': '172.31.91.125:8000', 'content-length': '830'}
+2025-06-23 04:18:41,931 - app.api.routes - INFO - Received new transaction from triton
+2025-06-23 04:18:41,931 - app.api.routes - INFO - Content-Type: application/json
+2025-06-23 04:18:41,931 - app.api.routes - INFO - Raw body: {"policy":{"umr":null,"agreement_number":null,"section_number":null,"class_of_business":"Home Healthcare Services","program_name":"Allied Health","policy_number":"GAH-106040-250920","underwriter_name":"Haley Crocombe","producer_name":"Jordan Alvaranga","invoice_date":"09/20/2025","policy_fee":250.0,"surplus_lines_tax":"","stamping_fee":"","other_fee":"","insured_name":"Ruby's Nursing Care LLC","insured_state":"FL","insured_zip":"33351","effective_date":"09/20/2025","expiration_date":"09/20/2026","bound_date":"06/23/2025","business_type":"Renewal","status":"bound","transaction_type":"O/P","limit_amount":"$1,000,000/$3,000,000","limit_prior":"$1,000,000/$3,000,000","deductible_amount":"$2,500","gross_premium":1639,"commission_rate":17.5,"commission_percent":0,"commission_amount":0,"net_premium":1639,"base_premium":1639}}
+2025-06-23 04:18:41,932 - app.api.routes - INFO - Parsed JSON data: {
+  "policy": {
+    "umr": null,
+    "agreement_number": null,
+    "section_number": null,
+    "class_of_business": "Home Healthcare Services",
+    "program_name": "Allied Health",
+    "policy_number": "GAH-106040-250920",
+    "underwriter_name": "Haley Crocombe",
+    "producer_name": "Jordan Alvaranga",
+    "invoice_date": "09/20/2025",
+    "policy_fee": 250.0,
+    "surplus_lines_tax": "",
+    "stamping_fee": "",
+    "other_fee": "",
+    "insured_name": "Ruby's Nursing Care LLC",
+    "insured_state": "FL",
+    "insured_zip": "33351",
+    "effective_date": "09/20/2025",
+    "expiration_date": "09/20/2026",
+    "bound_date": "06/23/2025",
+    "business_type": "Renewal",
+    "status": "bound",
+    "transaction_type": "O/P",
+    "limit_amount": "$1,000,000/$3,000,000",
+    "limit_prior": "$1,000,000/$3,000,000",
+    "deductible_amount": "$2,500",
+    "gross_premium": 1639,
+    "commission_rate": 17.5,
+    "commission_percent": 0,
+    "commission_amount": 0,
+    "net_premium": 1639,
+    "base_premium": 1639
+  }
+}
+2025-06-23 04:18:41,939 - app.services.transaction_service - INFO - Created new transaction: 3c1e0fcd-a108-4bea-b34d-f4e3eada2334 from source: triton
+2025-06-23 04:18:41,940 - app.services.transaction_service - INFO - Transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334 data is a dictionary with 1 keys
+2025-06-23 04:18:41,940 - app.api.routes - INFO - Created transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334
+2025-06-23 04:18:41,940 - app.api.routes - INFO - Started async processing for transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334
+2025-06-23 04:18:41,940 - app.api.routes - INFO - Begin async processing of transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334
+2025-06-23 04:18:41,946 - app.services.transaction_service - INFO - Updated transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334 status to processing
+2025-06-23 04:18:41,946 - app.services.transaction_service - INFO - Data is already a parsed dictionary, no parsing needed
+2025-06-23 04:18:41,946 - app.services.transaction_service - INFO - Starting IMS workflow for transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334
+2025-06-23 04:18:41,946 - app.services.ims_workflow_service - INFO - Processing transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334 in IMS
+2025-06-23 04:18:41,947 - app.services.ims_workflow_service - INFO - Authenticating with IMS using dkorff
+2025-06-23 04:18:41,947 - app.services.ims_soap_client - INFO - Logging in to IMS with username dkorff
+2025-06-23 04:18:41,953 - app.services.ims_soap_client - ERROR - Error making SOAP request to http://dc02imsws01.rsgcorp.local/ims_one/logon.asmx: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-23 04:18:41,953 - app.services.ims_soap_client - ERROR - Error logging in to IMS: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-23 04:18:41,955 - app.services.ims_workflow_service - ERROR - Error processing transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334 in IMS: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-23 04:18:41,955 - app.services.ims_workflow_service - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 159, in _new_conn
+    conn = connection.create_connection(
+  File "/usr/lib/python3.9/site-packages/urllib3/util/connection.py", line 61, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+  File "/usr/lib64/python3.9/socket.py", line 966, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -2] Name or service not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 670, in urlopen
+    httplib_response = self._make_request(
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 392, in _make_request
+    conn.request(method, url, **httplib_request_kw)
+  File "/usr/lib64/python3.9/http/client.py", line 1285, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1331, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1280, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1040, in _send_output
+    self.send(msg)
+  File "/usr/lib64/python3.9/http/client.py", line 980, in send
+    self.connect()
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 187, in connect
+    conn = self._new_conn()
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 171, in _new_conn
+    raise NewConnectionError(
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/site-packages/requests/adapters.py", line 649, in send
+    resp = conn.urlopen(
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 726, in urlopen
+    retries = retries.increment(
+  File "/usr/lib/python3.9/site-packages/urllib3/util/retry.py", line 441, in increment
+    raise MaxRetryError(_pool, url, error or ResponseError(cause))
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/IMSSync_App/app/services/ims_workflow_service.py", line 66, in process_transaction
+    self.authenticate()
+  File "/opt/IMSSync_App/app/services/ims_workflow_service.py", line 54, in authenticate
+    self.token = self.soap_client.login(self.username, self.password)
+  File "/opt/IMSSync_App/app/services/ims_soap_client.py", line 147, in login
+    response = self._make_soap_request(
+  File "/opt/IMSSync_App/app/services/ims_soap_client.py", line 109, in _make_soap_request
+    response = requests.post(url, data=envelope, headers=headers)
+  File "/usr/lib/python3.9/site-packages/requests/api.py", line 119, in post
+    return request('post', url, data=data, json=json, **kwargs)
+  File "/usr/lib/python3.9/site-packages/requests/api.py", line 61, in request
+    return session.request(method=method, url=url, **kwargs)
+  File "/usr/lib/python3.9/site-packages/requests/sessions.py", line 544, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/usr/lib/python3.9/site-packages/requests/sessions.py", line 657, in send
+    r = adapter.send(request, **kwargs)
+  File "/usr/lib/python3.9/site-packages/requests/adapters.py", line 726, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+2025-06-23 04:18:41,963 - app.api.routes - INFO - Completed processing transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334: Status=failed, Message=Transaction processing failed: Error processing transaction in IMS at stage pending: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-23 04:18:41,964 - app.main - INFO - RESPONSE - IP: 172.31.20.70, Method: POST, Path: /api/transaction/new, Status: 200, Time: 0.034s
