@@ -115,7 +115,7 @@ class Settings(BaseSettings):
         }
     }
     
-    DEFAULT_ENVIRONMENT: str = "iscmga_test"
+    DEFAULT_ENVIRONMENT: str = os.getenv("DEFAULT_ENVIRONMENT", "ims_one")
     
     # Logging settings
     LOG_LEVEL: str = "INFO"

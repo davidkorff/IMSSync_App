@@ -35,7 +35,8 @@ class IMSWorkflowService:
         self.config_file = env_config["config_file"]
         self.username = env_config["username"]
         self.password = env_config["password"]
-        self.soap_client = IMSSoapClient(self.config_file)
+        self.env_config = env_config
+        self.soap_client = IMSSoapClient(self.config_file, env_config)
         self.token = None
         
         # Templates directory for Excel raters

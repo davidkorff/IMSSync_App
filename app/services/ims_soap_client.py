@@ -9,8 +9,9 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 class IMSSoapClient:
-    def __init__(self, config_file):
+    def __init__(self, config_file, environment_config=None):
         self.config_file = config_file
+        self.environment_config = environment_config or {}
         self._load_config()
         self.token = None
         self.namespaces = {
@@ -108,9 +109,33 @@ class IMSSoapClient:
         
         try:
             response = requests.post(url, data=envelope, headers=headers)
+            
+            # Log response details even if it fails
+            logger.debug(f"Received response: {response.status_code}")
+            if response.status_code != 200:
+                logger.error(f"SOAP Error Response ({response.status_code}): {response.text}")
+                
+                # Try to parse SOAP fault if present
+                try:
+                    root = ET.fromstring(response.text)
+                    # Try with namespace
+                    fault = root.find('.//soap:Fault', namespaces=self.namespaces)
+                    if fault is None:
+                        # Try without namespace
+                        fault = root.find('.//Fault')
+                    
+                    if fault is not None:
+                        fault_string = fault.find('.//faultstring')
+                        fault_detail = fault.find('.//detail')
+                        if fault_string is not None:
+                            logger.error(f"SOAP Fault: {fault_string.text}")
+                        if fault_detail is not None:
+                            logger.error(f"SOAP Fault Detail: {ET.tostring(fault_detail, encoding='unicode')}")
+                except Exception as e:
+                    logger.debug(f"Could not parse SOAP fault: {e}")
+            
             response.raise_for_status()
             
-            logger.debug(f"Received response: {response.status_code}")
             logger.debug(f"Response body: {response.text}")
             
             # Parse response XML
@@ -250,8 +275,14 @@ class IMSSoapClient:
         else:
             corporation_name = name
         
+        # Extract location information if available
+        address = insured_data.get('address', '')
+        city = insured_data.get('city', '')
+        state = insured_data.get('state', '')
+        zip_code = insured_data.get('zip_code', '')
+        
         body_content = f"""
-        <AddInsured xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
+        <AddInsuredWithLocation xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
             <insured>
                 <BusinessTypeID>{business_type_id}</BusinessTypeID>
                 <FirstName>{first_name}</FirstName>
@@ -260,20 +291,28 @@ class IMSSoapClient:
                 <FEIN>{tax_id if not is_individual else ""}</FEIN>
                 <SSN>{tax_id if is_individual else ""}</SSN>
             </insured>
-        </AddInsured>
+            <location>
+                <City>{city}</City>
+                <StateAbbreviation>{state}</StateAbbreviation>
+                <Street>{address}</Street>
+                <ZipCode>{zip_code}</ZipCode>
+                <LocationTypeID>1</LocationTypeID>
+                <OfficeGuid>{self.environment_config.get('sources', {}).get('triton', {}).get('default_office_guid', '00000000-0000-0000-0000-000000000000')}</OfficeGuid>
+            </location>
+        </AddInsuredWithLocation>
         """
         
         try:
             response = self._make_soap_request(
                 self.insured_functions_url,
-                "http://tempuri.org/IMSWebServices/InsuredFunctions/AddInsured",
+                "http://tempuri.org/IMSWebServices/InsuredFunctions/AddInsuredWithLocation",
                 body_content
             )
             
             # Extract insured GUID from response
             if response and 'soap:Body' in response:
-                add_response = response['soap:Body'].get('AddInsuredResponse', {})
-                insured_guid = add_response.get('AddInsuredResult')
+                add_response = response['soap:Body'].get('AddInsuredWithLocationResponse', {})
+                insured_guid = add_response.get('AddInsuredWithLocationResult')
                 
                 if insured_guid:
                     logger.info(f"Successfully added insured, received GUID: {insured_guid}")
