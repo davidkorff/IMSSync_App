@@ -138,6 +138,7 @@ class TransactionResponse(BaseModel):
     message: str
     ims_status: Optional[IMSProcessingStatus] = None
     created_at: datetime = Field(default_factory=datetime.now)
+    ims_details: Optional[Dict[str, Any]] = None
     
 class TransactionSearchParams(BaseModel):
     """Parameters for searching transactions"""

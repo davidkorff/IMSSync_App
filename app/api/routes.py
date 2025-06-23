@@ -23,7 +23,8 @@ async def create_transaction(
     request: Request,
     api_key: str = Depends(get_api_key),
     source: str = "triton",
-    external_id: Optional[str] = None
+    external_id: Optional[str] = None,
+    sync_mode: bool = False
 ):
     """
     Create a new transaction from incoming data (supports both JSON and XML)
@@ -64,15 +65,38 @@ async def create_transaction(
         logger.info(f"Created transaction {transaction.transaction_id}" + 
                   (f" with external ID {external_id}" if external_id else ""))
         
-        # Start processing in background (non-blocking)
-        asyncio.create_task(process_transaction_async(transaction.transaction_id))
-        logger.info(f"Started async processing for transaction {transaction.transaction_id}")
-        
-        return TransactionResponse(
-            transaction_id=transaction.transaction_id,
-            status=transaction.status,
-            message=f"{transaction_type.value} transaction created successfully and queued for processing"
-        )
+        if sync_mode:
+            # Process synchronously and wait for result
+            logger.info(f"Processing transaction {transaction.transaction_id} synchronously")
+            result = transaction_service.process_transaction(transaction.transaction_id)
+            
+            # Reload transaction to get latest status
+            transaction = transaction_service.get_transaction(transaction.transaction_id)
+            
+            return TransactionResponse(
+                transaction_id=transaction.transaction_id,
+                status=transaction.status,
+                ims_status=transaction.ims_processing.status if transaction.ims_processing else None,
+                message=result.message,
+                ims_details={
+                    "processing_status": transaction.ims_processing.status.value if transaction.ims_processing else None,
+                    "insured_guid": transaction.ims_processing.insured.guid if transaction.ims_processing and transaction.ims_processing.insured else None,
+                    "submission_guid": transaction.ims_processing.submission.guid if transaction.ims_processing and transaction.ims_processing.submission else None,
+                    "quote_guid": transaction.ims_processing.quote.guid if transaction.ims_processing and transaction.ims_processing.quote else None,
+                    "policy_number": transaction.ims_processing.policy.policy_number if transaction.ims_processing and transaction.ims_processing.policy else None,
+                    "error": transaction.error_message
+                } if transaction.ims_processing else None
+            )
+        else:
+            # Start processing in background (non-blocking)
+            asyncio.create_task(process_transaction_async(transaction.transaction_id))
+            logger.info(f"Started async processing for transaction {transaction.transaction_id}")
+            
+            return TransactionResponse(
+                transaction_id=transaction.transaction_id,
+                status=transaction.status,
+                message=f"{transaction_type.value} transaction created successfully and queued for processing"
+            )
     except Exception as e:
         logger.error(f"Error creating transaction: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -92,11 +116,26 @@ async def get_transaction_status(
         raise HTTPException(status_code=404, detail=f"Transaction not found: {transaction_id}")
     
     logger.info(f"Retrieved transaction {transaction_id}, status: {transaction.status.value}")
+    
+    # Build detailed IMS info
+    ims_details = None
+    if transaction.ims_processing:
+        ims_details = {
+            "processing_status": transaction.ims_processing.status.value,
+            "insured_guid": transaction.ims_processing.insured.guid if transaction.ims_processing.insured else None,
+            "submission_guid": transaction.ims_processing.submission.guid if transaction.ims_processing.submission else None,
+            "quote_guid": transaction.ims_processing.quote.guid if transaction.ims_processing.quote else None,
+            "policy_number": transaction.ims_processing.policy.policy_number if transaction.ims_processing.policy else None,
+            "error": transaction.error_message,
+            "processing_logs": transaction.ims_processing.processing_logs[-10:] if hasattr(transaction.ims_processing, 'processing_logs') else []
+        }
+    
     return TransactionResponse(
         transaction_id=transaction.transaction_id,
         status=transaction.status,
         ims_status=transaction.ims_processing.status if transaction.ims_processing else None,
-        message=f"Transaction status: {transaction.status.value}"
+        message=f"Transaction status: {transaction.status.value}",
+        ims_details=ims_details
     )
 
 async def process_transaction_async(transaction_id: str):

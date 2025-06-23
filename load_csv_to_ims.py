@@ -27,10 +27,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class CSVToIMSLoader:
-    def __init__(self, csv_file, base_url="http://localhost:8000", api_key="test_api_key"):
+    def __init__(self, csv_file, base_url="http://localhost:8000", api_key="test_api_key",
+                 sync_mode=False, poll_status=False):
         self.csv_file = csv_file
         self.base_url = base_url
         self.api_key = api_key
+        self.sync_mode = sync_mode
+        self.poll_status = poll_status
         self.session = requests.Session()
         self.session.headers.update({
             "X-API-Key": api_key,
@@ -47,6 +50,8 @@ class CSVToIMSLoader:
         logger.info(f"📄 CSV File: {self.csv_file}")
         logger.info(f"🌐 API Base URL: {self.base_url}")
         logger.info(f"🔑 API Key: {self.api_key}")
+        logger.info(f"⚡ Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+        logger.info(f"🔄 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
         logger.info(f"⏰ Session Started: {datetime.now().isoformat()}")
         
         # Get service info
@@ -270,9 +275,14 @@ class CSVToIMSLoader:
             url = f"{self.base_url}/api/transaction/new"
             params = {"source": "triton"}
             
+            # Add sync_mode parameter if enabled
+            if self.sync_mode:
+                params["sync_mode"] = "true"
+                logger.info("⚡ Using SYNCHRONOUS mode - will wait for IMS processing")
+            
             logger.info("📡 SENDING TO INTEGRATION API")
             logger.info("-" * 40)
-            self.log_api_call("POST", f"{url}?source=triton", transaction_data)
+            self.log_api_call("POST", f"{url}?{'&'.join(f'{k}={v}' for k,v in params.items())}", transaction_data)
             
             response = self.session.post(url, json=transaction_data, params=params)
             
@@ -287,14 +297,24 @@ class CSVToIMSLoader:
                 logger.info("✅ TRANSACTION SUCCESSFUL")
                 logger.info(f"🆔 API Transaction ID: {transaction_id}")
                 
-                # Log any IMS-specific information if available
-                if "ims_processing" in result:
-                    ims_info = result["ims_processing"]
-                    logger.info(f"🏢 IMS Status: {ims_info.get('status', 'unknown')}")
-                    if "logs" in ims_info:
-                        logger.info("📝 IMS Processing Logs:")
-                        for log_entry in ims_info["logs"]:
-                            logger.info(f"   {log_entry}")
+                # Log IMS details if available (from sync mode)
+                if "ims_details" in result and result["ims_details"]:
+                    ims_details = result["ims_details"]
+                    logger.info("🏢 IMS PROCESSING DETAILS:")
+                    logger.info(f"   Status: {ims_details.get('processing_status', 'unknown')}")
+                    logger.info(f"   Policy Number: {ims_details.get('policy_number', 'N/A')}")
+                    logger.info(f"   Insured GUID: {ims_details.get('insured_guid', 'N/A')}")
+                    logger.info(f"   Quote GUID: {ims_details.get('quote_guid', 'N/A')}")
+                    if ims_details.get('error'):
+                        logger.error(f"   ❌ Error: {ims_details['error']}")
+                    if ims_details.get('processing_logs'):
+                        logger.info("   📝 Processing Logs:")
+                        for log in ims_details['processing_logs'][-5:]:  # Last 5 logs
+                            logger.info(f"      {log}")
+                
+                # Poll for status if enabled and not in sync mode
+                if self.poll_status and not self.sync_mode:
+                    self._poll_transaction_status(transaction_id)
                 
                 self.successful += 1
                 self.results.append({
@@ -335,6 +355,40 @@ class CSVToIMSLoader:
                 "message": str(e),
                 "exception_type": type(e).__name__
             })
+    
+    def _poll_transaction_status(self, transaction_id, max_polls=10, poll_interval=2):
+        """Poll transaction status until it's completed or failed"""
+        logger.info(f"🔄 Polling transaction status for {transaction_id}")
+        
+        for i in range(max_polls):
+            time.sleep(poll_interval)
+            
+            try:
+                response = self.session.get(f"{self.base_url}/api/transaction/{transaction_id}")
+                if response.status_code == 200:
+                    result = response.json()
+                    status = result.get("status", "unknown")
+                    ims_status = result.get("ims_status", "unknown")
+                    
+                    logger.info(f"   Poll {i+1}/{max_polls}: Status={status}, IMS Status={ims_status}")
+                    
+                    # Check for IMS details
+                    if "ims_details" in result and result["ims_details"]:
+                        ims_details = result["ims_details"]
+                        if ims_details.get("policy_number"):
+                            logger.info(f"   ✅ Policy Created: {ims_details['policy_number']}")
+                        if ims_details.get("error"):
+                            logger.error(f"   ❌ Error: {ims_details['error']}")
+                    
+                    # Stop polling if transaction is complete or failed
+                    if status in ["completed", "failed"]:
+                        break
+                else:
+                    logger.warning(f"   Poll {i+1} failed with status {response.status_code}")
+            except Exception as e:
+                logger.error(f"   Poll {i+1} error: {str(e)}")
+        
+        logger.info(f"   Polling complete for {transaction_id}")
     
     def save_results(self):
         """Save processing results to JSON file"""
@@ -443,19 +497,31 @@ def main():
     # Default values for API
     base_url = "http://localhost:8000"
     api_key = "test_api_key"
+    sync_mode = False
+    poll_status = False
     
     # Parse additional command line arguments (after CSV file)
-    if len(sys.argv) > 2:
-        base_url = sys.argv[2]
-    if len(sys.argv) > 3:
-        api_key = sys.argv[3]
+    # Check for mode flags
+    args = sys.argv[2:]  # Skip script name and CSV file
+    for arg in args:
+        if arg == "--sync":
+            sync_mode = True
+        elif arg == "--poll":
+            poll_status = True
+        elif arg.startswith("http"):
+            base_url = arg
+        elif not arg.startswith("--"):
+            api_key = arg
     
     logger.info(f"📄 Final CSV File: {csv_file}")
     logger.info(f"🌐 API URL: {base_url}")
     logger.info(f"🔑 API Key: {api_key}")
+    if sync_mode or poll_status:
+        logger.info(f"⚡ Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+        logger.info(f"🔄 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
     
     # Create loader (this will do detailed service inspection)
-    loader = CSVToIMSLoader(csv_file, base_url, api_key)
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
     
     # Test health first
     if not loader.test_health():
@@ -465,6 +531,16 @@ def main():
     
     # Ask for confirmation
     logger.info("This will process all rows in the CSV as NEW BUSINESS transactions.")
+    if sync_mode:
+        logger.info("⚡ SYNC MODE: Each transaction will wait for IMS processing to complete.")
+        logger.info("   This provides immediate feedback but is slower.")
+    elif poll_status:
+        logger.info("🔄 POLL MODE: Transactions will be submitted asynchronously,")
+        logger.info("   then polled for status updates.")
+    else:
+        logger.info("⏩ ASYNC MODE: Transactions will be submitted without waiting.")
+        logger.info("   Check transaction status later using the API.")
+    
     try:
         response = input("Continue? (y/n): ")
         if response.lower() != 'y':

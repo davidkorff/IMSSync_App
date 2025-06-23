@@ -94,10 +94,19 @@ class IMSWorkflowService:
             return transaction
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             logger.error(f"Error processing transaction {transaction.transaction_id} in IMS: {str(e)}")
+            logger.error(f"Full traceback:\n{error_details}")
+            
+            # Add detailed error to processing logs
+            transaction.ims_processing.add_log(f"ERROR: {str(e)}")
+            transaction.ims_processing.add_log(f"Error occurred at stage: {transaction.ims_processing.status.value}")
+            transaction.ims_processing.add_log(f"Stack trace: {error_details}")
+            
             transaction.update_status(
                 TransactionStatus.FAILED,
-                f"Error processing transaction in IMS: {str(e)}"
+                f"Error processing transaction in IMS at stage {transaction.ims_processing.status.value}: {str(e)}"
             )
             transaction.ims_processing.status = IMSProcessingStatus.ERROR
             return transaction
@@ -558,24 +567,53 @@ class IMSWorkflowService:
             raise ValueError("Cannot extract insured data: Missing parsed data")
         
         data = transaction.parsed_data
+        
+        # Handle both nested and flat data structures
+        # Check if data is nested under 'policy' key (from CSV loader)
+        if "policy" in data:
+            policy_data = data["policy"]
+        else:
+            policy_data = data
+            
+        # Log the data structure for debugging
+        transaction.ims_processing.add_log(f"Extracting insured data from structure: {list(policy_data.keys())[:10]}")
+        
+        # Extract insured name - try multiple possible field names
+        insured_name = (
+            policy_data.get("insured_name") or 
+            policy_data.get("insured", {}).get("name") or
+            policy_data.get("insuredName") or
+            "Unknown Insured"
+        )
+        
         result = {
-            "name": data.get("insured", {}).get("name", "Unknown Insured"),
-            "tax_id": data.get("insured", {}).get("tax_id"),
+            "name": insured_name,
+            "tax_id": policy_data.get("tax_id") or policy_data.get("insured", {}).get("tax_id"),
             "business_type_id": 1  # Default business type ID
         }
         
-        # Extract contact information if available
-        if "insured" in data and "contact" in data["insured"]:
-            contact = data["insured"]["contact"]
+        # Extract contact information - handle flat or nested structure
+        result.update({
+            "address": policy_data.get("insured_address") or policy_data.get("address"),
+            "city": policy_data.get("insured_city") or policy_data.get("city"),
+            "state": policy_data.get("insured_state") or policy_data.get("state"),
+            "zip_code": policy_data.get("insured_zip") or policy_data.get("zip_code")
+        })
+        
+        # If contact info is nested, also check there
+        if "insured" in policy_data and "contact" in policy_data["insured"]:
+            contact = policy_data["insured"]["contact"]
             result.update({
-                "contact_name": contact.get("name"),
-                "contact_email": contact.get("email"),
-                "contact_phone": contact.get("phone"),
-                "address": contact.get("address"),
-                "city": contact.get("city"),
-                "state": contact.get("state"),
-                "zip_code": contact.get("zip_code")
+                "contact_name": contact.get("name") or result.get("contact_name"),
+                "contact_email": contact.get("email") or result.get("contact_email"),
+                "contact_phone": contact.get("phone") or result.get("contact_phone"),
+                "address": contact.get("address") or result.get("address"),
+                "city": contact.get("city") or result.get("city"),
+                "state": contact.get("state") or result.get("state"),
+                "zip_code": contact.get("zip_code") or result.get("zip_code")
             })
+        
+        transaction.ims_processing.add_log(f"Extracted insured data: name={result['name']}, address={result.get('address')}")
         
         return result
     
