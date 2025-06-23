@@ -6,6 +6,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Debug: Print loaded environment variables
+import logging
+logger = logging.getLogger(__name__)
+logger.info("Loading environment variables...")
+logger.info(f"DEFAULT_ENVIRONMENT: {os.getenv('DEFAULT_ENVIRONMENT')}")
+logger.info(f"TRITON_DEFAULT_OFFICE_GUID: {os.getenv('TRITON_DEFAULT_OFFICE_GUID')}")
+logger.info(f"TRITON_DEFAULT_PRODUCER_GUID: {os.getenv('TRITON_DEFAULT_PRODUCER_GUID')}")
+
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "IMS Integration API"

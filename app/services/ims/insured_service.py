@@ -123,7 +123,13 @@ class IMSInsuredService(BaseIMSService):
             # Get default office GUID from source configuration
             source = insured_data.get("source", "triton")
             source_config = self._get_source_config(source)
-            insured_data["office_guid"] = source_config.get("default_office_guid", "00000000-0000-0000-0000-000000000000")
+            office_guid = source_config.get("default_office_guid", "00000000-0000-0000-0000-000000000000")
+            
+            logger.info(f"Source: {source}")
+            logger.info(f"Source config: {source_config}")
+            logger.info(f"Office GUID: {office_guid}")
+            
+            insured_data["office_guid"] = office_guid
             
             # Create the insured
             insured_guid = self.soap_client.add_insured(insured_data)
