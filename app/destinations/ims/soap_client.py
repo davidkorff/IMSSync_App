@@ -101,9 +101,10 @@ class IMSSoapClient:
             'SOAPAction': action
         }
         
-        logger.debug(f"Sending SOAP request to {url}")
-        logger.debug(f"Headers: {headers}")
-        logger.debug(f"Body: {envelope}")
+        # Always log SOAP requests in INFO level for debugging
+        logger.info(f"Sending SOAP request to {url}")
+        logger.info(f"SOAP Action: {action}")
+        logger.info(f"SOAP Request Body:\n{envelope}")
         
         try:
             response = requests.post(url, data=envelope, headers=headers)
