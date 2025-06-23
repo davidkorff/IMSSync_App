@@ -139,6 +139,7 @@ class TransactionResponse(BaseModel):
     ims_status: Optional[IMSProcessingStatus] = None
     created_at: datetime = Field(default_factory=datetime.now)
     ims_details: Optional[Dict[str, Any]] = None
+    reference_id: Optional[str] = None  # For webhook compatibility
     
 class TransactionSearchParams(BaseModel):
     """Parameters for searching transactions"""
