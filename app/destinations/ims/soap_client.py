@@ -126,10 +126,21 @@ class IMSSoapClient:
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Error making SOAP request to {url}: {str(e)}")
+            logger.error(f"SOAP Action: {action}")
+            logger.error("Full SOAP Request:")
+            logger.error(envelope)
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response status: {e.response.status_code}")
+                logger.error(f"Response text: {e.response.text[:1000]}")  # First 1000 chars
             raise
         except ET.ParseError as e:
             logger.error(f"Error parsing SOAP response: {str(e)}")
             logger.error(f"Response text: {response.text}")
+            logger.error("Full SOAP Request that caused the error:")
+            logger.error(envelope)
+            # Check if it's a SOAP fault
+            if 'soap:Fault' in response.text or 'faultstring' in response.text:
+                logger.error("SOAP Fault detected in response")
             raise
     
     def login(self, username, password):
@@ -243,6 +254,9 @@ class IMSSoapClient:
         else:
             corporation_name = name
         
+        # Get office GUID from insured_data or use default
+        office_guid = insured_data.get('office_guid', '00000000-0000-0000-0000-000000000000')
+        
         body_content = f"""
         <AddInsured xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
             <insured>
@@ -250,8 +264,10 @@ class IMSSoapClient:
                 <FirstName>{first_name}</FirstName>
                 <LastName>{last_name}</LastName>
                 <CorporationName>{corporation_name}</CorporationName>
+                <NameOnPolicy>{name}</NameOnPolicy>
                 <FEIN>{tax_id if not is_individual else ""}</FEIN>
                 <SSN>{tax_id if is_individual else ""}</SSN>
+                <Office>{office_guid}</Office>
             </insured>
         </AddInsured>
         """

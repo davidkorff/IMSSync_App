@@ -421,7 +421,8 @@ class IMSWorkflowOrchestrator:
             "address": data.get("address") or data.get("insured_address"),
             "city": data.get("city") or data.get("insured_city"),
             "state": ims_fields.get("State") or data.get("state") or data.get("insured_state"),
-            "zip_code": ims_fields.get("ZipCode") or data.get("zip_code") or data.get("insured_zip")
+            "zip_code": ims_fields.get("ZipCode") or data.get("zip_code") or data.get("insured_zip"),
+            "source": source  # Pass source for configuration lookup
         }
         
         # Remove None values

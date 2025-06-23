@@ -37,6 +37,7 @@ class Settings(BaseSettings):
                     "company_location_guid": os.getenv("TRITON_COMPANY_LOCATION_GUID", "DF35D4C7-C663-4974-A886-A1E18D3C9618"),
                     "quoting_location_guid": os.getenv("TRITON_QUOTING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
                     "default_business_type_id": int(os.getenv("TRITON_DEFAULT_BUSINESS_TYPE_ID", "1")),
+                    "default_office_guid": os.getenv("TRITON_DEFAULT_OFFICE_GUID", "00000000-0000-0000-0000-000000000000"),
                     "raters": {
                         "AHC Primary": {
                             "rater_id": int(os.getenv("TRITON_PRIMARY_RATER_ID", "1")),
@@ -77,6 +78,7 @@ class Settings(BaseSettings):
                     "company_location_guid": os.getenv("TRITON_COMPANY_LOCATION_GUID", "DF35D4C7-C663-4974-A886-A1E18D3C9618"),
                     "quoting_location_guid": os.getenv("TRITON_QUOTING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
                     "default_business_type_id": int(os.getenv("TRITON_DEFAULT_BUSINESS_TYPE_ID", "1")),
+                    "default_office_guid": os.getenv("TRITON_DEFAULT_OFFICE_GUID", "00000000-0000-0000-0000-000000000000"),
                     "raters": {
                         "AHC Primary": {
                             "rater_id": int(os.getenv("TRITON_PRIMARY_RATER_ID", "1")),
