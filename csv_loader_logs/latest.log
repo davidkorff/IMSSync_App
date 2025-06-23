@@ -1,0 +1,606 @@
+﻿Starting CSV loader at 06/23/2025 01:05:19
+Command: python load_csv_to_ims.py 2 --sync
+========================================
+2025-06-23 01:05:20,643 - __main__ - INFO - CSV TO IMS LOADER STARTING
+2025-06-23 01:05:20,643 - __main__ - INFO - ================================================================================
+python : --- Logging error ---
+At C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\run_csv_loader.ps1:25 char:15
++     $result = python load_csv_to_ims.py $args 2>&1 | Out-String -Stre ...
++               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (--- Logging error ---:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 495, in main
+    csv_file = get_csv_file()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 444, in get_csv_file
+    logger.info("\U0001f4c1 Available CSV files in CSV_Samples/:")
+Message: '\U0001f4c1 Available CSV files in CSV_Samples/:'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 495, in main
+    csv_file = get_csv_file()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 444, in get_csv_file
+    logger.info("\U0001f4c1 Available CSV files in CSV_Samples/:")
+Message: '\U0001f4c1 Available CSV files in CSV_Samples/:'
+Arguments: ()
+2025-06-23 01:05:20,643 - __main__ - INFO -    1. Accounts Bound - Everest (1).csv
+2025-06-23 01:05:20,643 - __main__ - INFO -    2. Accounts Bound - Everest_2T.csv
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 495, in main
+    csv_file = get_csv_file()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 457, in get_csv_file
+    logger.info(f"\U0001f4c4 Selected file {specified_file}: {selected_file}")
+Message: '\U0001f4c4 Selected file 2: Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 495, in main
+    csv_file = get_csv_file()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 457, in get_csv_file
+    logger.info(f"\U0001f4c4 Selected file {specified_file}: {selected_file}")
+Message: '\U0001f4c4 Selected file 2: Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 516, in main
+    logger.info(f"\U0001f4c4 Final CSV File: {csv_file}")
+Message: '\U0001f4c4 Final CSV File: CSV_Samples/Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 516, in main
+    logger.info(f"\U0001f4c4 Final CSV File: {csv_file}")
+Message: '\U0001f4c4 Final CSV File: CSV_Samples/Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f310' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 517, in main
+    logger.info(f"\U0001f310 API URL: {base_url}")
+Message: '\U0001f310 API URL: http://localhost:8000'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f310' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 517, in main
+    logger.info(f"\U0001f310 API URL: {base_url}")
+Message: '\U0001f310 API URL: http://localhost:8000'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f511' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 518, in main
+    logger.info(f"\U0001f511 API Key: {api_key}")
+Message: '\U0001f511 API Key: test_api_key'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+2025-06-23 01:05:20,736 - __main__ - INFO - ================================================================================
+2025-06-23 01:05:20,736 - __main__ - INFO - CSV TO IMS LOADER INITIALIZED
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f511' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 518, in main
+    logger.info(f"\U0001f511 API Key: {api_key}")
+Message: '\U0001f511 API Key: test_api_key'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u26a1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 520, in main
+    logger.info(f"\u26a1 Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+Message: '\u26a1 Sync Mode: ENABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u26a1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 520, in main
+    logger.info(f"\u26a1 Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+Message: '\u26a1 Sync Mode: ENABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 521, in main
+    logger.info(f"\U0001f504 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
+Message: '\U0001f504 Status Polling: DISABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 521, in main
+    logger.info(f"\U0001f504 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
+Message: '\U0001f504 Status Polling: DISABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 50, in __init__
+    logger.info(f"\U0001f4c4 CSV File: {self.csv_file}")
+Message: '\U0001f4c4 CSV File: CSV_Samples/Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+2025-06-23 01:05:20,736 - __main__ - INFO - ================================================================================
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4c4' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 50, in __init__
+    logger.info(f"\U0001f4c4 CSV File: {self.csv_file}")
+Message: '\U0001f4c4 CSV File: CSV_Samples/Accounts Bound - Everest_2T.csv'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f310' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 51, in __init__
+    logger.info(f"\U0001f310 API Base URL: {self.base_url}")
+Message: '\U0001f310 API Base URL: http://localhost:8000'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f310' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 51, in __init__
+    logger.info(f"\U0001f310 API Base URL: {self.base_url}")
+Message: '\U0001f310 API Base URL: http://localhost:8000'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f511' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 52, in __init__
+    logger.info(f"\U0001f511 API Key: {self.api_key}")
+Message: '\U0001f511 API Key: test_api_key'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f511' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 52, in __init__
+    logger.info(f"\U0001f511 API Key: {self.api_key}")
+Message: '\U0001f511 API Key: test_api_key'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u26a1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 53, in __init__
+    logger.info(f"\u26a1 Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+Message: '\u26a1 Sync Mode: ENABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u26a1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 53, in __init__
+    logger.info(f"\u26a1 Sync Mode: {'ENABLED' if sync_mode else 'DISABLED'}")
+Message: '\u26a1 Sync Mode: ENABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 54, in __init__
+    logger.info(f"\U0001f504 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
+Message: '\U0001f504 Status Polling: DISABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f504' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 54, in __init__
+    logger.info(f"\U0001f504 Status Polling: {'ENABLED' if poll_status else 'DISABLED'}")
+Message: '\U0001f504 Status Polling: DISABLED'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u23f0' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 55, in __init__
+    logger.info(f"\u23f0 Session Started: {datetime.now().isoformat()}")
+Message: '\u23f0 Session Started: 2025-06-23T01:05:20.767337'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u23f0' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 55, in __init__
+    logger.info(f"\u23f0 Session Started: {datetime.now().isoformat()}")
+Message: '\u23f0 Session Started: 2025-06-23T01:05:20.767337'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f50d' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 63, in get_service_info
+    logger.info("\U0001f50d GETTING SERVICE INFORMATION")
+Message: '\U0001f50d GETTING SERVICE INFORMATION'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f50d' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 63, in get_service_info
+    logger.info("\U0001f50d GETTING SERVICE INFORMATION")
+Message: '\U0001f50d GETTING SERVICE INFORMATION'
+Arguments: ()
+2025-06-23 01:05:20,767 - __main__ - INFO - ----------------------------------------
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4e1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 68, in get_service_info
+    logger.info(f"\U0001f4e1 Health Check Request: GET {self.base_url}/api/health")
+Message: '\U0001f4e1 Health Check Request: GET http://localhost:8000/api/health'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4e1' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 68, in get_service_info
+    logger.info(f"\U0001f4e1 Health Check Request: GET {self.base_url}/api/health")
+Message: '\U0001f4e1 Health Check Request: GET http://localhost:8000/api/health'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4ca' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 69, in get_service_info
+    logger.info(f"\U0001f4ca Health Check Response: {response.status_code}")
+Message: '\U0001f4ca Health Check Response: 200'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f4ca' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 69, in get_service_info
+    logger.info(f"\U0001f4ca Health Check Response: {response.status_code}")
+Message: '\U0001f4ca Health Check Response: 200'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 74, in get_service_info
+    logger.info(f"\u2705 Service Health: {json.dumps(health_data, indent=2)}")
+Message: '\u2705 Service Health: {\n  "status": "healthy"\n}'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\__init__.py", line 1163, in emit
+    stream.write(msg + self.terminator)
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 44: character maps to <undefined>
+Call stack:
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 524, in main
+    loader = CSVToIMSLoader(csv_file, base_url, api_key, sync_mode, poll_status)
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 58, in __init__
+    self.get_service_info()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 74, in get_service_info
+    logger.info(f"\u2705 Service Health: {json.dumps(health_data, indent=2)}")
+Message: '\u2705 Service Health: {\n  "status": "healthy"\n}'
+Arguments: ()
+2025-06-23 01:05:22,840 - __main__ - INFO - ----------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 559, in <module>
+    main()
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 527, in main
+    if not loader.test_health():
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\david.korff\OneDrive - Ryan Specialty\Documents\RSG_IMS_Service\IMSSync_App\load_csv_to_ims.py", line 417, in test_health
+    print("\u2705 API service is healthy")
+  File "C:\Program Files\Python312\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>
+========================================
+Completed at 06/23/2025 01:05:22
