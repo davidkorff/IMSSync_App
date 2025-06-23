@@ -66,7 +66,7 @@ TRITON_FIELD_MAPPINGS = {
             "PARTNERSHIP": 2,
             "INDIVIDUAL": 3,
             "SOLE PROP": 4
-        }.get(x.upper(), 6)  # Default to "Other"
+        }.get(x.upper() if x else "", 1)  # Default to Corporation (1)
     ),
     
     # Policy fields

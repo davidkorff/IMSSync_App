@@ -29,9 +29,14 @@ class Settings(BaseSettings):
             "password": os.getenv("IMS_ONE_PASSWORD", "kCeTLc2bxqOmG72ZBvMFkA=="),
             "sources": {
                 "triton": {
-                    "default_producer_guid": os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000"),
-                    "default_line_guid": os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000"),
-                    "excess_line_guid": os.getenv("TRITON_EXCESS_LINE_GUID", "00000000-0000-0000-0000-000000000000"),
+                    "default_producer_guid": os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "895E9291-CFB6-4299-8799-9AF77DF937D6"),
+                    "default_line_guid": os.getenv("TRITON_PRIMARY_LINE_GUID", "07564291-CBFE-4BBE-88D1-0548C88ACED4"),
+                    "excess_line_guid": os.getenv("TRITON_EXCESS_LINE_GUID", "08798559-321C-4FC0-98ED-A61B92215F31"),
+                    "default_underwriter_guid": os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "E4391D2A-58FB-4E2D-8B7D-3447D9E18C88"),
+                    "issuing_location_guid": os.getenv("TRITON_ISSUING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
+                    "company_location_guid": os.getenv("TRITON_COMPANY_LOCATION_GUID", "DF35D4C7-C663-4974-A886-A1E18D3C9618"),
+                    "quoting_location_guid": os.getenv("TRITON_QUOTING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
+                    "default_business_type_id": int(os.getenv("TRITON_DEFAULT_BUSINESS_TYPE_ID", "1")),
                     "raters": {
                         "AHC Primary": {
                             "rater_id": int(os.getenv("TRITON_PRIMARY_RATER_ID", "1")),
@@ -64,9 +69,14 @@ class Settings(BaseSettings):
             "password": os.getenv("ISCMGA_TEST_PASSWORD", "kCeTLc2bxqOmG72ZBvMFkA=="),
             "sources": {
                 "triton": {
-                    "default_producer_guid": os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000"),
-                    "default_line_guid": os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000"),
-                    "excess_line_guid": os.getenv("TRITON_EXCESS_LINE_GUID", "00000000-0000-0000-0000-000000000000"),
+                    "default_producer_guid": os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "895E9291-CFB6-4299-8799-9AF77DF937D6"),
+                    "default_line_guid": os.getenv("TRITON_PRIMARY_LINE_GUID", "07564291-CBFE-4BBE-88D1-0548C88ACED4"),
+                    "excess_line_guid": os.getenv("TRITON_EXCESS_LINE_GUID", "08798559-321C-4FC0-98ED-A61B92215F31"),
+                    "default_underwriter_guid": os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "E4391D2A-58FB-4E2D-8B7D-3447D9E18C88"),
+                    "issuing_location_guid": os.getenv("TRITON_ISSUING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
+                    "company_location_guid": os.getenv("TRITON_COMPANY_LOCATION_GUID", "DF35D4C7-C663-4974-A886-A1E18D3C9618"),
+                    "quoting_location_guid": os.getenv("TRITON_QUOTING_LOCATION_GUID", "C5C006BB-6437-42F3-95D4-C090ADD3B37D"),
+                    "default_business_type_id": int(os.getenv("TRITON_DEFAULT_BUSINESS_TYPE_ID", "1")),
                     "raters": {
                         "AHC Primary": {
                             "rater_id": int(os.getenv("TRITON_PRIMARY_RATER_ID", "1")),

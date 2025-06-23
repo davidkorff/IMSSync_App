@@ -143,17 +143,21 @@ class IMSWorkflowOrchestrator:
         submission_data["producer_contact_guid"] = producer_guid
         submission_data["producer_location_guid"] = producer_guid
         
-        # Get underwriter - first try by name, then from producer
+        # Get underwriter - first try by name, then from producer, then use default
         underwriter_guid = self._get_underwriter_guid(transaction)
         if not underwriter_guid:
             underwriter_guid = self.producer_service.get_producer_underwriter(producer_guid)
         
-        if underwriter_guid:
-            submission_data["underwriter_guid"] = underwriter_guid
-            transaction.ims_processing.add_log(f"Using underwriter: {underwriter_guid}")
+        if not underwriter_guid:
+            # Use default underwriter for source system
+            source = transaction.parsed_data.get("source_system", "").lower()
+            source_config = self._get_source_config(source)
+            underwriter_guid = source_config.get("default_underwriter_guid", "00000000-0000-0000-0000-000000000000")
+            transaction.ims_processing.add_log(f"Using default underwriter for {source}: {underwriter_guid}")
         else:
-            submission_data["underwriter_guid"] = "00000000-0000-0000-0000-000000000000"
-            transaction.ims_processing.add_log("No underwriter found - using default")
+            transaction.ims_processing.add_log(f"Using underwriter: {underwriter_guid}")
+        
+        submission_data["underwriter_guid"] = underwriter_guid
         
         # Create submission
         submission_guid = self.quote_service.create_submission(submission_data)
@@ -192,10 +196,12 @@ class IMSWorkflowOrchestrator:
         line_guid = self.quote_service.get_default_line_guid(source, coverage_type)
         quote_data["line_guid"] = line_guid
         
-        # Set location GUIDs (using defaults for now)
-        quote_data["quoting_location_guid"] = "00000000-0000-0000-0000-000000000000"
-        quote_data["issuing_location_guid"] = "00000000-0000-0000-0000-000000000000"
-        quote_data["company_location_guid"] = "00000000-0000-0000-0000-000000000000"
+        # Set location GUIDs from source configuration
+        source = transaction.parsed_data.get("source_system", "").lower()
+        source_config = self._get_source_config(source)
+        quote_data["quoting_location_guid"] = source_config.get("quoting_location_guid", "00000000-0000-0000-0000-000000000000")
+        quote_data["issuing_location_guid"] = source_config.get("issuing_location_guid", "00000000-0000-0000-0000-000000000000")
+        quote_data["company_location_guid"] = source_config.get("company_location_guid", "00000000-0000-0000-0000-000000000000")
         
         # Use producer from submission
         quote_data["producer_contact_guid"] = transaction.ims_processing.submission.producer_contact_guid
