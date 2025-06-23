@@ -25,9 +25,9 @@ The integration follows a unidirectional push model where Triton sends transacti
 
 ### Base URL
 
-**Production**: `https://api.rsgims.com/triton/api/v1`  
-**Staging**: `https://api-staging.rsgims.com/triton/api/v1`  
-**Development**: `https://api-dev.rsgims.com/triton/api/v1`  
+**Production**: `https://api.rsgims.com`  
+**Staging**: `https://api-staging.rsgims.com`  
+**Development**: `https://api-dev.rsgims.com`  
 
 ### Authentication
 
@@ -308,7 +308,7 @@ Add the following environment variables to your deployment configuration:
 
 ```
 # RSG API Settings
-RSG_API_BASE_URL=https://api.rsgims.com/triton/api/v1
+RSG_API_BASE_URL=https://api.rsgims.com
 RSG_API_KEY=your_api_key_here
 RSG_CLIENT_ID=triton
 RSG_TIMEOUT=30
@@ -358,9 +358,9 @@ For transient errors (HTTP 429, 500, 502, 503, 504):
 
 | Environment | URL | Description |
 |-------------|-----|-------------|
-| Development | https://api-dev.rsgims.com/triton/api/v1 | For initial integration testing |
-| Staging | https://api-staging.rsgims.com/triton/api/v1 | For pre-production validation |
-| Production | https://api.rsgims.com/triton/api/v1 | Production environment |
+| Development | https://api-dev.rsgims.com | For initial integration testing |
+| Staging | https://api-staging.rsgims.com | For pre-production validation |
+| Production | https://api.rsgims.com | Production environment |
 
 ### Test Credentials
 

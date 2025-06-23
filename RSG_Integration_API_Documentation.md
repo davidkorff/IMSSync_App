@@ -239,31 +239,6 @@ X-API-Key: triton_test_key
 X-External-ID: TRI-12345 (optional)
 ```
 
-### 2. Triton Unified API
-
-**Endpoint**: `POST /triton/api/v1/transactions`
-
-Unified endpoint for all Triton transactions.
-
-**Headers**:
-```
-Content-Type: application/json
-X-API-Key: triton_test_key
-X-Client-Id: triton
-X-Triton-Version: 1.0 (optional)
-```
-
-**Request Body**:
-```json
-{
-  "transaction_type": "binding",
-  "transaction_id": "TRI-12345",
-  "transaction_date": "2025-05-20",
-  "policy_data": {
-    // Policy data structure as shown above
-  }
-}
-```
 
 ## Transaction Processing
 

@@ -97,17 +97,6 @@ POST /api/triton/transaction/{transaction_type}
 - **Body**: Triton-formatted JSON/XML data
 - **Response**: Transaction ID and complete IMS processing result (when sync_mode=true)
 
-##### Triton Webhook (Alternative)
-```http
-POST /api/triton/api/v1/transactions
-```
-- **Purpose**: Compatible with Triton webhook format
-- **Headers**:
-  - `X-API-Key`: Triton API key
-  - `X-Client-ID`: "triton"
-  - `X-Triton-Version`: Triton version (optional)
-- **Body**: Triton transaction object
-- **Response**: Transaction reference and status
 
 #### Xuber Endpoints
 
@@ -198,11 +187,10 @@ curl -X POST "https://api.rsgims.com/api/transaction/new?source=triton&sync_mode
 }
 ```
 
-### Example: Triton Webhook
+### Example: Triton-Specific Endpoint
 ```bash
-curl -X POST https://api.rsgims.com/api/triton/api/v1/transactions \
+curl -X POST https://api.rsgims.com/api/triton/transaction/new \
   -H "X-API-Key: triton-api-key" \
-  -H "X-Client-ID: triton" \
   -H "Content-Type: application/json" \
   -d '{
     "transaction_type": "binding",
@@ -318,7 +306,7 @@ All error responses follow this format:
 ## Webhook Configuration
 
 For push-based integrations, configure your system to send to:
-- **Triton**: `/api/triton/api/v1/transactions`
+- **Triton**: `/api/triton/transaction/{type}`
 - **Xuber**: `/api/xuber/transaction/{type}`
 - **Generic**: `/api/transaction/{type}?source={your_source}`
 

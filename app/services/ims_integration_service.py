@@ -11,25 +11,26 @@ from app.models.triton_models import (
     TritonCancellationTransaction
 )
 from app.models.transaction_models import TransactionType, TransactionStatus, Transaction
-from app.services.ims_workflow_service import IMSWorkflowService
+from app.services.ims.workflow_orchestrator import IMSWorkflowOrchestrator
 from app.integrations.triton.transformer import TritonTransformer
 
 logger = logging.getLogger(__name__)
 
 class IMSIntegrationService:
     """
-    Service for handling IMS integration between Triton and our system.
+    Service for handling IMS integration using the new modular architecture.
     
     This service is responsible for:
-    1. Receiving and validating transactions from Triton
-    2. Transforming Triton data format to our internal format
+    1. Receiving and validating transactions from external sources
+    2. Transforming data format to our internal format
     3. Initiating the appropriate workflow processes
-    4. Providing status updates back to Triton
+    4. Providing status updates back to source systems
     """
     
-    def __init__(self):
-        self.ims_workflow = IMSWorkflowService()
+    def __init__(self, environment=None):
+        self.workflow_orchestrator = IMSWorkflowOrchestrator(environment)
         self.transformer = TritonTransformer()
+        self.environment = environment
         
     async def process_triton_transaction(
         self,
@@ -135,6 +136,52 @@ class IMSIntegrationService:
             "status": "received",
             "reference_id": f"RSG-{transaction_id}" 
         }
+    
+    def process_transaction(self, transaction: Transaction) -> Transaction:
+        """
+        Process a generic transaction through the IMS workflow using the new modular architecture.
+        
+        Args:
+            transaction: The transaction to process
+            
+        Returns:
+            The updated transaction after processing
+        """
+        logger.info(f"Processing transaction {transaction.transaction_id} through IMS modular services")
+        
+        try:
+            # Process through the workflow orchestrator
+            result = self.workflow_orchestrator.process_transaction(transaction)
+            
+            # Log the result
+            if result.ims_processing.status.value == "issued":
+                logger.info(f"Transaction {transaction.transaction_id} successfully completed. "
+                          f"Policy: {result.ims_processing.policy.policy_number if result.ims_processing.policy else 'N/A'}")
+            elif result.ims_processing.status.value == "error":
+                logger.error(f"Transaction {transaction.transaction_id} failed during IMS processing")
+            else:
+                logger.info(f"Transaction {transaction.transaction_id} partially processed. "
+                          f"Status: {result.ims_processing.status.value}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing transaction {transaction.transaction_id}: {str(e)}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            
+            # Update transaction status
+            transaction.update_status(
+                TransactionStatus.FAILED,
+                f"Error during IMS processing: {str(e)}"
+            )
+            
+            # Set IMS processing status to error
+            if transaction.ims_processing:
+                transaction.ims_processing.status = "error"
+                transaction.ims_processing.add_log(f"ERROR: {str(e)}")
+            
+            raise
     
     async def get_transaction_status(self, transaction_id: str) -> Dict[str, Any]:
         """

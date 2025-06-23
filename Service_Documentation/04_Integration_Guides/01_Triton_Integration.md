@@ -129,7 +129,7 @@ mysql -e "SELECT * FROM ims_transaction_logs WHERE source_system='triton' ORDER 
 
 Triton can send transactions to these endpoints:
 
-1. **Standard Endpoint**:
+1. **Source-Specific Endpoint**:
    ```
    POST /api/triton/transaction/{transaction_type}
    Headers:
@@ -137,13 +137,12 @@ Triton can send transactions to these endpoints:
      Content-Type: application/json
    ```
 
-2. **Webhook-Compatible Endpoint**:
+2. **Generic Endpoint**:
    ```
-   POST /api/triton/api/v1/transactions
+   POST /api/transaction/{transaction_type}?source=triton
    Headers:
-     X-API-Key: your-triton-api-key
-     X-Client-ID: triton
-     X-Triton-Version: 1.0 (optional)
+     X-API-Key: your-api-key
+     Content-Type: application/json
    ```
 
 ### Transaction Types
@@ -156,9 +155,8 @@ Triton can send transactions to these endpoints:
 
 #### Binding Transaction
 ```bash
-curl -X POST https://api.rsgims.com/api/triton/api/v1/transactions \
+curl -X POST https://api.rsgims.com/api/triton/transaction/new \
   -H "X-API-Key: your-triton-api-key" \
-  -H "X-Client-ID: triton" \
   -H "Content-Type: application/json" \
   -d '{
     "transaction_type": "binding",
@@ -200,8 +198,12 @@ curl -X POST https://api.rsgims.com/api/triton/api/v1/transactions \
 {
   "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "received",
-  "reference_id": "RSG-550e8400",
-  "message": "Triton binding transaction received and queued for processing"
+  "message": "Triton new transaction processed: completed",
+  "ims_status": "issued",
+  "ims_details": {
+    "policy_number": "AHC-12345",
+    "insured_guid": "abc123-def456-ghi789"
+  }
 }
 ```
 

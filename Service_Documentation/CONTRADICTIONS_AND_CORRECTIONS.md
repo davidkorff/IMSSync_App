@@ -15,7 +15,6 @@ Based on `app/api/source_routes.py` and `app/main.py`:
 
 **Source-Specific Endpoints:**
 - `POST /api/triton/transaction/{transaction_type}` - Triton transactions
-- `POST /api/triton/api/v1/transactions` - Triton webhook (alternative)
 - `POST /api/xuber/transaction/{transaction_type}` - Xuber transactions
 
 **Generic Endpoints:**

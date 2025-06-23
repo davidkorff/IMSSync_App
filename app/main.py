@@ -7,6 +7,7 @@ import time
 from app.api.routes import router as api_router
 from app.api.source_routes import router as source_router
 from app.core.config import settings
+from app.core.monitoring import setup_monitoring
 
 # Configure logging
 logging.basicConfig(
@@ -71,13 +72,17 @@ app.include_router(source_router, prefix="/api")
 
 @app.on_event("startup")
 async def startup_event():
+    # Setup monitoring
+    setup_monitoring(app_name="ims-integration-service", app_version="1.0.0")
+    
     logger.info("===================================================")
     logger.info("IMS Integration Service started and ready to receive transactions")
     logger.info("Endpoints:")
     logger.info("  POST /api/transaction/{transaction_type} - Create a transaction (new, update, cancellation, etc.)")
     logger.info("  GET /api/transaction/{id} - Check transaction status")
     logger.info("  GET /api/transactions - Search transactions")
-    logger.info("  GET /api/health - Health check")
+    logger.info("  GET /api/health - Health check with detailed status")
+    logger.info("  GET /api/metrics - Prometheus metrics endpoint")
     logger.info("")
     logger.info("Source-specific endpoints:")
     logger.info("  POST /api/triton/transaction/{transaction_type} - Create Triton transaction")

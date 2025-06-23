@@ -389,7 +389,7 @@ CREATE TABLE ims_transaction_logs (
    **Triton:**
    - `POST /api/triton/transaction/new` - Triton-specific new business
    - `POST /api/triton/transaction/update` - Triton-specific updates
-   - `POST /api/triton/api/v1/transactions` - Triton webhook endpoint
+   - `POST /api/triton/transaction/cancellation` - Triton-specific cancellations
    
    **Xuber:**
    - `POST /api/xuber/transaction/new` - Xuber-specific new business
@@ -608,11 +608,10 @@ A complete `.env.example` file is provided in the repository. Copy this to `.env
      -d @test_update.json
    ```
 
-3. **Test Triton Webhook**
+3. **Test Triton Endpoint**
    ```bash
-   curl -X POST http://localhost:8000/api/triton/api/v1/transactions \
+   curl -X POST http://localhost:8000/api/triton/transaction/new \
      -H "X-API-Key: triton-api-key" \
-     -H "X-Client-ID: triton" \
      -H "Content-Type: application/json" \
      -d @triton_transaction.json
    ```
