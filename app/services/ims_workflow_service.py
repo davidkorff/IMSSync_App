@@ -133,7 +133,10 @@ class IMSWorkflowService:
             transaction.ims_processing.add_log(f"Looking for existing insured: {insured_data['name']}")
             insured_guid = self.soap_client.find_insured_by_name(
                 insured_data["name"], 
-                insured_data.get("tax_id")
+                insured_data.get("tax_id"),
+                city=insured_data.get("city", ""),
+                state=insured_data.get("state", ""),
+                zip_code=insured_data.get("zip_code", "")
             )
             
             if insured_guid:

@@ -181,13 +181,17 @@ class IMSSoapClient:
             logger.error(f"Error logging in to IMS: {str(e)}")
             raise
     
-    def find_insured_by_name(self, name, tax_id=None):
+    def find_insured_by_name(self, name, tax_id=None, city="", state="", zip_code=""):
         """Find insured by name"""
         logger.info(f"Finding insured by name: {name}")
         
         body_content = f"""
         <FindInsuredByName xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
-            <partialName>{name}</partialName>
+            <insuredName>{name}</insuredName>
+            <city>{city}</city>
+            <state>{state}</state>
+            <zip>{zip_code}</zip>
+            <zipPlus></zipPlus>
         </FindInsuredByName>
         """
         
@@ -199,27 +203,24 @@ class IMSSoapClient:
             )
             
             # Extract results from response
-            if response and 'soap:Body' in response:
-                find_response = response['soap:Body'].get('FindInsuredByNameResponse', {})
-                find_result = find_response.get('FindInsuredByNameResult', {})
+            body = response.get('ns0:Body') or response.get('soap:Body')
+            if not body:
+                logger.warning("No SOAP body in FindInsuredByName response")
+                return None
                 
-                if isinstance(find_result, dict) and 'Insureds' in find_result:
-                    insureds = find_result['Insureds'].get('LookupInsured', [])
-                    
-                    # Convert to list if it's a single item
-                    if not isinstance(insureds, list):
-                        insureds = [insureds]
-                    
-                    # If tax_id is provided, filter by it
-                    if tax_id:
-                        for insured in insureds:
-                            if insured.get('TaxID') == tax_id:
-                                return insured.get('InsuredGUID')
-                    
-                    # Otherwise return the first match
-                    if insureds:
-                        return insureds[0].get('InsuredGUID')
+            find_response = body.get('ns1:FindInsuredByNameResponse') or body.get('FindInsuredByNameResponse')
+            if not find_response:
+                logger.warning("No FindInsuredByNameResponse in response")
+                return None
+                
+            # According to docs, this returns a single GUID
+            find_result = find_response.get('ns1:FindInsuredByNameResult') or find_response.get('FindInsuredByNameResult')
             
+            if find_result and find_result != "00000000-0000-0000-0000-000000000000":
+                logger.info(f"Found insured with GUID: {find_result}")
+                return find_result
+            
+            logger.info("No matching insured found")
             return None
             
         except Exception as e:
