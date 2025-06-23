@@ -38,7 +38,8 @@ class IMSSoapClient:
             self.invoicing_url = settings_dict.get("WebServicesInvoicingUrl")
             
             # Construct other URLs based on pattern from known URLs
-            base_path = re.match(r'(.*?)/(.*?)\.asmx', self.logon_url)
+            # Extract base URL by removing the service name (e.g., /logon.asmx)
+            base_path = re.match(r'(.*?)/[^/]+\.asmx', self.logon_url)
             if base_path:
                 base_url = base_path.group(1)
                 self.insured_functions_url = f"{base_url}/InsuredFunctions.asmx"
