@@ -48,7 +48,7 @@ POST /api/transaction/{transaction_type}
 - **Query Parameters**:
   - `source`: Source system identifier (default: "triton")
   - `external_id`: Optional external reference ID
-  - `sync_mode`: Process synchronously and wait for IMS result (default: false)
+  - `sync_mode`: Process synchronously and wait for IMS result (default: true)
 - **Body**: JSON or XML transaction data
 - **Response**: Transaction ID and status
 
@@ -89,11 +89,13 @@ POST /api/triton/transaction/{transaction_type}
 ```
 - **Path Parameters**:
   - `transaction_type`: `new`, `update`, `cancellation`, `endorsement`, `reinstatement`
+- **Query Parameters**:
+  - `sync_mode`: Process synchronously and wait for IMS result (default: true)
 - **Headers**:
   - `X-API-Key`: Triton-specific API key
   - `X-Client-ID`: "triton" (optional)
 - **Body**: Triton-formatted JSON/XML data
-- **Response**: Transaction ID and status
+- **Response**: Transaction ID and complete IMS processing result (when sync_mode=true)
 
 ##### Triton Webhook (Alternative)
 ```http

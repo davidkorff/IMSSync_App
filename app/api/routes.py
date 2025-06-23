@@ -24,10 +24,13 @@ async def create_transaction(
     api_key: str = Depends(get_api_key),
     source: str = "triton",
     external_id: Optional[str] = None,
-    sync_mode: bool = False
+    sync_mode: bool = True  # Default to synchronous processing for immediate IMS feedback
 ):
     """
     Create a new transaction from incoming data (supports both JSON and XML)
+    
+    By default, processes synchronously through IMS and returns the complete result.
+    Set sync_mode=false for async processing (returns immediately without IMS result).
     """
     try:
         # Get raw request body
@@ -225,7 +228,8 @@ async def receive_triton_transaction(
     x_api_key: str = Header(..., description="API key for authentication"),
     x_client_id: str = Header(..., description="Client ID for identification"),
     x_triton_version: Optional[str] = Header(None, description="Triton version info"),
-    source: str = Query("triton", description="Source system identifier")
+    source: str = Query("triton", description="Source system identifier"),
+    sync_mode: bool = Query(True, description="Process synchronously and wait for IMS result")
 ):
     """
     Receive a transaction from Triton IMS system.
@@ -275,16 +279,40 @@ async def receive_triton_transaction(
         logger.info(f"Created transaction {transaction.transaction_id} from Triton data" + 
                   (f" with external ID {external_id}" if external_id else ""))
         
-        # Start processing in background (non-blocking)
-        asyncio.create_task(process_transaction_async(transaction.transaction_id))
-        logger.info(f"Started async processing for Triton transaction {transaction.transaction_id}")
-        
-        return TransactionResponse(
-            transaction_id=transaction.transaction_id,
-            status=transaction.status,
-            message=f"Triton {transaction_type} transaction received successfully and queued for processing",
-            reference_id=f"RSG-{transaction.transaction_id}"
-        )
+        if sync_mode:
+            # Process synchronously and wait for result
+            logger.info(f"Processing transaction {transaction.transaction_id} synchronously")
+            result = transaction_service.process_transaction(transaction.transaction_id)
+            
+            # Reload transaction to get latest status
+            transaction = transaction_service.get_transaction(transaction.transaction_id)
+            
+            return TransactionResponse(
+                transaction_id=transaction.transaction_id,
+                status=transaction.status,
+                ims_status=transaction.ims_processing.status if transaction.ims_processing else None,
+                message=f"Triton {transaction_type} transaction processed: {transaction.status.value}",
+                reference_id=f"RSG-{transaction.transaction_id}",
+                ims_details={
+                    "processing_status": transaction.ims_processing.status.value if transaction.ims_processing else None,
+                    "insured_guid": transaction.ims_processing.insured.guid if transaction.ims_processing and transaction.ims_processing.insured else None,
+                    "submission_guid": transaction.ims_processing.submission.guid if transaction.ims_processing and transaction.ims_processing.submission else None,
+                    "quote_guid": transaction.ims_processing.quote.guid if transaction.ims_processing and transaction.ims_processing.quote else None,
+                    "policy_number": transaction.ims_processing.policy.policy_number if transaction.ims_processing and transaction.ims_processing.policy else None,
+                    "error": transaction.error_message
+                } if transaction.ims_processing else None
+            )
+        else:
+            # Start processing in background (non-blocking)
+            asyncio.create_task(process_transaction_async(transaction.transaction_id))
+            logger.info(f"Started async processing for Triton transaction {transaction.transaction_id}")
+            
+            return TransactionResponse(
+                transaction_id=transaction.transaction_id,
+                status=transaction.status,
+                message=f"Triton {transaction_type} transaction received successfully and queued for processing",
+                reference_id=f"RSG-{transaction.transaction_id}"
+            )
         
     except json.JSONDecodeError:
         logger.error("Invalid JSON received from Triton")
