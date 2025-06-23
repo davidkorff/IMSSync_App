@@ -288,6 +288,7 @@ class IMSSoapClient:
                 <FirstName>{first_name}</FirstName>
                 <LastName>{last_name}</LastName>
                 <CorporationName>{corporation_name}</CorporationName>
+                <NameOnPolicy>{name}</NameOnPolicy>
                 <FEIN>{tax_id if not is_individual else ""}</FEIN>
                 <SSN>{tax_id if is_individual else ""}</SSN>
             </insured>
