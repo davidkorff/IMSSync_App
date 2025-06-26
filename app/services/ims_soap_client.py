@@ -298,9 +298,10 @@ class IMSSoapClient:
             <location>
                 <LocationName>Primary Location</LocationName>
                 <Address1>{address if address else "123 Main St"}</Address1>
-                <City>{city}</City>
-                <StateAbbreviation>{state}</StateAbbreviation>
-                <ZipCode>{zip_code}</ZipCode>
+                <City>{city if city else "Unknown City"}</City>
+                <State>{state if state else "FL"}</State>
+                <StateAbbreviation>{state if state else "FL"}</StateAbbreviation>
+                <ZipCode>{zip_code if zip_code else "00000"}</ZipCode>
                 <LocationTypeID>1</LocationTypeID>
                 <ISOCountryCode>US</ISOCountryCode>
                 <OfficeGuid>{self.environment_config.get('sources', {}).get('triton', {}).get('default_office_guid', '00000000-0000-0000-0000-000000000000')}</OfficeGuid>
