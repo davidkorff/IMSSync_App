@@ -304,6 +304,7 @@ class IMSSoapClient:
                 <Zip>{zip_code if zip_code else "00000"}</Zip>
                 <LocationTypeID>1</LocationTypeID>
                 <ISOCountryCode>US</ISOCountryCode>
+                <DeliveryMethodID>3</DeliveryMethodID>
                 <OfficeGuid>{self.environment_config.get('sources', {}).get('triton', {}).get('default_office_guid', '00000000-0000-0000-0000-000000000000')}</OfficeGuid>
             </location>
         </AddInsuredWithLocation>
