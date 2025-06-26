@@ -590,10 +590,26 @@ class IMSWorkflowService:
             "Unknown Insured"
         )
         
+        # Extract business_type_id from transformed data
+        business_type_id = None
+        
+        # Check for business_type_id in various locations
+        if "insured_data" in policy_data:
+            business_type_id = policy_data["insured_data"].get("business_type_id")
+        elif "business_type_id" in policy_data:
+            business_type_id = policy_data["business_type_id"]
+        
+        # If still not found, default to 13 (Corporation in IMS_DEV)
+        if business_type_id is None:
+            business_type_id = 13
+            transaction.ims_processing.add_log(f"No business_type_id found, defaulting to Corporation (13)")
+        else:
+            transaction.ims_processing.add_log(f"Using business_type_id: {business_type_id}")
+        
         result = {
             "name": insured_name,
             "tax_id": policy_data.get("tax_id") or policy_data.get("insured", {}).get("tax_id"),
-            "business_type_id": 1  # Default business type ID
+            "business_type_id": business_type_id
         }
         
         # Extract contact information - handle flat or nested structure

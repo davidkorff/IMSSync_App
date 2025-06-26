@@ -281,6 +281,9 @@ class IMSSoapClient:
         state = insured_data.get('state', '')
         zip_code = insured_data.get('zip_code', '')
         
+        # Log the BusinessTypeID being sent
+        logger.info(f"Sending AddInsuredWithLocation with BusinessTypeID: {business_type_id} for insured: {name}")
+        
         body_content = f"""
         <AddInsuredWithLocation xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
             <insured>

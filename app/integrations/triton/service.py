@@ -41,6 +41,12 @@ class TritonIntegrationService:
             transaction.processed_data = transformed_data
             transaction.ims_processing.add_log("Data transformed to IMS format")
             
+            # Debug log to see the transformed data structure
+            if "insured_data" in transformed_data:
+                business_type_id = transformed_data["insured_data"].get("business_type_id")
+                logger.info(f"Transformed data contains business_type_id: {business_type_id}")
+                transaction.ims_processing.add_log(f"Transformed business_type_id: {business_type_id}")
+            
             # Get Excel rater information
             rater_info = self.transformer.get_excel_rater_info(transaction.parsed_data)
             transaction.ims_processing.excel_rater_id = rater_info.get("rater_id")
