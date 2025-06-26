@@ -317,20 +317,28 @@ class IMSSoapClient:
                 body_content
             )
             
-            # Extract insured GUID from response
-            if response and 'soap:Body' in response:
-                add_response = response['soap:Body'].get('AddInsuredWithLocationResponse', {})
-                insured_guid = add_response.get('AddInsuredWithLocationResult')
-                
-                if insured_guid:
-                    logger.info(f"Successfully added insured, received GUID: {insured_guid}")
-                    return insured_guid
-                else:
-                    logger.error("Failed to add insured: No GUID returned")
-                    raise ValueError("Failed to add insured: No GUID returned")
+            # Debug log the response structure
+            logger.debug(f"AddInsuredWithLocation response structure: {response}")
             
-            logger.error("Failed to add insured: Unexpected response format")
-            raise ValueError("Failed to add insured: Unexpected response format")
+            # Extract insured GUID from response - handle namespace variations
+            body = response.get('ns0:Body') or response.get('soap:Body')
+            if not body:
+                logger.error(f"No SOAP body found in response. Keys present: {list(response.keys())}")
+                raise ValueError("Failed to add insured: Missing SOAP body")
+            
+            add_response = body.get('ns1:AddInsuredWithLocationResponse') or body.get('AddInsuredWithLocationResponse')
+            if not add_response:
+                logger.error(f"No AddInsuredWithLocationResponse found. Body keys: {list(body.keys())}")
+                raise ValueError("Failed to add insured: Missing AddInsuredWithLocationResponse")
+            
+            insured_guid = add_response.get('ns1:AddInsuredWithLocationResult') or add_response.get('AddInsuredWithLocationResult')
+            
+            if insured_guid and insured_guid != "00000000-0000-0000-0000-000000000000":
+                logger.info(f"Successfully added insured, received GUID: {insured_guid}")
+                return insured_guid
+            else:
+                logger.error(f"Failed to add insured: Invalid or missing GUID - {insured_guid}")
+                raise ValueError("Failed to add insured: Invalid or missing GUID")
             
         except Exception as e:
             logger.error(f"Error adding insured: {str(e)}")
