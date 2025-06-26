@@ -297,9 +297,9 @@ class IMSSoapClient:
             </insured>
             <location>
                 <LocationName>Primary Location</LocationName>
+                <Address1>{address if address else "123 Main St"}</Address1>
                 <City>{city}</City>
                 <StateAbbreviation>{state}</StateAbbreviation>
-                <Street>{address}</Street>
                 <ZipCode>{zip_code}</ZipCode>
                 <LocationTypeID>1</LocationTypeID>
                 <ISOCountryCode>US</ISOCountryCode>
