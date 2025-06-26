@@ -1,0 +1,29 @@
+{
+  "transaction_type": "binding",
+  "transaction_id": "44b494f0-4513-4c3d-8feb-48085bc474a4",
+  "transaction_date": "2025-06-25T08:48:04.988-05:00",
+  "policy_number": "GAH-106040-250920",
+  "effective_date": "2025-09-20",
+  "expiration_date": "2026-09-20",
+  "is_renewal": true,
+  "account": {
+    "name": "Ruby's Nursing Care LLC",
+    "street_1": "REQUIRED - Not provided",
+    "city": "REQUIRED - Not provided",
+    "state": "FL",
+    "zip": "33351"
+  },
+  "producer": {
+    "name": "Jordan Alvaranga"
+  },
+  "program": {
+    "name": "Allied Health",
+    "id": "REQUIRED - Not provided"
+  },
+  "premium": {
+    "annual_premium": 1639,
+    "policy_fee": 250,
+    "commission_rate": 17.5
+  },
+  "exposures": []
+}

@@ -1,0 +1,106 @@
+{
+  "policy_data": {
+    "policy_number": "GAH-106040-250920",
+    "effective_date": "2025-09-20",
+    "expiration_date": "2026-09-20",
+    "bound_date": "2025-06-25",
+    "line_of_business": "GL",
+    "line_guid": "00000000-0000-0000-0000-000000000000",
+    "producer_guid": "00000000-0000-0000-0000-000000000000",
+    "producer_location_guid": null,
+    "commission_rate": 17.5,
+    "is_renewal": true,
+    "status": "bound",
+    "program_name": null,
+    "class_of_business": null,
+    "opportunity_id": 106040,
+    "transaction_type": "MIDTERM ENDORSEMENT"
+  },
+  "insured_data": {
+    "name": "Ruby's Nursing Care LLC",
+    "dba": null,
+    "tax_id": null,
+    "business_type_id": 13,
+    "contact_first_name": null,
+    "contact_last_name": null,
+    "contact_phone": null,
+    "contact_email": null,
+    "state": "FL",
+    "zip": "33351",
+    "address_1": "123 Healthcare Blvd",
+    "city": "Miami",
+    "country": "USA"
+  },
+  "producer_data": {
+    "name": "Jordan Alvaranga",
+    "underwriter_name": "Haley Crocombe"
+  },
+  "premium_data": {
+    "gross_premium": 1739.0,
+    "base_premium": 0.0,
+    "net_premium": 0.0,
+    "policy_fee": 250.0,
+    "surplus_lines_tax": 0.0,
+    "stamping_fee": 0.0,
+    "other_fee": 0.0,
+    "commission_amount": 0.0,
+    "commission_percent": 0.0
+  },
+  "locations": [
+    {
+      "address_1": "Primary Location",
+      "city": "Miami",
+      "state": "FL",
+      "zip": "33351",
+      "country": "USA",
+      "is_primary": true
+    }
+  ],
+  "coverages": [
+    {
+      "coverage_type": "General Liability",
+      "limit_occurrence": 2000000.0,
+      "limit_aggregate": 4000000.0,
+      "deductible": 2500.0,
+      "premium": 1739.0
+    }
+  ],
+  "additional_data": {
+    "umr": "B0886RSG25A",
+    "agreement_number": "AGR-2025-001",
+    "section_number": "001",
+    "invoice_date": null,
+    "opportunity_type": null,
+    "limit_prior": "$1,000,000/$3,000,000",
+    "midterm_endt_id": "END-001",
+    "midterm_endt_description": "Add additional insured - ABC Healthcare",
+    "midterm_endt_effective_from": "12/01/2025",
+    "midterm_endt_endorsement_number": "001",
+    "additional_insured": [
+      {
+        "name": "ABC Healthcare Partners",
+        "relationship": "Additional Insured",
+        "address": "456 Medical Center Dr, Miami, FL 33333"
+      },
+      {
+        "name": "XYZ Medical Group",
+        "relationship": "Additional Insured",
+        "address": "789 Hospital Way, Miami, FL 33334"
+      }
+    ],
+    "opportunity_id": 106040,
+    "bound_date_original": "06/25/2025",
+    "business_type": "Renewal"
+  },
+  "additional_information": [
+    "TritonOpportunityId:106040",
+    "OriginalBoundDate:06/25/2025",
+    "PriorLimits:$1,000,000/$3,000,000",
+    "UMR:B0886RSG25A",
+    "AgreementNumber:AGR-2025-001",
+    "SectionNumber:001",
+    "EndorsementId:END-001",
+    "EndorsementDesc:Add additional insured - ABC Healthcare",
+    "AdditionalInsureds:[{\"name\": \"ABC Healthcare Partners\", \"relationship\": \"Additional Insured\", \"address\": \"456 Medical Center Dr, Miami, FL 33333\"}, {\"name\": \"XYZ Medical Group\", \"relationship\": \"Additional Insured\", \"address\": \"789 Hospital Way, Miami, FL 33334\"}]"
+  ]
+}

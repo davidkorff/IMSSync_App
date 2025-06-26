@@ -1,5 +1,5 @@
 """
-Transformer for Triton data
+Transformer for Triton data - handles both nested and flat structures
 """
 
 import logging
@@ -68,11 +68,38 @@ class TritonTransformer:
         logger.info(f"Using default producer GUID: {default_producer_guid}")
         return default_producer_guid
     
+    def _is_flat_structure(self, data: Dict[str, Any]) -> bool:
+        """
+        Detect if the data is in flat format (like TEST.json)
+        """
+        # Check for flat structure indicators
+        flat_indicators = ['insured_name', 'insured_state', 'producer_name', 'gross_premium']
+        nested_indicators = ['insured', 'producer', 'locations', 'coverages']
+        
+        flat_count = sum(1 for key in flat_indicators if key in data)
+        nested_count = sum(1 for key in nested_indicators if key in data and isinstance(data[key], (dict, list)))
+        
+        return flat_count > nested_count
+    
+    def _transform_flat_to_nested(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert flat structure to nested structure for processing
+        """
+        # Import the flat transformer
+        from app.integrations.triton.flat_transformer import TritonFlatTransformer
+        flat_transformer = TritonFlatTransformer(self.config)
+        return flat_transformer.transform_to_ims_format(data)
+    
     def transform_to_ims_format(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Transform Triton data to IMS format
+        Transform Triton data to IMS format - handles both flat and nested structures
         """
         logger.info("Transforming Triton data to IMS format")
+        
+        # Check if this is a flat structure
+        if self._is_flat_structure(data):
+            logger.info("Detected flat structure, using flat transformer")
+            return self._transform_flat_to_nested(data)
         
         # Determine line of business
         line_of_business, line_guid = self.determine_line_of_business(data)
@@ -133,6 +160,13 @@ class TritonTransformer:
         """
         Get Excel rater information based on the transformed data
         """
+        # Check if this is a flat structure
+        if self._is_flat_structure(data):
+            logger.info("Using flat transformer for Excel rater info")
+            from app.integrations.triton.flat_transformer import TritonFlatTransformer
+            flat_transformer = TritonFlatTransformer(self.config)
+            return flat_transformer.get_excel_rater_info(data)
+            
         # Determine line of business
         line_of_business, _ = self.determine_line_of_business(data)
         
