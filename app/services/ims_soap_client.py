@@ -284,6 +284,10 @@ class IMSSoapClient:
         # Log the BusinessTypeID being sent
         logger.info(f"Sending AddInsuredWithLocation with BusinessTypeID: {business_type_id} for insured: {name}")
         
+        # Only include FEIN/SSN if we have a tax_id
+        fein_element = f"<FEIN>{tax_id}</FEIN>" if tax_id and not is_individual else ""
+        ssn_element = f"<SSN>{tax_id}</SSN>" if tax_id and is_individual else ""
+        
         body_content = f"""
         <AddInsuredWithLocation xmlns="http://tempuri.org/IMSWebServices/InsuredFunctions">
             <insured>
@@ -292,8 +296,8 @@ class IMSSoapClient:
                 <LastName>{last_name}</LastName>
                 <CorporationName>{corporation_name}</CorporationName>
                 <NameOnPolicy>{name}</NameOnPolicy>
-                <FEIN>{tax_id if not is_individual else ""}</FEIN>
-                <SSN>{tax_id if is_individual else ""}</SSN>
+                {fein_element}
+                {ssn_element}
             </insured>
             <location>
                 <LocationName>Primary Location</LocationName>
