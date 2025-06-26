@@ -301,7 +301,7 @@ class IMSSoapClient:
                 <City>{city if city else "Unknown City"}</City>
                 <State>{state if state else "FL"}</State>
                 <StateAbbreviation>{state if state else "FL"}</StateAbbreviation>
-                <ZipCode>{zip_code if zip_code else "00000"}</ZipCode>
+                <Zip>{zip_code if zip_code else "00000"}</Zip>
                 <LocationTypeID>1</LocationTypeID>
                 <ISOCountryCode>US</ISOCountryCode>
                 <OfficeGuid>{self.environment_config.get('sources', {}).get('triton', {}).get('default_office_guid', '00000000-0000-0000-0000-000000000000')}</OfficeGuid>
