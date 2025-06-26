@@ -8774,3 +8774,147 @@ requests.exceptions.ConnectionError: HTTPConnectionPool(host='dc02imsws01.rsgcor
 
 2025-06-23 04:18:41,963 - app.api.routes - INFO - Completed processing transaction 3c1e0fcd-a108-4bea-b34d-f4e3eada2334: Status=failed, Message=Transaction processing failed: Error processing transaction in IMS at stage pending: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7fe2429fa5b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
 2025-06-23 04:18:41,964 - app.main - INFO - RESPONSE - IP: 172.31.20.70, Method: POST, Path: /api/transaction/new, Status: 200, Time: 0.034s
+2025-06-25 18:55:15,042 - app.core.monitoring - INFO - OTEL_EXPORTER_OTLP_ENDPOINT not set, OpenTelemetry disabled
+2025-06-25 18:55:15,042 - app.main - INFO - ===================================================
+2025-06-25 18:55:15,042 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-25 18:55:15,042 - app.main - INFO - Endpoints:
+2025-06-25 18:55:15,042 - app.main - INFO -   POST /api/transaction/{transaction_type} - Create a transaction (new, update, cancellation, etc.)
+2025-06-25 18:55:15,042 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-25 18:55:15,042 - app.main - INFO -   GET /api/transactions - Search transactions
+2025-06-25 18:55:15,042 - app.main - INFO -   GET /api/health - Health check with detailed status
+2025-06-25 18:55:15,042 - app.main - INFO -   GET /api/metrics - Prometheus metrics endpoint
+2025-06-25 18:55:15,042 - app.main - INFO - 
+2025-06-25 18:55:15,042 - app.main - INFO - Source-specific endpoints:
+2025-06-25 18:55:15,042 - app.main - INFO -   POST /api/triton/transaction/{transaction_type} - Create Triton transaction
+2025-06-25 18:55:15,042 - app.main - INFO -   POST /api/xuber/transaction/{transaction_type} - Create Xuber transaction
+2025-06-25 18:55:15,042 - app.main - INFO - 
+2025-06-25 18:55:15,042 - app.main - INFO - Transaction types: new, update, cancellation, endorsement, reinstatement
+2025-06-25 18:55:15,042 - app.main - INFO - Example: POST /api/transaction/new?source=triton
+2025-06-25 18:55:15,042 - app.main - INFO - ===================================================
+2025-06-25 18:56:20,147 - app.main - INFO - INCOMING REQUEST - IP: 172.31.3.43, Method: POST, Path: /api/triton/transaction/new, Headers: {'x-api-key': 'test_api_key', 'user-agent': 'Faraday v2.7.11', 'content-type': 'application/json', 'accept-encoding': 'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 'accept': '*/*', 'sentry-trace': 'eacf543437a84ff8a1b864dccaab3c0b-153446ab72eb402d', 'baggage': 'sentry-trace_id=eacf543437a84ff8a1b864dccaab3c0b,sentry-environment=dev,sentry-public_key=f90b389431e99b3e3ee625f6fbec9213', 'host': '172.31.91.125:8000', 'content-length': '1181'}
+2025-06-25 18:56:20,148 - app.api.source_routes - INFO - Received new transaction from Triton
+2025-06-25 18:56:20,148 - app.api.source_routes - INFO - Content-Type: application/json
+2025-06-25 18:56:20,148 - app.api.source_routes - INFO - Parsed JSON data from Triton
+2025-06-25 18:56:20,155 - app.services.transaction_service - INFO - Created new transaction: d4b9ade8-6b54-4a2b-982e-45329ec71bf6 from source: triton
+2025-06-25 18:56:20,156 - app.services.transaction_service - INFO - Transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6 data is a dictionary with 1 keys
+2025-06-25 18:56:20,156 - app.api.source_routes - INFO - Created Triton transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6
+2025-06-25 18:56:20,156 - app.api.source_routes - INFO - Processing Triton transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6 synchronously
+2025-06-25 18:56:20,156 - app.services.ims_soap_client - INFO - Loaded IMS configuration from /opt/IMSSync_App/IMS_Configs/IMS_ONE.config
+2025-06-25 18:56:20,156 - app.services.ims_soap_client - INFO -   Logon URL: http://dc02imsws01.rsgcorp.local/ims_one/logon.asmx
+2025-06-25 18:56:20,156 - app.services.ims_soap_client - INFO -   Quote Functions URL: http://dc02imsws01.rsgcorp.local/ims_one/QuoteFunctions.asmx
+2025-06-25 18:56:20,156 - app.services.ims_soap_client - INFO -   Insured Functions URL: http://dc02imsws01.rsgcorp.local/ims_one/InsuredFunctions.asmx
+2025-06-25 18:56:20,157 - app.integrations.triton.service - INFO - Processing Triton transaction: d4b9ade8-6b54-4a2b-982e-45329ec71bf6
+2025-06-25 18:56:20,157 - app.integrations.triton.transformer - INFO - Transforming Triton data to IMS format
+2025-06-25 18:56:20,157 - app.integrations.triton.transformer - INFO - Using default line of business: AHC Primary
+2025-06-25 18:56:20,157 - app.integrations.triton.transformer - INFO - Using default producer GUID: 895E9291-CFB6-4299-8799-9AF77DF937D6
+2025-06-25 18:56:20,157 - app.integrations.triton.transformer - INFO - Transformed Triton data for policy: , LOB: AHC Primary
+2025-06-25 18:56:20,157 - app.integrations.triton.transformer - INFO - Using default line of business: AHC Primary
+2025-06-25 18:56:20,157 - app.services.ims_workflow_service - INFO - Processing transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6 in IMS
+2025-06-25 18:56:20,157 - app.services.ims_workflow_service - INFO - Authenticating with IMS using david.korff
+2025-06-25 18:56:20,158 - app.services.ims_soap_client - INFO - Logging in to IMS with username david.korff
+2025-06-25 18:56:20,163 - app.services.ims_soap_client - ERROR - Error making SOAP request to http://dc02imsws01.rsgcorp.local/ims_one/logon.asmx: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-25 18:56:20,163 - app.services.ims_soap_client - ERROR - Error logging in to IMS: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-25 18:56:20,165 - app.services.ims_workflow_service - ERROR - Error processing transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6 in IMS: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+2025-06-25 18:56:20,165 - app.services.ims_workflow_service - ERROR - Full traceback:
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 159, in _new_conn
+    conn = connection.create_connection(
+  File "/usr/lib/python3.9/site-packages/urllib3/util/connection.py", line 61, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+  File "/usr/lib64/python3.9/socket.py", line 966, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+socket.gaierror: [Errno -2] Name or service not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 670, in urlopen
+    httplib_response = self._make_request(
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 392, in _make_request
+    conn.request(method, url, **httplib_request_kw)
+  File "/usr/lib64/python3.9/http/client.py", line 1285, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1331, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1280, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib64/python3.9/http/client.py", line 1040, in _send_output
+    self.send(msg)
+  File "/usr/lib64/python3.9/http/client.py", line 980, in send
+    self.connect()
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 187, in connect
+    conn = self._new_conn()
+  File "/usr/lib/python3.9/site-packages/urllib3/connection.py", line 171, in _new_conn
+    raise NewConnectionError(
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/adapters.py", line 667, in send
+    resp = conn.urlopen(
+  File "/usr/lib/python3.9/site-packages/urllib3/connectionpool.py", line 726, in urlopen
+    retries = retries.increment(
+  File "/usr/lib/python3.9/site-packages/urllib3/util/retry.py", line 441, in increment
+    raise MaxRetryError(_pool, url, error or ResponseError(cause))
+urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/opt/IMSSync_App/app/services/ims_workflow_service.py", line 67, in process_transaction
+    self.authenticate()
+  File "/opt/IMSSync_App/app/services/ims_workflow_service.py", line 55, in authenticate
+    self.token = self.soap_client.login(self.username, self.password)
+  File "/opt/IMSSync_App/app/services/ims_soap_client.py", line 173, in login
+    response = self._make_soap_request(
+  File "/opt/IMSSync_App/app/services/ims_soap_client.py", line 111, in _make_soap_request
+    response = requests.post(url, data=envelope, headers=headers)
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/home/ssm-user/.local/lib/python3.9/site-packages/requests/adapters.py", line 700, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPConnectionPool(host='dc02imsws01.rsgcorp.local', port=80): Max retries exceeded with url: /ims_one/logon.asmx (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f118de310d0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+2025-06-25 18:56:20,173 - app.api.source_routes - INFO - Completed synchronous processing of Triton transaction d4b9ade8-6b54-4a2b-982e-45329ec71bf6
+2025-06-25 18:56:20,174 - app.main - INFO - RESPONSE - IP: 172.31.3.43, Method: POST, Path: /api/triton/transaction/new, Status: 200, Time: 0.027s
+2025-06-26 03:20:52,608 - app.core.monitoring - INFO - OTEL_EXPORTER_OTLP_ENDPOINT not set, OpenTelemetry disabled
+2025-06-26 03:20:52,608 - app.main - INFO - ===================================================
+2025-06-26 03:20:52,609 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-26 03:20:52,609 - app.main - INFO - Endpoints:
+2025-06-26 03:20:52,609 - app.main - INFO -   POST /api/transaction/{transaction_type} - Create a transaction (new, update, cancellation, etc.)
+2025-06-26 03:20:52,609 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-26 03:20:52,609 - app.main - INFO -   GET /api/transactions - Search transactions
+2025-06-26 03:20:52,609 - app.main - INFO -   GET /api/health - Health check with detailed status
+2025-06-26 03:20:52,609 - app.main - INFO -   GET /api/metrics - Prometheus metrics endpoint
+2025-06-26 03:20:52,609 - app.main - INFO - 
+2025-06-26 03:20:52,609 - app.main - INFO - Source-specific endpoints:
+2025-06-26 03:20:52,609 - app.main - INFO -   POST /api/triton/transaction/{transaction_type} - Create Triton transaction
+2025-06-26 03:20:52,609 - app.main - INFO -   POST /api/xuber/transaction/{transaction_type} - Create Xuber transaction
+2025-06-26 03:20:52,609 - app.main - INFO - 
+2025-06-26 03:20:52,609 - app.main - INFO - Transaction types: new, update, cancellation, endorsement, reinstatement
+2025-06-26 03:20:52,609 - app.main - INFO - Example: POST /api/transaction/new?source=triton
+2025-06-26 03:20:52,609 - app.main - INFO - ===================================================
+2025-06-26 03:26:27,745 - app.core.monitoring - INFO - OTEL_EXPORTER_OTLP_ENDPOINT not set, OpenTelemetry disabled
+2025-06-26 03:26:27,745 - app.main - INFO - ===================================================
+2025-06-26 03:26:27,745 - app.main - INFO - IMS Integration Service started and ready to receive transactions
+2025-06-26 03:26:27,745 - app.main - INFO - Endpoints:
+2025-06-26 03:26:27,745 - app.main - INFO -   POST /api/transaction/{transaction_type} - Create a transaction (new, update, cancellation, etc.)
+2025-06-26 03:26:27,745 - app.main - INFO -   GET /api/transaction/{id} - Check transaction status
+2025-06-26 03:26:27,745 - app.main - INFO -   GET /api/transactions - Search transactions
+2025-06-26 03:26:27,745 - app.main - INFO -   GET /api/health - Health check with detailed status
+2025-06-26 03:26:27,745 - app.main - INFO -   GET /api/metrics - Prometheus metrics endpoint
+2025-06-26 03:26:27,745 - app.main - INFO - 
+2025-06-26 03:26:27,745 - app.main - INFO - Source-specific endpoints:
+2025-06-26 03:26:27,745 - app.main - INFO -   POST /api/triton/transaction/{transaction_type} - Create Triton transaction
+2025-06-26 03:26:27,745 - app.main - INFO -   POST /api/xuber/transaction/{transaction_type} - Create Xuber transaction
+2025-06-26 03:26:27,745 - app.main - INFO - 
+2025-06-26 03:26:27,745 - app.main - INFO - Transaction types: new, update, cancellation, endorsement, reinstatement
+2025-06-26 03:26:27,745 - app.main - INFO - Example: POST /api/transaction/new?source=triton
+2025-06-26 03:26:27,745 - app.main - INFO - ===================================================
