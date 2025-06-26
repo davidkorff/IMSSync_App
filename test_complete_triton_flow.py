@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8020")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.getenv("API_KEY", "test-api-key")
 
 def test_triton_endpoint():

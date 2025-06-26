@@ -150,7 +150,7 @@ def main():
     # Configuration
     TEST_FILE = "TEST.json"
     API_KEY = "your-api-key-here"  # Replace with actual API key
-    BASE_URL = "http://localhost:8020"  # Adjust as needed
+    BASE_URL = "http://localhost:8000"  # Adjust as needed
     
     print("=== Flat to Triton Transformation Test ===\\n")
     
