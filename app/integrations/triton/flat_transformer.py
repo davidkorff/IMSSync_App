@@ -258,33 +258,47 @@ class TritonFlatTransformer:
     
     def _get_business_type_id(self, business_type: str) -> int:
         """Map business type string to IMS BusinessTypeID"""
-        # IMS Business Types mapping
+        # IMS Business Types mapping - verified against IMS database
+        # Order matters - check longer strings first
         business_type_map = {
+            'limited liability partnership': 3,  # Check this before 'partnership'
+            'limited liability company': 5,      # Check this before 'company'
+            'limited liability corporation': 5,  # Check this before 'corporation'
+            'sole proprietor': 4,               # Check this before 'sole prop'
+            'corporation': 1,
+            'incorporated': 1,
             'partnership': 2,
-            'limited liability partnership': 3,
+            'individual': 3,
+            'sole prop': 4,
+            'person': 3,
+            'corp': 1,
+            'inc': 1,
             'llp': 3,
-            'individual': 4,
-            'other': 5,
-            'limited liability corporation': 9,
-            'llc': 9,
-            'joint venture': 10,
-            'trust': 11,
-            'corporation': 13,
-            'corp': 13,
-            'inc': 13
+            'llc': 5,
+            'other': 5  # Map 'other' to LLC as a safe default
         }
         
         # Clean and normalize the business type
         normalized = business_type.lower().strip()
         
-        # Check if it's a business entity type
+        # Skip transaction types (these are not business entity types)
+        transaction_types = ['renewal', 'new business', 'endorsement', 'cancellation']
+        if normalized in transaction_types:
+            logger.warning(f"'{business_type}' is a transaction type, not a business entity type. Defaulting to Corporation (1)")
+            return 1
+        
+        # First try exact match
+        if normalized in business_type_map:
+            return business_type_map[normalized]
+        
+        # Then try partial match (longer strings first due to dict ordering)
         for key, value in business_type_map.items():
             if key in normalized:
                 return value
         
         # Default to Corporation if not found
-        logger.warning(f"Unknown business type '{business_type}', defaulting to Corporation (13)")
-        return 13  # Corporation
+        logger.warning(f"Unknown business type '{business_type}', defaulting to Corporation (1)")
+        return 1  # Corporation
     
     def _build_additional_information(self, data: Dict[str, Any]) -> List[str]:
         """Build AdditionalInformation array for IMS AddQuote"""
