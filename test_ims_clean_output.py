@@ -11,7 +11,7 @@ import sys
 
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-API_KEY = os.getenv("API_KEY", "test-api-key")
+API_KEY = os.getenv("API_KEY", "triton_test_key")
 
 def test_ims_integration():
     """Test IMS integration with clean output"""
@@ -44,7 +44,7 @@ def test_ims_integration():
     # Test API call
     url = f"{API_BASE_URL}/api/triton/transaction/new"
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "X-API-Key": API_KEY,
         "Content-Type": "application/json"
     }
     
