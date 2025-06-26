@@ -56,7 +56,7 @@ class TritonFlatTransformer:
                 "name": data.get('insured_name'),
                 "dba": None,  # Not provided in flat structure
                 "tax_id": None,  # Not provided
-                "business_type_id": self._get_business_type_id(data.get('business_type', '')),
+                "business_type_id": self._get_business_type_id(self._detect_business_type(data)),
                 "contact_first_name": None,
                 "contact_last_name": None,
                 "contact_phone": None,
@@ -256,26 +256,69 @@ class TritonFlatTransformer:
         else:
             return "Unknown City"
     
+    def _detect_business_type(self, data: Dict[str, Any]) -> str:
+        """Detect business type from data, including from insured name if needed"""
+        business_type = data.get('business_type', '')
+        
+        # If business_type is empty or a transaction type, try to detect from insured name
+        if not business_type or business_type.lower() in ['renewal', 'new business', 'endorsement', 'cancellation']:
+            insured_name = data.get('insured_name', '')
+            if 'LLC' in insured_name.upper():
+                detected_type = 'LLC'
+                logger.info(f"Detected LLC from insured name: {insured_name}")
+                return detected_type
+            elif any(corp in insured_name.upper() for corp in ['INC', 'CORP', 'INCORPORATED', 'CORPORATION']):
+                detected_type = 'Corporation'
+                logger.info(f"Detected Corporation from insured name: {insured_name}")
+                return detected_type
+        
+        return business_type
+    
     def _get_business_type_id(self, business_type: str) -> int:
         """Map business type string to IMS BusinessTypeID"""
-        # IMS Business Types mapping - verified against IMS database
-        # Order matters - check longer strings first
+        # IMS Business Types mapping - based on IMS_DEV database
+        # BusinessTypeID | BusinessType
+        # 2  | Individual/Sole Proprietor/Single Member LLC
+        # 3  | Partnership
+        # 4  | Individual
+        # 5  | Other
+        # 9  | LLC - Partnership
+        # 13 | Corporation
+        # 16 | S Corporation
+        # 18 | LLC - C Corp
+        # 19 | LLC - S Corp
+        # 21 | C Corporation
+        
         business_type_map = {
-            'limited liability partnership': 3,  # Check this before 'partnership'
-            'limited liability company': 5,      # Check this before 'company'
-            'limited liability corporation': 5,  # Check this before 'corporation'
-            'sole proprietor': 4,               # Check this before 'sole prop'
-            'corporation': 1,
-            'incorporated': 1,
-            'partnership': 2,
-            'individual': 3,
-            'sole prop': 4,
-            'person': 3,
-            'corp': 1,
-            'inc': 1,
-            'llp': 3,
-            'llc': 5,
-            'other': 5  # Map 'other' to LLC as a safe default
+            # LLC variations
+            'limited liability company': 9,      # LLC - Partnership
+            'limited liability corporation': 9,  # LLC - Partnership
+            'llc': 9,                           # LLC - Partnership
+            'single member llc': 2,             # Individual/Sole Proprietor/Single Member LLC
+            
+            # Corporation variations
+            'corporation': 13,                   # Corporation
+            'incorporated': 13,                  # Corporation
+            'corp': 13,                         # Corporation
+            'inc': 13,                          # Corporation
+            'c corporation': 21,                # C Corporation
+            'c corp': 21,                       # C Corporation
+            's corporation': 16,                # S Corporation
+            's corp': 16,                       # S Corporation
+            
+            # Individual/Sole Proprietor
+            'individual': 4,                    # Individual
+            'person': 4,                        # Individual
+            'sole proprietor': 2,               # Individual/Sole Proprietor/Single Member LLC
+            'sole prop': 2,                     # Individual/Sole Proprietor/Single Member LLC
+            
+            # Partnership
+            'partnership': 3,                   # Partnership
+            'limited liability partnership': 3,  # Partnership
+            'llp': 3,                          # Partnership
+            
+            # Other
+            'other': 5                          # Other
         }
         
         # Clean and normalize the business type
@@ -284,8 +327,8 @@ class TritonFlatTransformer:
         # Skip transaction types (these are not business entity types)
         transaction_types = ['renewal', 'new business', 'endorsement', 'cancellation']
         if normalized in transaction_types:
-            logger.warning(f"'{business_type}' is a transaction type, not a business entity type. Defaulting to Corporation (1)")
-            return 1
+            logger.warning(f"'{business_type}' is a transaction type, not a business entity type. Defaulting to Corporation (13)")
+            return 13
         
         # First try exact match
         if normalized in business_type_map:
@@ -297,8 +340,8 @@ class TritonFlatTransformer:
                 return value
         
         # Default to Corporation if not found
-        logger.warning(f"Unknown business type '{business_type}', defaulting to Corporation (1)")
-        return 1  # Corporation
+        logger.warning(f"Unknown business type '{business_type}', defaulting to Corporation (13)")
+        return 13  # Corporation
     
     def _build_additional_information(self, data: Dict[str, Any]) -> List[str]:
         """Build AdditionalInformation array for IMS AddQuote"""
