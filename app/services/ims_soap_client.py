@@ -296,6 +296,7 @@ class IMSSoapClient:
                 <SSN>{tax_id if is_individual else ""}</SSN>
             </insured>
             <location>
+                <LocationName>Primary Location</LocationName>
                 <City>{city}</City>
                 <StateAbbreviation>{state}</StateAbbreviation>
                 <Street>{address}</Street>
