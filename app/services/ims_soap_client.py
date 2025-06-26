@@ -830,6 +830,46 @@ class IMSSoapClient:
             logger.error(f"Error executing command: {str(e)}")
             raise
     
+    def get_user_by_name(self, user_name):
+        """Get user GUID by searching user name"""
+        logger.info(f"Getting user by name: {user_name}")
+        
+        query = "EXEC DK_GetUserByName @UserName"
+        parameters = {"UserName": user_name}
+        
+        try:
+            result = self.execute_data_set(query, parameters)
+            
+            if result:
+                # Parse the dataset result
+                tables = result.get('diffgr:diffgram', {}).get('NewDataSet', {}).get('Table', [])
+                if not isinstance(tables, list):
+                    tables = [tables]
+                
+                if tables and len(tables) > 0:
+                    user_data = tables[0]
+                    user_guid = user_data.get('UserGUID')
+                    logger.info(f"Found user: {user_data.get('Name_FirstLast')} ({user_guid})")
+                    return {
+                        'user_guid': user_guid,
+                        'user_id': user_data.get('UserID'),
+                        'office_guid': user_data.get('OfficeGUID'),
+                        'username': user_data.get('UserName'),
+                        'first_name': user_data.get('FirstName'),
+                        'last_name': user_data.get('LastName'),
+                        'title': user_data.get('Title'),
+                        'email': user_data.get('EmailAddress')
+                    }
+                else:
+                    logger.warning(f"No user found with name: {user_name}")
+                    return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting user by name: {str(e)}")
+            raise
+    
     def update_external_quote_id(self, quote_guid, external_quote_id, external_system_id):
         """Update external quote ID for linking back to source system"""
         logger.info(f"Updating external quote ID for quote: {quote_guid}")

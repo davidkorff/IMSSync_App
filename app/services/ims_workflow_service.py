@@ -675,10 +675,17 @@ class IMSWorkflowService:
                 transaction.ims_processing.add_log(f"Warning: Could not lookup producer: {str(e)}")
         
         # Extract underwriter information if available
-        if data.get("underwriter"):
-            # In a real implementation, you would look up the GUID based on underwriter name
-            # result["underwriter_guid"] = self._get_underwriter_guid(data["underwriter"])
-            pass
+        underwriter_name = data.get("underwriter")
+        if underwriter_name:
+            try:
+                user_info = self.soap_client.get_user_by_name(underwriter_name)
+                if user_info and user_info.get("user_guid"):
+                    result["underwriter_guid"] = user_info["user_guid"]
+                    transaction.ims_processing.add_log(f"Found underwriter: {user_info['first_name']} {user_info['last_name']} ({user_info['user_guid']})")
+                else:
+                    transaction.ims_processing.add_log(f"Warning: Could not find underwriter: {underwriter_name}")
+            except Exception as e:
+                transaction.ims_processing.add_log(f"Warning: Error looking up underwriter: {str(e)}")
         
         return result
     
