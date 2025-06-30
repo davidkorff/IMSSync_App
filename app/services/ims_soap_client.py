@@ -838,7 +838,7 @@ class IMSSoapClient:
         """Get user GUID by searching user name"""
         logger.info(f"Getting user by name: {user_name}")
         
-        query = "EXEC DK_GetUserByName @UserName"
+        query = "DK_GetUserByName"  # DataAccess service expects just the procedure name
         parameters = {"UserName": user_name}
         
         try:
@@ -872,6 +872,47 @@ class IMSSoapClient:
             
         except Exception as e:
             logger.error(f"Error getting user by name: {str(e)}")
+            raise
+    
+    def get_default_producer_contact(self, producer_guid):
+        """Get default producer contact GUID for a producer entity"""
+        logger.info(f"Getting default producer contact for producer: {producer_guid}")
+        
+        query = "DK_GetDefaultProducerContact"  # DataAccess service expects just the procedure name
+        parameters = {"ProducerGUID": producer_guid}
+        
+        try:
+            result = self.execute_data_set(query, parameters)
+            
+            if result:
+                # Parse the dataset result
+                tables = result.get('diffgr:diffgram', {}).get('NewDataSet', {}).get('Table', [])
+                if not isinstance(tables, list):
+                    tables = [tables]
+                
+                if tables and len(tables) > 0:
+                    contact_data = tables[0]
+                    contact_guid = contact_data.get('ContactGUID')
+                    logger.info(f"Found producer contact: {contact_data.get('FName')} {contact_data.get('LName')} ({contact_guid})")
+                    return {
+                        'contact_guid': contact_guid,
+                        'producer_guid': contact_data.get('ProducerGUID'),
+                        'first_name': contact_data.get('FName'),
+                        'last_name': contact_data.get('LName'),
+                        'title': contact_data.get('Title'),
+                        'email': contact_data.get('Email'),
+                        'phone': contact_data.get('Phone'),
+                        'extension': contact_data.get('Extension'),
+                        'status_id': contact_data.get('StatusID')
+                    }
+                else:
+                    logger.warning(f"No contact found for producer: {producer_guid}")
+                    return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting default producer contact: {str(e)}")
             raise
     
     def update_external_quote_id(self, quote_guid, external_quote_id, external_system_id):

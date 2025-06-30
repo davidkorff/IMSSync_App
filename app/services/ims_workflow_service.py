@@ -655,12 +655,32 @@ class IMSWorkflowService:
             except ValueError:
                 pass
         
+        # Get source-specific defaults from configuration
+        source = transaction.source or "triton"
+        source_config = self.env_config.get("sources", {}).get(source, {})
+        
+        # Get the default producer entity GUID from configuration
+        default_producer_guid = source_config.get("default_producer_guid", "00000000-0000-0000-0000-000000000000")
+        transaction.ims_processing.add_log(f"Using default producer entity GUID from configuration: {default_producer_guid}")
+        
+        # Get the producer contact GUID for the producer entity
+        producer_contact_guid = default_producer_guid  # Default fallback
+        try:
+            contact_info = self.soap_client.get_default_producer_contact(default_producer_guid)
+            if contact_info and contact_info.get("contact_guid"):
+                producer_contact_guid = contact_info["contact_guid"]
+                transaction.ims_processing.add_log(f"Found producer contact: {contact_info['first_name']} {contact_info['last_name']} ({producer_contact_guid})")
+            else:
+                transaction.ims_processing.add_log(f"Warning: No contact found for producer {default_producer_guid}, using producer entity GUID")
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Warning: Error getting producer contact: {str(e)}, using producer entity GUID")
+        
         result = {
             "insured_guid": None,  # Will be filled in by the caller
             "submission_date": submission_date,
-            "producer_contact_guid": "00000000-0000-0000-0000-000000000000",  # Default
+            "producer_contact_guid": producer_contact_guid,  # Use contact GUID
             "underwriter_guid": "00000000-0000-0000-0000-000000000000",  # Default
-            "producer_location_guid": "00000000-0000-0000-0000-000000000000",  # Default
+            "producer_location_guid": default_producer_guid,  # Use producer entity GUID for location
         }
         
         # Extract producer information if available
