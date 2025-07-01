@@ -11,7 +11,7 @@ import time
 
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-API_KEY = os.getenv("API_KEY", "test-api-key")
+API_KEY = os.getenv("API_KEY", "triton_test_key")
 
 def load_transformed_payload():
     """Load the transformed payload with required defaults"""
@@ -73,7 +73,7 @@ def test_transaction_endpoint(payload, sync_mode=True):
     
     url = f"{API_BASE_URL}/api/triton/transaction/new"
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "X-API-Key": API_KEY,
         "Content-Type": "application/json"
     }
     params = {"sync_mode": str(sync_mode).lower()}
@@ -125,7 +125,7 @@ def test_transaction_status(transaction_id):
     
     url = f"{API_BASE_URL}/api/transaction/{transaction_id}"
     headers = {
-        "Authorization": f"Bearer {API_KEY}"
+        "X-API-Key": API_KEY
     }
     
     try:
