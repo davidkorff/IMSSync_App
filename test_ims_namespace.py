@@ -5,7 +5,7 @@ import requests
 import xml.etree.ElementTree as ET
 
 # IMS server details
-LOGON_URL = "http://dc02imsws01.rsgcorp.local/ims_one/logon.asmx"
+LOGON_URL = "http://10.64.32.234/ims_one/logon.asmx"
 
 def test_login_namespace():
     """Test login with different namespaces"""

@@ -5,7 +5,7 @@ import requests
 import xml.etree.ElementTree as ET
 
 # IMS server details from IMS_ONE.config
-IMS_BASE_URL = "http://dc02imsws01.rsgcorp.local/ims_one"
+IMS_BASE_URL = "http://10.64.32.234/ims_one"
 LOGON_URL = f"{IMS_BASE_URL}/logon.asmx"
 INSURED_URL = f"{IMS_BASE_URL}/InsuredFunctions.asmx"
 

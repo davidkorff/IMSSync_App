@@ -57,7 +57,7 @@ class IMSSoapClient:
         except Exception as e:
             logger.error(f"Error loading IMS configuration: {str(e)}")
             # Fallback to default URLs
-            base_url = "http://dc02imsws01.rsgcorp.local/ims_one"
+            base_url = "http://10.64.32.234/ims_one"
             self.logon_url = f"{base_url}/logon.asmx"
             self.data_access_url = f"{base_url}/DataAccess.asmx"
             self.clearance_url = f"{base_url}/Clearance.asmx"
