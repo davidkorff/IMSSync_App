@@ -10,7 +10,7 @@ from datetime import datetime
 
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
-API_KEY = os.getenv("API_KEY", "test-api-key")
+API_KEY = os.getenv("API_KEY", "triton_test_key")
 
 def test_triton_endpoint():
     """Test the complete Triton integration flow"""
@@ -30,7 +30,7 @@ def test_triton_endpoint():
     # Prepare request
     url = f"{API_BASE_URL}/api/triton/transaction/new"
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "X-API-Key": API_KEY,
         "Content-Type": "application/json"
     }
     
