@@ -415,11 +415,19 @@ class IMSSoapClient:
         if hasattr(submission_date, 'isoformat'):
             submission_date = submission_date.isoformat()
         
+        # Log what we're sending
+        logger.info(f"AddSubmission parameters:")
+        logger.info(f"  Insured: {insured_guid}")
+        logger.info(f"  ProducerContact: {producer_contact_guid}")
+        logger.info(f"  Underwriter: {underwriter_guid}")
+        logger.info(f"  SubmissionDate: {submission_date}")
+        logger.info(f"  ProducerLocation: {producer_location_guid}")
+        
         body_content = f"""
         <AddSubmission xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
             <submission>
                 <Insured>{insured_guid}</Insured>
-                <ProducerContact>{producer_contact_guid}</ProducerContact>
+                <ProducerContact>{producer_contact_guid if producer_contact_guid else ''}</ProducerContact>
                 <Underwriter>{underwriter_guid}</Underwriter>
                 <SubmissionDate>{submission_date}</SubmissionDate>
                 <ProducerLocation>{producer_location_guid}</ProducerLocation>
@@ -444,9 +452,11 @@ class IMSSoapClient:
                     return submission_guid
                 else:
                     logger.error("Failed to add submission: No GUID returned")
+                    logger.error(f"Full response: {response}")
                     raise ValueError("Failed to add submission: No GUID returned")
             
             logger.error("Failed to add submission: Unexpected response format")
+            logger.error(f"Response type: {type(response)}, content: {response}")
             raise ValueError("Failed to add submission: Unexpected response format")
             
         except Exception as e:
@@ -746,17 +756,15 @@ class IMSSoapClient:
         
         params_xml = ""
         if parameters:
+            # Parameters must be passed as alternating name/value strings
             for key, value in parameters.items():
                 params_xml += f"""
-                <Parameter>
-                    <Name>{key}</Name>
-                    <Value>{value}</Value>
-                </Parameter>
-                """
+                <string>{key}</string>
+                <string>{value}</string>"""
         
         body_content = f"""
         <ExecuteDataSet xmlns="http://tempuri.org/IMSWebServices/DataAccess">
-            <query>{query}</query>
+            <procedureName>{query}</procedureName>
             <parameters>
                 {params_xml}
             </parameters>

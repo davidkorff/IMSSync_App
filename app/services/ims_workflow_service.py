@@ -663,11 +663,16 @@ class IMSWorkflowService:
         default_producer_guid = source_config.get("default_producer_guid", "00000000-0000-0000-0000-000000000000")
         transaction.ims_processing.add_log(f"Using default producer entity GUID from configuration: {default_producer_guid}")
         
-        # Get the producer contact GUID for the producer entity
-        producer_contact_guid = default_producer_guid  # Default fallback
-        try:
-            contact_info = self.soap_client.get_default_producer_contact(default_producer_guid)
-            if contact_info and contact_info.get("contact_guid"):
+        # For now, use the producer entity GUID as both producer location and skip contact
+        # In a full implementation, we would look up the actual contact
+        producer_location_guid = default_producer_guid
+        producer_contact_guid = None  # Will be optional in AddSubmission
+        
+        # Log what we're using
+        transaction.ims_processing.add_log(f"Using producer location GUID: {producer_location_guid}")
+        
+        # Skip the stored procedure lookup for now
+        if False:  # Disabled until stored procedure is available
                 producer_contact_guid = contact_info["contact_guid"]
                 transaction.ims_processing.add_log(f"Found producer contact: {contact_info['first_name']} {contact_info['last_name']} ({producer_contact_guid})")
             else:
