@@ -423,11 +423,14 @@ class IMSSoapClient:
         logger.info(f"  SubmissionDate: {submission_date}")
         logger.info(f"  ProducerLocation: {producer_location_guid}")
         
+        # Build the submission XML, omitting ProducerContact if it's None
+        producer_contact_xml = f"<ProducerContact>{producer_contact_guid}</ProducerContact>" if producer_contact_guid else ""
+        
         body_content = f"""
         <AddSubmission xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
             <submission>
                 <Insured>{insured_guid}</Insured>
-                <ProducerContact>{producer_contact_guid if producer_contact_guid else ''}</ProducerContact>
+                {producer_contact_xml}
                 <Underwriter>{underwriter_guid}</Underwriter>
                 <SubmissionDate>{submission_date}</SubmissionDate>
                 <ProducerLocation>{producer_location_guid}</ProducerLocation>
