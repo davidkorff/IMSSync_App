@@ -665,32 +665,42 @@ class IMSWorkflowService:
         
         # Try to get the producer contact for this location
         producer_contact_guid = None
-        try:
-            # First get producer info to get the location code
-            transaction.ims_processing.add_log(f"Looking up producer info for GUID: {producer_location_guid}")
-            producer_info = self.soap_client.get_producer_info(producer_location_guid)
-            
-            if producer_info:
-                transaction.ims_processing.add_log(f"Got producer info: {producer_info.get('producer_name')} - {producer_info.get('location_name')}")
-                location_code = producer_info.get("location_code")
-                
-                if location_code:
-                    transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
-                    
-                    # Now get the contact for this location
-                    producer_contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
-                    if producer_contact_guid:
-                        transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
-                    else:
-                        transaction.ims_processing.add_log("Warning: No producer contact found for location")
-                else:
-                    transaction.ims_processing.add_log(f"Warning: No location code in producer info: {list(producer_info.keys())}")
-            else:
-                transaction.ims_processing.add_log("Warning: get_producer_info returned None")
-        except Exception as e:
-            transaction.ims_processing.add_log(f"Warning: Error looking up producer contact: {str(e)}")
-            import traceback
-            transaction.ims_processing.add_log(f"Traceback: {traceback.format_exc()}")
+        
+        # TEMPORARY: Use the producer location GUID as the contact GUID
+        # This is a workaround since the producer lookup is not returning data
+        producer_contact_guid = producer_location_guid
+        transaction.ims_processing.add_log(f"TEMPORARY: Using producer location GUID as contact GUID: {producer_contact_guid}")
+        
+        # Note: The producer lookup by name happens below in the producer extraction section
+        # That will override these defaults if a producer is found
+        
+        # TODO: Re-enable this once we have valid producer data in IMS
+        # try:
+        #     # First get producer info to get the location code
+        #     transaction.ims_processing.add_log(f"Looking up producer info for GUID: {producer_location_guid}")
+        #     producer_info = self.soap_client.get_producer_info(producer_location_guid)
+        #     
+        #     if producer_info:
+        #         transaction.ims_processing.add_log(f"Got producer info: {producer_info.get('producer_name')} - {producer_info.get('location_name')}")
+        #         location_code = producer_info.get("location_code")
+        #         
+        #         if location_code:
+        #             transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
+        #             
+        #             # Now get the contact for this location
+        #             producer_contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
+        #             if producer_contact_guid:
+        #                 transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
+        #             else:
+        #                 transaction.ims_processing.add_log("Warning: No producer contact found for location")
+        #         else:
+        #             transaction.ims_processing.add_log(f"Warning: No location code in producer info: {list(producer_info.keys())}")
+        #     else:
+        #         transaction.ims_processing.add_log("Warning: get_producer_info returned None")
+        # except Exception as e:
+        #     transaction.ims_processing.add_log(f"Warning: Error looking up producer contact: {str(e)}")
+        #     import traceback
+        #     transaction.ims_processing.add_log(f"Traceback: {traceback.format_exc()}")
         
         result = {
             "insured_guid": None,  # Will be filled in by the caller
@@ -701,18 +711,31 @@ class IMSWorkflowService:
         }
         
         # Extract producer information if available
-        if "producer" in data:
-            producer = data["producer"]
-            try:
-                producer_guid = self._lookup_producer_by_name(producer.get("name", ""))
-                if producer_guid:
-                    result["producer_contact_guid"] = producer_guid
-                    result["producer_location_guid"] = producer_guid
-            except Exception as e:
-                transaction.ims_processing.add_log(f"Warning: Could not lookup producer: {str(e)}")
+        # Check both "producer" (nested) and "producer_data" (flat) structures
+        producer_info = data.get("producer") or data.get("producer_data")
+        if producer_info and isinstance(producer_info, dict):
+            producer_name = producer_info.get("name")
+            if producer_name:
+                transaction.ims_processing.add_log(f"Looking up producer by name: {producer_name}")
+                try:
+                    producer_guid = self._lookup_producer_by_name(producer_name)
+                    if producer_guid:
+                        result["producer_contact_guid"] = producer_guid
+                        result["producer_location_guid"] = producer_guid
+                        transaction.ims_processing.add_log(f"Found producer GUID: {producer_guid}")
+                    else:
+                        transaction.ims_processing.add_log(f"Warning: No producer found for name: {producer_name}")
+                except Exception as e:
+                    transaction.ims_processing.add_log(f"Warning: Could not lookup producer: {str(e)}")
         
         # Extract underwriter information if available
-        underwriter_name = data.get("underwriter")
+        # Check in producer_data first (flat structure), then at top level
+        underwriter_name = None
+        if producer_info and isinstance(producer_info, dict):
+            underwriter_name = producer_info.get("underwriter_name")
+        if not underwriter_name:
+            underwriter_name = data.get("underwriter") or data.get("underwriter_name")
+        
         if underwriter_name:
             try:
                 user_info = self.soap_client.get_user_by_name(underwriter_name)
