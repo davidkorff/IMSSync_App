@@ -672,13 +672,13 @@ class IMSWorkflowService:
         transaction.ims_processing.add_log(f"Using producer location GUID: {producer_location_guid}")
         
         # Skip the stored procedure lookup for now
-        if False:  # Disabled until stored procedure is available
-                producer_contact_guid = contact_info["contact_guid"]
-                transaction.ims_processing.add_log(f"Found producer contact: {contact_info['first_name']} {contact_info['last_name']} ({producer_contact_guid})")
-            else:
-                transaction.ims_processing.add_log(f"Warning: No contact found for producer {default_producer_guid}, using producer entity GUID")
-        except Exception as e:
-            transaction.ims_processing.add_log(f"Warning: Error getting producer contact: {str(e)}, using producer entity GUID")
+        # if False:  # Disabled until stored procedure is available
+        #     contact_info = self.soap_client.get_default_producer_contact(default_producer_guid)
+        #     if contact_info and contact_info.get("contact_guid"):
+        #         producer_contact_guid = contact_info["contact_guid"]
+        #         transaction.ims_processing.add_log(f"Found producer contact: {contact_info['first_name']} {contact_info['last_name']} ({producer_contact_guid})")
+        #     else:
+        #         transaction.ims_processing.add_log(f"Warning: No contact found for producer {default_producer_guid}, using producer entity GUID")
         
         result = {
             "insured_guid": None,  # Will be filled in by the caller
