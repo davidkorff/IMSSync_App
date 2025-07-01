@@ -667,21 +667,30 @@ class IMSWorkflowService:
         producer_contact_guid = None
         try:
             # First get producer info to get the location code
+            transaction.ims_processing.add_log(f"Looking up producer info for GUID: {producer_location_guid}")
             producer_info = self.soap_client.get_producer_info(producer_location_guid)
-            if producer_info and producer_info.get("location_code"):
-                location_code = producer_info["location_code"]
-                transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
+            
+            if producer_info:
+                transaction.ims_processing.add_log(f"Got producer info: {producer_info.get('producer_name')} - {producer_info.get('location_name')}")
+                location_code = producer_info.get("location_code")
                 
-                # Now get the contact for this location
-                producer_contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
-                if producer_contact_guid:
-                    transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
+                if location_code:
+                    transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
+                    
+                    # Now get the contact for this location
+                    producer_contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
+                    if producer_contact_guid:
+                        transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
+                    else:
+                        transaction.ims_processing.add_log("Warning: No producer contact found for location")
                 else:
-                    transaction.ims_processing.add_log("Warning: No producer contact found for location")
+                    transaction.ims_processing.add_log(f"Warning: No location code in producer info: {list(producer_info.keys())}")
             else:
-                transaction.ims_processing.add_log("Warning: Could not get producer info")
+                transaction.ims_processing.add_log("Warning: get_producer_info returned None")
         except Exception as e:
             transaction.ims_processing.add_log(f"Warning: Error looking up producer contact: {str(e)}")
+            import traceback
+            transaction.ims_processing.add_log(f"Traceback: {traceback.format_exc()}")
         
         result = {
             "insured_guid": None,  # Will be filled in by the caller
