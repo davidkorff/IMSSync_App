@@ -959,3 +959,86 @@ class IMSSoapClient:
         except Exception as e:
             logger.error(f"Error updating external quote ID: {str(e)}")
             raise
+    
+    def get_producer_info(self, producer_location_guid):
+        """Get producer information by location GUID"""
+        logger.info(f"Getting producer info for location GUID: {producer_location_guid}")
+        
+        body_content = f"""
+        <GetProducerInfo xmlns="http://tempuri.org/IMSWebServices/ProducerFunctions">
+            <producerLocationGuid>{producer_location_guid}</producerLocationGuid>
+        </GetProducerInfo>
+        """
+        
+        try:
+            response = self._make_soap_request(
+                self.producer_functions_url,
+                "http://tempuri.org/IMSWebServices/ProducerFunctions/GetProducerInfo",
+                body_content
+            )
+            
+            if response and 'soap:Body' in response:
+                get_response = response['soap:Body'].get('GetProducerInfoResponse', {})
+                result = get_response.get('GetProducerInfoResult', {})
+                
+                if result:
+                    logger.info(f"Found producer: {result.get('ProducerName')} - Location: {result.get('LocationCode')}")
+                    return {
+                        'producer_location_guid': result.get('ProducerLocationGuid'),
+                        'producer_name': result.get('ProducerName'),
+                        'producer_code': result.get('ProducerCode'),
+                        'location_name': result.get('LocationName'),
+                        'location_code': result.get('LocationCode'),
+                        'address1': result.get('Address1'),
+                        'address2': result.get('Address2'),
+                        'city': result.get('City'),
+                        'state': result.get('State'),
+                        'zip_code': result.get('ZipCode'),
+                        'phone': result.get('Phone'),
+                        'fax': result.get('Fax'),
+                        'email': result.get('Email'),
+                        'status': result.get('Status')
+                    }
+                else:
+                    logger.warning(f"No producer info found for GUID: {producer_location_guid}")
+                    return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting producer info: {str(e)}")
+            raise
+    
+    def get_producer_contact_by_location_code(self, location_code):
+        """Get producer contact GUID by location code"""
+        logger.info(f"Getting producer contact for location code: {location_code}")
+        
+        body_content = f"""
+        <GetProducerContactByLocationCode xmlns="http://tempuri.org/IMSWebServices/ProducerFunctions">
+            <locationCode>{location_code}</locationCode>
+        </GetProducerContactByLocationCode>
+        """
+        
+        try:
+            response = self._make_soap_request(
+                self.producer_functions_url,
+                "http://tempuri.org/IMSWebServices/ProducerFunctions/GetProducerContactByLocationCode",
+                body_content
+            )
+            
+            if response and 'soap:Body' in response:
+                contact_response = response['soap:Body'].get('GetProducerContactByLocationCodeResponse', {})
+                contact_guid = contact_response.get('GetProducerContactByLocationCodeResult')
+                
+                if contact_guid:
+                    logger.info(f"Found producer contact GUID: {contact_guid}")
+                    return contact_guid
+                else:
+                    logger.warning(f"No contact found for location code: {location_code}")
+                    return None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting producer contact by location code: {str(e)}")
+            raise

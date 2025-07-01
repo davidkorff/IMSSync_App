@@ -659,33 +659,36 @@ class IMSWorkflowService:
         source = transaction.source or "triton"
         source_config = self.env_config.get("sources", {}).get(source, {})
         
-        # Get the default producer entity GUID from configuration
-        default_producer_guid = source_config.get("default_producer_guid", "00000000-0000-0000-0000-000000000000")
-        transaction.ims_processing.add_log(f"Using default producer entity GUID from configuration: {default_producer_guid}")
+        # Get the default producer location GUID from configuration
+        producer_location_guid = source_config.get("default_producer_guid", "00000000-0000-0000-0000-000000000000")
+        transaction.ims_processing.add_log(f"Using producer location GUID from configuration: {producer_location_guid}")
         
-        # For now, use the producer entity GUID as both producer location and skip contact
-        # In a full implementation, we would look up the actual contact
-        producer_location_guid = default_producer_guid
-        producer_contact_guid = None  # Will be optional in AddSubmission
-        
-        # Log what we're using
-        transaction.ims_processing.add_log(f"Using producer location GUID: {producer_location_guid}")
-        
-        # Skip the stored procedure lookup for now
-        # if False:  # Disabled until stored procedure is available
-        #     contact_info = self.soap_client.get_default_producer_contact(default_producer_guid)
-        #     if contact_info and contact_info.get("contact_guid"):
-        #         producer_contact_guid = contact_info["contact_guid"]
-        #         transaction.ims_processing.add_log(f"Found producer contact: {contact_info['first_name']} {contact_info['last_name']} ({producer_contact_guid})")
-        #     else:
-        #         transaction.ims_processing.add_log(f"Warning: No contact found for producer {default_producer_guid}, using producer entity GUID")
+        # Try to get the producer contact for this location
+        producer_contact_guid = None
+        try:
+            # First get producer info to get the location code
+            producer_info = self.soap_client.get_producer_info(producer_location_guid)
+            if producer_info and producer_info.get("location_code"):
+                location_code = producer_info["location_code"]
+                transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
+                
+                # Now get the contact for this location
+                producer_contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
+                if producer_contact_guid:
+                    transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
+                else:
+                    transaction.ims_processing.add_log("Warning: No producer contact found for location")
+            else:
+                transaction.ims_processing.add_log("Warning: Could not get producer info")
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Warning: Error looking up producer contact: {str(e)}")
         
         result = {
             "insured_guid": None,  # Will be filled in by the caller
             "submission_date": submission_date,
             "producer_contact_guid": producer_contact_guid,  # Use contact GUID
             "underwriter_guid": "00000000-0000-0000-0000-000000000000",  # Default
-            "producer_location_guid": default_producer_guid,  # Use producer entity GUID for location
+            "producer_location_guid": producer_location_guid,  # Use producer location GUID
         }
         
         # Extract producer information if available
