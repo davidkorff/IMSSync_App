@@ -529,6 +529,10 @@ class IMSSoapClient:
         </AddQuote>
         """
         
+        # Debug log the exact XML being sent to identify the malformed GUID at position 52, line 22
+        logger.debug("AddQuote body_content XML:")
+        logger.debug(body_content)
+        
         try:
             response = self._make_soap_request(
                 self.quote_functions_url,

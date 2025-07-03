@@ -780,7 +780,7 @@ class IMSWorkflowService:
             "submission_date": submission_date,
             "producer_contact_guid": producer_contact_guid,  # Use contact GUID
             "underwriter_guid": "E4391D2A-58FB-4E2D-8B7D-3447D9E18C88",  # Valid underwriter GUID
-            "producer_location_guid": producer_location_guid,  # Use producer location GUID
+            "producer_location_guid": "3ED4DB47-9867-41A7-840D-61A19528F1F1",  # Use correct producer location GUID
         }
         
         # Producer information is already handled in the producer search chain above
