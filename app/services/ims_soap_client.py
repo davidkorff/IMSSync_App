@@ -549,17 +549,39 @@ class IMSSoapClient:
             # Log the full response for debugging
             logger.info(f"AddQuote response: {response}")
             
-            # Extract quote GUID from response
-            if response and 'soap:Body' in response:
-                add_response = response['soap:Body'].get('AddQuoteResponse', {})
-                quote_guid = add_response.get('AddQuoteResult')
+            # Extract quote GUID from response - handle different namespace formats
+            body_key = None
+            if response:
+                # Look for body with different namespace prefixes
+                for key in response.keys():
+                    if 'Body' in key:
+                        body_key = key
+                        break
+            
+            if body_key:
+                body = response[body_key]
+                # Look for AddQuoteResponse with any namespace
+                add_response = None
+                for key, value in body.items():
+                    if 'AddQuoteResponse' in key:
+                        add_response = value
+                        break
                 
-                if quote_guid:
-                    logger.info(f"Successfully added quote, received GUID: {quote_guid}")
-                    return quote_guid
-                else:
-                    logger.error("Failed to add quote: No GUID returned")
-                    raise ValueError("Failed to add quote: No GUID returned")
+                if add_response:
+                    # Look for AddQuoteResult with any namespace
+                    quote_guid = None
+                    if isinstance(add_response, dict):
+                        for key, value in add_response.items():
+                            if 'AddQuoteResult' in key:
+                                quote_guid = value
+                                break
+                    
+                    if quote_guid:
+                        logger.info(f"Successfully added quote, received GUID: {quote_guid}")
+                        return quote_guid
+                    else:
+                        logger.error("Failed to add quote: No GUID returned")
+                        raise ValueError("Failed to add quote: No GUID returned")
             
             logger.error("Failed to add quote: Unexpected response format")
             logger.error(f"Response structure: {list(response.keys()) if response else 'None'}")
