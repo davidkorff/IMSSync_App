@@ -1,0 +1,25 @@
+opportunity_type
+ - New or Renewal
+business_type
+  - hard-coded to individual 
+status
+  - cleared
+  -declined
+  -declined_multiple_submissions
+  -ofac_flagged
+  -flagged_duplicate
+  -flagged_territory
+  -quoted
+  -bound
+  -lost
+  -cancelled
+  -duplicate
+  -expired
+  -waiting
+  -approved
+  -needs_approval
+  -erp_issued
+transaction_type
+  - NEW BUSINESS
+  - CANCELLED
+  - MIDTERM ENDORSEMENT

@@ -666,10 +666,55 @@ class IMSWorkflowService:
         # Try to get the producer contact for this location
         producer_contact_guid = None
         
-        # TEMPORARY: Use the producer location GUID as the contact GUID
-        # This is a workaround since the producer lookup is not returning data
-        producer_contact_guid = producer_location_guid
-        transaction.ims_processing.add_log(f"TEMPORARY: Using producer location GUID as contact GUID: {producer_contact_guid}")
+        # Use the new producer search chain
+        try:
+            # First try to get producer name from the data
+            producer_name = None
+            producer_info = data.get("producer") or data.get("producer_data")
+            if producer_info and isinstance(producer_info, dict):
+                producer_name = producer_info.get("name") or producer_info.get("producer_name")
+            elif isinstance(data.get("producer_name"), str):
+                producer_name = data.get("producer_name")
+            
+            if producer_name:
+                transaction.ims_processing.add_log(f"Searching for producer: {producer_name}")
+                
+                # Use ProducerSearch to find the producer
+                search_results = self.soap_client.producer_search(producer_name)
+                
+                if search_results:
+                    # Use the first matching result
+                    producer_result = search_results[0]
+                    location_code = producer_result.get('location_code')
+                    
+                    if location_code:
+                        transaction.ims_processing.add_log(f"Found producer location code: {location_code}")
+                        
+                        # Get the contact GUID for this location
+                        contact_guid = self.soap_client.get_producer_contact_by_location_code(location_code)
+                        
+                        if contact_guid:
+                            producer_contact_guid = contact_guid
+                            producer_location_guid = producer_result.get('producer_location_guid')
+                            transaction.ims_processing.add_log(f"Found producer contact GUID: {producer_contact_guid}")
+                            transaction.ims_processing.add_log(f"Using producer location GUID: {producer_location_guid}")
+                        else:
+                            transaction.ims_processing.add_log(f"Warning: No contact found for location code: {location_code}")
+                    else:
+                        transaction.ims_processing.add_log("Warning: No location code in search result")
+                else:
+                    transaction.ims_processing.add_log(f"Warning: No producers found for name: {producer_name}")
+            else:
+                transaction.ims_processing.add_log("No producer name provided in data")
+        except Exception as e:
+            transaction.ims_processing.add_log(f"Error in producer search chain: {str(e)}")
+            import traceback
+            transaction.ims_processing.add_log(f"Traceback: {traceback.format_exc()}")
+        
+        # If we still don't have a producer contact, use the default
+        if not producer_contact_guid:
+            producer_contact_guid = producer_location_guid
+            transaction.ims_processing.add_log(f"Using default producer location GUID as contact GUID: {producer_contact_guid}")
         
         # Note: The producer lookup by name happens below in the producer extraction section
         # That will override these defaults if a producer is found
@@ -710,23 +755,7 @@ class IMSWorkflowService:
             "producer_location_guid": producer_location_guid,  # Use producer location GUID
         }
         
-        # Extract producer information if available
-        # Check both "producer" (nested) and "producer_data" (flat) structures
-        producer_info = data.get("producer") or data.get("producer_data")
-        if producer_info and isinstance(producer_info, dict):
-            producer_name = producer_info.get("name")
-            if producer_name:
-                transaction.ims_processing.add_log(f"Looking up producer by name: {producer_name}")
-                try:
-                    producer_guid = self._lookup_producer_by_name(producer_name)
-                    if producer_guid:
-                        result["producer_contact_guid"] = producer_guid
-                        result["producer_location_guid"] = producer_guid
-                        transaction.ims_processing.add_log(f"Found producer GUID: {producer_guid}")
-                    else:
-                        transaction.ims_processing.add_log(f"Warning: No producer found for name: {producer_name}")
-                except Exception as e:
-                    transaction.ims_processing.add_log(f"Warning: Could not lookup producer: {str(e)}")
+        # Producer information is already handled in the producer search chain above
         
         # Extract underwriter information if available
         # Check in producer_data first (flat structure), then at top level
@@ -980,48 +1009,3 @@ class IMSWorkflowService:
         
         return temp_path
     
-    def _lookup_producer_by_name(self, producer_name: str) -> Optional[str]:
-        """Look up producer by name using IMS API"""
-        if not producer_name:
-            return None
-            
-        try:
-            # Use ProducerSearch to find the producer
-            body_content = f"""
-            <ProducerSearch xmlns="http://tempuri.org/IMSWebServices/ProducerFunctions">
-                <searchString>{producer_name}</searchString>
-                <startWith>false</startWith>
-            </ProducerSearch>
-            """
-            
-            response = self.soap_client._make_soap_request(
-                self.soap_client.producer_functions_url,
-                "http://tempuri.org/IMSWebServices/ProducerFunctions/ProducerSearch",
-                body_content
-            )
-            
-            if response and 'soap:Body' in response:
-                search_response = response['soap:Body'].get('ProducerSearchResponse', {})
-                search_result = search_response.get('ProducerSearchResult', {})
-                
-                if search_result:
-                    producer_locations = search_result.get('ProducerLocation', [])
-                    
-                    # Convert to list if it's a single item
-                    if not isinstance(producer_locations, list):
-                        producer_locations = [producer_locations]
-                    
-                    # Look for exact match first, then partial match
-                    for location in producer_locations:
-                        if location.get('ProducerName', '').lower() == producer_name.lower():
-                            return location.get('ProducerLocationGuid')
-                    
-                    # If no exact match, return first result
-                    if producer_locations:
-                        return producer_locations[0].get('ProducerLocationGuid')
-            
-            return None
-            
-        except Exception as e:
-            logger.warning(f"Error looking up producer '{producer_name}': {str(e)}")
-            return None

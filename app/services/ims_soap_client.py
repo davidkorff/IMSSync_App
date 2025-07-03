@@ -446,17 +446,37 @@ class IMSSoapClient:
             )
             
             # Extract submission GUID from response
-            if response and 'soap:Body' in response:
-                add_response = response['soap:Body'].get('AddSubmissionResponse', {})
-                submission_guid = add_response.get('AddSubmissionResult')
+            # Handle both namespace formats (soap:Body and ns0:Body)
+            body = None
+            if response:
+                if 'soap:Body' in response:
+                    body = response['soap:Body']
+                elif 'ns0:Body' in response:
+                    body = response['ns0:Body']
+                    
+            if body:
+                # Look for AddSubmissionResponse in various namespace formats
+                add_response = None
+                for key in body:
+                    if 'AddSubmissionResponse' in key:
+                        add_response = body[key]
+                        break
                 
-                if submission_guid:
-                    logger.info(f"Successfully added submission, received GUID: {submission_guid}")
-                    return submission_guid
-                else:
-                    logger.error("Failed to add submission: No GUID returned")
-                    logger.error(f"Full response: {response}")
-                    raise ValueError("Failed to add submission: No GUID returned")
+                if add_response:
+                    # Extract the result GUID
+                    submission_guid = None
+                    for key in add_response:
+                        if 'AddSubmissionResult' in key:
+                            submission_guid = add_response[key]
+                            break
+                    
+                    if submission_guid:
+                        logger.info(f"Successfully added submission, received GUID: {submission_guid}")
+                        return submission_guid
+                    else:
+                        logger.error("Failed to add submission: No GUID returned")
+                        logger.error(f"Full response: {response}")
+                        raise ValueError("Failed to add submission: No GUID returned")
             
             logger.error("Failed to add submission: Unexpected response format")
             logger.error(f"Response type: {type(response)}, content: {response}")
@@ -1041,4 +1061,75 @@ class IMSSoapClient:
             
         except Exception as e:
             logger.error(f"Error getting producer contact by location code: {str(e)}")
+            raise
+    
+    def producer_search(self, producer_name, city="", state="", zip_code=""):
+        """Search for producers by name and location"""
+        logger.info(f"Searching for producer: {producer_name}")
+        
+        body_content = f"""
+        <ProducerSearch xmlns="http://tempuri.org/IMSWebServices/ProducerFunctions">
+            <producerName>{producer_name}</producerName>
+            <city>{city}</city>
+            <state>{state}</state>
+            <zip>{zip_code}</zip>
+        </ProducerSearch>
+        """
+        
+        try:
+            response = self._make_soap_request(
+                self.producer_functions_url,
+                "http://tempuri.org/IMSWebServices/ProducerFunctions/ProducerSearch",
+                body_content
+            )
+            
+            if response:
+                # Handle both namespace formats
+                body = response.get('ns0:Body') or response.get('soap:Body')
+                if not body:
+                    logger.warning("No SOAP body in ProducerSearch response")
+                    return []
+                
+                search_response = body.get('ns1:ProducerSearchResponse') or body.get('ProducerSearchResponse')
+                if not search_response:
+                    logger.warning("No ProducerSearchResponse in response")
+                    return []
+                
+                # Get the result - it might be a list or a single item
+                search_result = search_response.get('ns1:ProducerSearchResult') or search_response.get('ProducerSearchResult')
+                
+                if not search_result:
+                    logger.info("No producers found")
+                    return []
+                
+                # Extract producer array from the result
+                producer_info = search_result.get('ProducerInfo', [])
+                
+                # Ensure it's a list
+                if not isinstance(producer_info, list):
+                    producer_info = [producer_info]
+                
+                results = []
+                for producer in producer_info:
+                    result = {
+                        'producer_location_guid': producer.get('ProducerLocationGuid'),
+                        'producer_name': producer.get('ProducerName'),
+                        'producer_code': producer.get('ProducerCode'),
+                        'location_name': producer.get('LocationName'),
+                        'location_code': producer.get('LocationCode'),
+                        'address1': producer.get('Address1'),
+                        'city': producer.get('City'),
+                        'state': producer.get('State'),
+                        'zip_code': producer.get('ZipCode'),
+                        'status': producer.get('Status')
+                    }
+                    results.append(result)
+                    logger.info(f"Found producer: {result['producer_name']} - Location: {result['location_code']}")
+                
+                return results
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error searching for producer: {str(e)}")
             raise
