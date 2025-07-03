@@ -24,9 +24,9 @@ class TritonTransformer:
         Returns:
             Tuple of (line_of_business_name, line_guid)
         """
-        # Default values
+        # Default values with valid IMS GUIDs
         default_lob = "AHC Primary"
-        default_guid = self.config.get("default_line_guid", "00000000-0000-0000-0000-000000000000")
+        default_guid = self.config.get("default_line_guid", "07564291-CBFE-4BBE-88D1-0548C88ACED4")  # AHC Primary LineGUID
         
         # This logic will need to be updated based on Triton's actual data structure
         # For now, using a simple example

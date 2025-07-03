@@ -567,10 +567,16 @@ class IMSWorkflowService:
         # This method would extract and transform insured data from the transaction
         # to match IMS API requirements
         
-        if not transaction.parsed_data:
-            raise ValueError("Cannot extract insured data: Missing parsed data")
+        # Use processed_data if available (from transformers), otherwise use parsed_data
+        data = transaction.processed_data or transaction.parsed_data
+        if not data:
+            raise ValueError("Cannot extract insured data: Missing data")
         
-        data = transaction.parsed_data
+        # If we have processed_data with insured_data section, use that structure
+        if transaction.processed_data and "insured_data" in transaction.processed_data:
+            insured_data = transaction.processed_data["insured_data"]
+            transaction.ims_processing.add_log(f"Using transformed insured data: {insured_data.get('name')}, business_type_id={insured_data.get('business_type_id')}")
+            return insured_data
         
         # Handle both nested and flat data structures
         # Check if data is nested under 'policy' key (from CSV loader)
@@ -642,18 +648,34 @@ class IMSWorkflowService:
         # This method would extract and transform submission data from the transaction
         # to match IMS API requirements
         
-        if not transaction.parsed_data:
-            raise ValueError("Cannot extract submission data: Missing parsed data")
+        # Use processed_data if available (from transformers), otherwise use parsed_data
+        data = transaction.processed_data or transaction.parsed_data
+        if not data:
+            raise ValueError("Cannot extract submission data: Missing data")
         
-        data = transaction.parsed_data
-        
-        # Default to today's date if not provided
-        submission_date = datetime.now().date()
-        if data.get("bound_date"):
-            try:
-                submission_date = datetime.strptime(data["bound_date"], "%Y-%m-%d").date()
-            except ValueError:
-                pass
+        # Check if we have transformed data with policy_data section
+        if transaction.processed_data and "policy_data" in transaction.processed_data:
+            # Use the transformed data structure
+            policy_data = transaction.processed_data["policy_data"]
+            producer_data = transaction.processed_data.get("producer_data", {})
+            
+            # Get dates from policy_data
+            submission_date = policy_data.get("bound_date") or datetime.now().date()
+            if isinstance(submission_date, str):
+                try:
+                    submission_date = datetime.strptime(submission_date, "%Y-%m-%d").date()
+                except ValueError:
+                    submission_date = datetime.now().date()
+        else:
+            # Fall back to original logic for non-transformed data
+            submission_date = datetime.now().date()
+            if data.get("bound_date"):
+                try:
+                    submission_date = datetime.strptime(data["bound_date"], "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+            policy_data = data
+            producer_data = data.get("producer_data", {})
         
         # Get source-specific defaults from configuration
         source = transaction.source or "triton"
@@ -670,11 +692,17 @@ class IMSWorkflowService:
         try:
             # First try to get producer name from the data
             producer_name = None
-            producer_info = data.get("producer") or data.get("producer_data")
-            if producer_info and isinstance(producer_info, dict):
-                producer_name = producer_info.get("name") or producer_info.get("producer_name")
-            elif isinstance(data.get("producer_name"), str):
-                producer_name = data.get("producer_name")
+            
+            # Check if we have transformed data
+            if transaction.processed_data and "producer_data" in transaction.processed_data:
+                producer_name = transaction.processed_data["producer_data"].get("name")
+            else:
+                # Fall back to original logic
+                producer_info = data.get("producer") or data.get("producer_data")
+                if producer_info and isinstance(producer_info, dict):
+                    producer_name = producer_info.get("name") or producer_info.get("producer_name")
+                elif isinstance(data.get("producer_name"), str):
+                    producer_name = data.get("producer_name")
             
             if producer_name:
                 transaction.ims_processing.add_log(f"Searching for producer: {producer_name}")
@@ -751,19 +779,24 @@ class IMSWorkflowService:
             "insured_guid": None,  # Will be filled in by the caller
             "submission_date": submission_date,
             "producer_contact_guid": producer_contact_guid,  # Use contact GUID
-            "underwriter_guid": "00000000-0000-0000-0000-000000000000",  # Default
+            "underwriter_guid": "E4391D2A-58FB-4E2D-8B7D-3447D9E18C88",  # Valid underwriter GUID
             "producer_location_guid": producer_location_guid,  # Use producer location GUID
         }
         
         # Producer information is already handled in the producer search chain above
         
         # Extract underwriter information if available
-        # Check in producer_data first (flat structure), then at top level
         underwriter_name = None
-        if producer_info and isinstance(producer_info, dict):
-            underwriter_name = producer_info.get("underwriter_name")
-        if not underwriter_name:
-            underwriter_name = data.get("underwriter") or data.get("underwriter_name")
+        
+        # Check if we have transformed data
+        if transaction.processed_data and "producer_data" in transaction.processed_data:
+            underwriter_name = transaction.processed_data["producer_data"].get("underwriter_name")
+        else:
+            # Fall back to original logic
+            if producer_data and isinstance(producer_data, dict):
+                underwriter_name = producer_data.get("underwriter_name")
+            if not underwriter_name:
+                underwriter_name = data.get("underwriter") or data.get("underwriter_name")
         
         if underwriter_name:
             try:
@@ -783,36 +816,70 @@ class IMSWorkflowService:
         # This method would extract and transform quote data from the transaction
         # to match IMS API requirements
         
-        if not transaction.parsed_data:
-            raise ValueError("Cannot extract quote data: Missing parsed data")
+        # Use processed_data if available (from transformers), otherwise use parsed_data
+        data = transaction.processed_data or transaction.parsed_data
+        if not data:
+            raise ValueError("Cannot extract quote data: Missing data")
         
-        data = transaction.parsed_data
+        # Check if we have transformed data
+        if transaction.processed_data and "policy_data" in transaction.processed_data:
+            # Use the transformed data structure
+            policy_data = transaction.processed_data["policy_data"]
+            insured_data = transaction.processed_data.get("insured_data", {})
+            
+            effective_date = policy_data.get("effective_date", datetime.now().date())
+            expiration_date = policy_data.get("expiration_date", datetime.now().date().replace(year=datetime.now().year + 1))
+            
+            # Convert dates if they're strings
+            if isinstance(effective_date, str):
+                try:
+                    effective_date = datetime.strptime(effective_date, "%Y-%m-%d").date()
+                except ValueError:
+                    effective_date = datetime.now().date()
+            if isinstance(expiration_date, str):
+                try:
+                    expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d").date()
+                except ValueError:
+                    expiration_date = datetime.now().date().replace(year=datetime.now().year + 1)
+            
+            state = insured_data.get("state", "TX")
+            line_of_business = policy_data.get("line_of_business", "General Liability")
+            line_guid = policy_data.get("line_guid", "07564291-CBFE-4BBE-88D1-0548C88ACED4")
+        else:
+            # Fall back to original logic
+            effective_date = datetime.now().date()
+            expiration_date = datetime.now().date().replace(year=datetime.now().year + 1)
+            
+            if data.get("effective_date"):
+                try:
+                    effective_date = datetime.strptime(data["effective_date"], "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+                    
+            if data.get("expiration_date"):
+                try:
+                    expiration_date = datetime.strptime(data["expiration_date"], "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+            
+            state = data.get("state", "TX")
+            line_of_business = data.get("line_of_business", "General Liability")
+            line_guid = "07564291-CBFE-4BBE-88D1-0548C88ACED4"
         
-        # Parse dates
-        effective_date = datetime.now().date()
-        expiration_date = datetime.now().date().replace(year=datetime.now().year + 1)
-        
-        if data.get("effective_date"):
-            try:
-                effective_date = datetime.strptime(data["effective_date"], "%Y-%m-%d").date()
-            except ValueError:
-                pass
-                
-        if data.get("expiration_date"):
-            try:
-                expiration_date = datetime.strptime(data["expiration_date"], "%Y-%m-%d").date()
-            except ValueError:
-                pass
-        
+        # Use hardcoded valid IMS GUIDs instead of all-zeros defaults
         result = {
             "submission_guid": None,  # Will be filled in by the caller
             "effective_date": effective_date,
             "expiration_date": expiration_date,
-            "state": data.get("state", "TX"),  # Default to TX if not provided
-            "line_guid": "00000000-0000-0000-0000-000000000000",  # Default
+            "state": state,
+            "line_guid": line_guid,
             "status_id": 1,  # Default status (New)
             "billing_type_id": 1,  # Default billing type (Agency Bill)
-            "line_of_business": data.get("line_of_business", "General Liability")
+            "line_of_business": line_of_business,
+            # Add hardcoded location GUIDs
+            "quoting_location_guid": "C5C006BB-6437-42F3-95D4-C090ADD3B37D",
+            "issuing_location_guid": "C5C006BB-6437-42F3-95D4-C090ADD3B37D",
+            "company_location_guid": "DF35D4C7-C663-4974-A886-A1E18D3C9618"
         }
         
         # Extract line of business information if available
@@ -828,36 +895,54 @@ class IMSWorkflowService:
         # This method would extract and transform premium data from the transaction
         # to match IMS API requirements
         
-        if not transaction.parsed_data:
-            raise ValueError("Cannot extract premium data: Missing parsed data")
+        # Use processed_data if available (from transformers), otherwise use parsed_data
+        data = transaction.processed_data or transaction.parsed_data
+        if not data:
+            raise ValueError("Cannot extract premium data: Missing data")
         
-        data = transaction.parsed_data
-        
-        # Default premium
-        total_premium = 0.0
-        
-        # Extract premium amount
-        if data.get("premium"):
-            try:
-                total_premium = float(data["premium"])
-            except (ValueError, TypeError):
-                pass
-        
-        # Extract coverages if available
-        coverages = []
-        if "coverages" in data and isinstance(data["coverages"], list):
-            for coverage in data["coverages"]:
-                if coverage.get("premium"):
-                    try:
-                        cov_premium = float(coverage["premium"])
-                        coverages.append({
-                            "type": coverage.get("type", "Unknown"),
-                            "premium": cov_premium,
-                            "limit": coverage.get("limit"),
-                            "deductible": coverage.get("deductible")
-                        })
-                    except (ValueError, TypeError):
-                        pass
+        # Check if we have transformed data
+        if transaction.processed_data and "premium_data" in transaction.processed_data:
+            # Use the transformed premium data
+            premium_data = transaction.processed_data["premium_data"]
+            total_premium = premium_data.get("gross_premium", 0.0)
+            
+            # Get coverages from transformed data
+            coverages = []
+            if "coverages" in transaction.processed_data:
+                for coverage in transaction.processed_data["coverages"]:
+                    coverages.append({
+                        "type": coverage.get("coverage_type", "Unknown"),
+                        "premium": coverage.get("premium", total_premium),
+                        "limit": coverage.get("limit_occurrence"),
+                        "limit_aggregate": coverage.get("limit_aggregate"),
+                        "deductible": coverage.get("deductible")
+                    })
+        else:
+            # Fall back to original logic
+            total_premium = 0.0
+            
+            # Extract premium amount
+            if data.get("premium"):
+                try:
+                    total_premium = float(data["premium"])
+                except (ValueError, TypeError):
+                    pass
+            
+            # Extract coverages if available
+            coverages = []
+            if "coverages" in data and isinstance(data["coverages"], list):
+                for coverage in data["coverages"]:
+                    if coverage.get("premium"):
+                        try:
+                            cov_premium = float(coverage["premium"])
+                            coverages.append({
+                                "type": coverage.get("type", "Unknown"),
+                                "premium": cov_premium,
+                                "limit": coverage.get("limit"),
+                                "deductible": coverage.get("deductible")
+                            })
+                        except (ValueError, TypeError):
+                            pass
         
         return {
             "total_premium": total_premium,

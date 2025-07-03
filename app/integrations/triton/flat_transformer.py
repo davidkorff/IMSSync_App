@@ -41,7 +41,7 @@ class TritonFlatTransformer:
                 "expiration_date": expiration_date,
                 "bound_date": bound_date,
                 "line_of_business": self._determine_lob(data),
-                "line_guid": self.config.get("default_line_guid", "00000000-0000-0000-0000-000000000000"),
+                "line_guid": self.config.get("default_line_guid", "07564291-CBFE-4BBE-88D1-0548C88ACED4"),  # AHC Primary LineGUID
                 "producer_guid": self.config.get("default_producer_guid", "00000000-0000-0000-0000-000000000000"),
                 "producer_location_guid": self.config.get("default_producer_location_guid"),
                 "commission_rate": float(data.get('commission_rate', 0)),
