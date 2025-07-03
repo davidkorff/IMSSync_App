@@ -103,15 +103,15 @@ class IMSSoapClient:
             'SOAPAction': action
         }
         
-        logger.debug(f"Sending SOAP request to {url}")
-        logger.debug(f"Headers: {headers}")
-        logger.debug(f"Body: {envelope}")
+        logger.info(f"Sending SOAP request to {url}")
+        logger.info(f"Headers: {headers}")
+        logger.info(f"Body: {envelope}")
         
         try:
             response = requests.post(url, data=envelope, headers=headers)
             
             # Log response details even if it fails
-            logger.debug(f"Received response: {response.status_code}")
+            logger.info(f"Received response: {response.status_code}")
             if response.status_code != 200:
                 logger.error(f"SOAP Error Response ({response.status_code}): {response.text}")
                 
@@ -136,7 +136,7 @@ class IMSSoapClient:
             
             response.raise_for_status()
             
-            logger.debug(f"Response body: {response.text}")
+            logger.info(f"Response body: {response.text}")
             
             # Parse response XML
             root = ET.fromstring(response.text)
@@ -546,6 +546,9 @@ class IMSSoapClient:
                 body_content
             )
             
+            # Log the full response for debugging
+            logger.info(f"AddQuote response: {response}")
+            
             # Extract quote GUID from response
             if response and 'soap:Body' in response:
                 add_response = response['soap:Body'].get('AddQuoteResponse', {})
@@ -559,6 +562,7 @@ class IMSSoapClient:
                     raise ValueError("Failed to add quote: No GUID returned")
             
             logger.error("Failed to add quote: Unexpected response format")
+            logger.error(f"Response structure: {list(response.keys()) if response else 'None'}")
             raise ValueError("Failed to add quote: Unexpected response format")
             
         except Exception as e:
