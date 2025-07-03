@@ -498,6 +498,12 @@ class IMSSoapClient:
         line_guid = quote_data.get('line_guid', '')
         state_id = quote_data.get('state', '')
         producer_contact_guid = quote_data.get('producer_contact_guid', '')
+        
+        # Use default producer contact GUID if empty or None
+        if not producer_contact_guid:
+            producer_contact_guid = '895E9291-CFB6-4299-8799-9AF77DF937D6'
+            logger.info(f"Using default producer contact GUID: {producer_contact_guid}")
+        
         quote_status_id = quote_data.get('status_id', 1)  # Default to 1 (New)
         
         # Extract dates and format as expected by IMS (YYYY-MM-DD)
