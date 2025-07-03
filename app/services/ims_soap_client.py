@@ -530,8 +530,8 @@ class IMSSoapClient:
         """
         
         # Debug log the exact XML being sent to identify the malformed GUID at position 52, line 22
-        logger.debug("AddQuote body_content XML:")
-        logger.debug(body_content)
+        logger.info("AddQuote body_content XML:")
+        logger.info(body_content)
         
         try:
             response = self._make_soap_request(
