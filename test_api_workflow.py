@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def test_api_workflow(api_url='http://localhost:8000', test_file='TEST.json'):
+def test_api_workflow(api_url='http://localhost:8001', test_file='TEST.json'):
     """Test the complete workflow through the API service"""
     
     print("=" * 80)
@@ -95,12 +95,12 @@ def test_api_workflow(api_url='http://localhost:8000', test_file='TEST.json'):
     endpoint = f"{api_url}/api/triton/transaction/new"
     headers = {
         'Content-Type': 'application/json',
-        'X-API-Key': api_key,
+        'X-API-Key': 'triton_test_key',
         'X-Client-Id': 'test_script'
     }
     
     print(f"  🔗 Endpoint: {endpoint}")
-    print(f"  🔑 API Key: {api_key[:10]}...")
+    print(f"  🔑 API Key: triton_test_key")
     print(f"  📦 Payload size: {len(json.dumps(test_data))} bytes")
     
     # Step 4: Send the request
@@ -268,8 +268,8 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Test API service workflow')
-    parser.add_argument('--url', default='http://localhost:8000',
-                       help='API service URL (default: http://localhost:8000)')
+    parser.add_argument('--url', default='http://localhost:8001',
+                       help='API service URL (default: http://localhost:8001)')
     parser.add_argument('--test-file', default='TEST.json',
                        help='Path to test JSON file (default: TEST.json)')
     parser.add_argument('--skip-confirm', action='store_true',
