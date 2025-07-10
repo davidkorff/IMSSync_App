@@ -264,13 +264,13 @@ class IMSClient:
         try:
             service = self.clients['QuoteFunctions'].service
             
-            result = service.BindQuote(
+            result = service.Bind(
                 option_id,
                 _soapheaders=self._get_header()
             )
             
-            if result and hasattr(result, 'PolicyNumber'):
-                policy_number = str(result.PolicyNumber)
+            if result:
+                policy_number = str(result)
                 logger.info(f"Bound policy: {policy_number}")
                 return policy_number
             else:
