@@ -12,6 +12,7 @@ from app.services.ims.quote_service import IMSQuoteService
 from app.services.ims.document_service import IMSDocumentService
 from app.services.ims.data_access_service import IMSDataAccessService
 from app.services.ims.policy_lifecycle_service import IMSPolicyLifecycleService
+from app.services.ims.invoice_service import InvoiceService as IMSInvoiceService
 
 __all__ = [
     'BaseIMSService',
@@ -21,5 +22,6 @@ __all__ = [
     'IMSQuoteService',
     'IMSDocumentService',
     'IMSDataAccessService',
-    'IMSPolicyLifecycleService'
+    'IMSPolicyLifecycleService',
+    'IMSInvoiceService'
 ]

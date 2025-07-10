@@ -19,7 +19,7 @@ from app.services.ims import (
     IMSInsuredService, IMSProducerService, IMSQuoteService,
     IMSDocumentService, IMSDataAccessService, IMSPolicyLifecycleService
 )
-from app.services.ims.invoice_service import IMSInvoiceService
+from app.services.ims.invoice_service import InvoiceService as IMSInvoiceService
 from app.services.ims.field_mappings import get_mapper, FieldDestination
 from app.core.config import settings
 

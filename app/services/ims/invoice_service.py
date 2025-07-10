@@ -8,7 +8,8 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 class InvoiceService:
-    def __init__(self):
+    def __init__(self, environment: Optional[str] = None):
+        self.environment = environment  # For compatibility, but not used
         self.soap_client = None
         self._initialized = False
         
