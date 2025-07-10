@@ -103,25 +103,40 @@ class IMSClient:
         service = self.clients['InsuredFunctions'].service
         
         try:
-            # Search by name
-            results = service.FindInsuredByName(
-                insured_data['name'],
+            # Search by name with location if available
+            insured_guid = service.FindInsuredByName(
+                insuredName=insured_data['name'],
+                city=insured_data.get('city', ''),
+                state=insured_data.get('state', ''),
+                zip=insured_data.get('zip', ''),
+                zipPlus='',
                 _soapheaders=self._get_header()
             )
             
-            if results and hasattr(results, 'Insured') and results.Insured:
+            if insured_guid and str(insured_guid) != '00000000-0000-0000-0000-000000000000':
                 # Found existing insured
-                for insured in results.Insured:
-                    if hasattr(insured, 'InsuredGUID'):
-                        logger.info(f"Found existing insured: {insured.InsuredGUID}")
-                        return str(insured.InsuredGUID)
+                logger.info(f"Found existing insured: {insured_guid}")
+                return str(insured_guid)
             
             # Not found, create new
             logger.info(f"Creating new insured: {insured_data['name']}")
             
+            # Create insured object with required fields
+            insured = {
+                'CorporationName': insured_data['name'],
+                'BusinessTypeID': insured_data.get('business_type_id', 1),
+                'NameOnPolicy': insured_data['name'],
+                'Office': insured_data.get('office_guid', '00000000-0000-0000-0000-000000000000')
+            }
+            
+            # Add optional fields if available
+            if 'tax_id' in insured_data:
+                insured['FEIN'] = insured_data['tax_id']
+            if 'dba' in insured_data:
+                insured['DBA'] = insured_data['dba']
+            
             result = service.AddInsured(
-                insured_data['name'],
-                insured_data.get('business_type_id', 1),
+                insured=insured,
                 _soapheaders=self._get_header()
             )
             
@@ -145,14 +160,21 @@ class IMSClient:
         """Add location to insured"""
         try:
             service = self.clients['InsuredFunctions'].service
+            
+            # Create location object
+            location = {
+                'InsuredGuid': insured_guid,
+                'Address1': location_data.get('address', ''),
+                'Address2': location_data.get('address2', ''),
+                'City': location_data.get('city', ''),
+                'State': location_data.get('state', ''),
+                'Zip': location_data.get('zip', ''),
+                'ISOCountryCode': 'USA',
+                'LocationTypeID': 1  # Primary location
+            }
+            
             result = service.AddInsuredLocation(
-                insured_guid,
-                location_data['address'],
-                '',  # address2
-                location_data['city'],
-                location_data['state'],
-                location_data['zip'],
-                'USA',
+                location=location,
                 _soapheaders=self._get_header()
             )
             logger.info(f"Added location to insured {insured_guid}")
