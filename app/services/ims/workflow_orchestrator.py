@@ -17,8 +17,9 @@ from app.models.transaction_models import (
 )
 from app.services.ims import (
     IMSInsuredService, IMSProducerService, IMSQuoteService,
-    IMSDocumentService, IMSDataAccessService
+    IMSDocumentService, IMSDataAccessService, IMSPolicyLifecycleService
 )
+from app.services.ims.invoice_service import IMSInvoiceService
 from app.services.ims.field_mappings import get_mapper, FieldDestination
 from app.core.config import settings
 
@@ -40,6 +41,8 @@ class IMSWorkflowOrchestrator:
         self.quote_service = IMSQuoteService(self.environment)
         self.document_service = IMSDocumentService(self.environment)
         self.data_access_service = IMSDataAccessService(self.environment)
+        self.policy_lifecycle_service = IMSPolicyLifecycleService(self.environment)
+        self.invoice_service = IMSInvoiceService(self.environment)
         
         # Templates directory for Excel raters
         self.templates_dir = os.path.join(os.path.dirname(__file__), "../../../templates")
@@ -60,33 +63,44 @@ class IMSWorkflowOrchestrator:
         logger.info(f"Processing transaction {transaction.transaction_id} through IMS workflow")
         
         try:
-            # Process based on transaction state
-            if transaction.ims_processing.status == IMSProcessingStatus.PENDING:
-                self._process_insured(transaction)
-                
-            if transaction.ims_processing.status == IMSProcessingStatus.INSURED_CREATED:
-                self._process_submission(transaction)
-                
-            if transaction.ims_processing.status == IMSProcessingStatus.SUBMISSION_CREATED:
-                self._process_quote(transaction)
-                
-            if transaction.ims_processing.status == IMSProcessingStatus.QUOTE_CREATED:
-                self._process_rating(transaction)
-                
-            if transaction.ims_processing.status == IMSProcessingStatus.RATED:
-                self._bind_policy(transaction)
-                
-            if transaction.ims_processing.status == IMSProcessingStatus.BOUND:
-                self._issue_policy(transaction)
-                
-            # Update final status
-            if transaction.ims_processing.status == IMSProcessingStatus.ISSUED:
-                transaction.update_status(
-                    TransactionStatus.COMPLETED,
-                    f"Successfully processed in IMS. Policy: {transaction.ims_processing.policy.policy_number}"
-                )
-                
-            return transaction
+            # Route based on transaction type
+            from app.models.transaction_models import TransactionType
+            
+            if transaction.type == TransactionType.CANCELLATION:
+                return self._process_cancellation(transaction)
+            elif transaction.type == TransactionType.ENDORSEMENT:
+                return self._process_endorsement(transaction)
+            elif transaction.type == TransactionType.REINSTATEMENT:
+                return self._process_reinstatement(transaction)
+            else:
+                # Process NEW and UPDATE transactions through normal workflow
+                # Process based on transaction state
+                if transaction.ims_processing.status == IMSProcessingStatus.PENDING:
+                    self._process_insured(transaction)
+                    
+                if transaction.ims_processing.status == IMSProcessingStatus.INSURED_CREATED:
+                    self._process_submission(transaction)
+                    
+                if transaction.ims_processing.status == IMSProcessingStatus.SUBMISSION_CREATED:
+                    self._process_quote(transaction)
+                    
+                if transaction.ims_processing.status == IMSProcessingStatus.QUOTE_CREATED:
+                    self._process_rating(transaction)
+                    
+                if transaction.ims_processing.status == IMSProcessingStatus.RATED:
+                    self._bind_policy(transaction)
+                    
+                if transaction.ims_processing.status == IMSProcessingStatus.BOUND:
+                    self._issue_policy(transaction)
+                    
+                # Update final status
+                if transaction.ims_processing.status == IMSProcessingStatus.ISSUED:
+                    transaction.update_status(
+                        TransactionStatus.COMPLETED,
+                        f"Successfully processed in IMS. Policy: {transaction.ims_processing.policy.policy_number}"
+                    )
+                    
+                return transaction
             
         except Exception as e:
             self._handle_workflow_error(transaction, e)
@@ -331,6 +345,15 @@ class IMSWorkflowOrchestrator:
             created_at=datetime.now()
         )
         
+        # Attempt to retrieve invoice number
+        invoice_number = self._retrieve_invoice_number(policy_number)
+        if invoice_number:
+            transaction.ims_processing.policy.invoice_number = invoice_number
+            transaction.ims_processing.policy.invoice_retrieved_at = datetime.now()
+            transaction.ims_processing.add_log(f"Retrieved invoice number: {invoice_number}")
+        else:
+            transaction.ims_processing.add_log("Invoice number not immediately available")
+        
         # Update status
         transaction.ims_processing.update_status(
             IMSProcessingStatus.BOUND,
@@ -346,6 +369,14 @@ class IMSWorkflowOrchestrator:
         # Issue the policy
         if self.quote_service.issue_policy(policy_number):
             transaction.ims_processing.add_log(f"Policy issued: {policy_number}")
+            
+            # If invoice wasn't retrieved during binding, try again after issuing
+            if not transaction.ims_processing.policy.invoice_number:
+                invoice_number = self._retrieve_invoice_number(policy_number)
+                if invoice_number:
+                    transaction.ims_processing.policy.invoice_number = invoice_number
+                    transaction.ims_processing.policy.invoice_retrieved_at = datetime.now()
+                    transaction.ims_processing.add_log(f"Retrieved invoice number after issuing: {invoice_number}")
             
             # Link to external system
             self._link_external_system(transaction)
@@ -796,3 +827,271 @@ class IMSWorkflowOrchestrator:
             f"IMS workflow error at {transaction.ims_processing.status.value}: {str(error)}"
         )
         transaction.ims_processing.status = IMSProcessingStatus.ERROR
+    
+    def _process_cancellation(self, transaction: Transaction) -> Transaction:
+        """Process a policy cancellation"""
+        transaction.ims_processing.add_log("Processing policy cancellation")
+        
+        try:
+            # Extract cancellation data
+            if not transaction.processed_data:
+                raise ValueError("No processed data available for cancellation")
+            
+            cancellation_data = transaction.processed_data.get("cancellation_data", {})
+            if not cancellation_data:
+                raise ValueError("Missing cancellation_data in processed data")
+            
+            # Get required fields
+            control_number = cancellation_data.get("control_number")
+            if not control_number:
+                raise ValueError("Control number is required for cancellation")
+            
+            cancellation_date = cancellation_data.get("cancellation_date")
+            if not cancellation_date:
+                raise ValueError("Cancellation date is required")
+            
+            cancellation_reason_id = cancellation_data.get("cancellation_reason_id", 1)  # Default reason
+            comments = cancellation_data.get("comments", "Policy cancelled via API")
+            flat_cancel = cancellation_data.get("flat_cancel", False)
+            
+            # Get user GUID from transaction or use default
+            user_guid = self._get_user_guid(transaction)
+            
+            transaction.ims_processing.add_log(
+                f"Cancelling policy {control_number} effective {cancellation_date}"
+            )
+            
+            # Call the policy lifecycle service
+            result = self.policy_lifecycle_service.cancel_policy(
+                control_number=control_number,
+                cancellation_date=cancellation_date,
+                cancellation_reason_id=cancellation_reason_id,
+                comments=comments,
+                user_guid=user_guid,
+                return_premium=not flat_cancel,
+                flat_cancel=flat_cancel
+            )
+            
+            if result.get("success"):
+                transaction.ims_processing.add_log(f"Policy cancelled successfully: {result.get('message')}")
+                transaction.ims_processing.status = IMSProcessingStatus.CANCELLED
+                transaction.update_status(
+                    TransactionStatus.COMPLETED,
+                    f"Policy {control_number} cancelled successfully"
+                )
+            else:
+                raise Exception(result.get("message", "Cancellation failed"))
+                
+            return transaction
+            
+        except Exception as e:
+            self._handle_workflow_error(transaction, e)
+            return transaction
+    
+    def _process_endorsement(self, transaction: Transaction) -> Transaction:
+        """Process a policy endorsement"""
+        transaction.ims_processing.add_log("Processing policy endorsement")
+        
+        try:
+            # Extract endorsement data
+            if not transaction.processed_data:
+                raise ValueError("No processed data available for endorsement")
+            
+            endorsement_data = transaction.processed_data.get("endorsement_data", {})
+            if not endorsement_data:
+                raise ValueError("Missing endorsement_data in processed data")
+            
+            # Get required fields
+            control_number = endorsement_data.get("control_number")
+            if not control_number:
+                raise ValueError("Control number is required for endorsement")
+            
+            effective_date = endorsement_data.get("endorsement_effective_date")
+            if not effective_date:
+                raise ValueError("Endorsement effective date is required")
+            
+            comment = endorsement_data.get("endorsement_comment", "Policy endorsement via API")
+            reason_id = endorsement_data.get("endorsement_reason_id", 1)  # Default reason
+            calculation_type = endorsement_data.get("calculation_type", "P")  # Default to pro-rata
+            
+            # Get user GUID
+            user_guid = self._get_user_guid(transaction)
+            
+            transaction.ims_processing.add_log(
+                f"Creating endorsement for policy {control_number} effective {effective_date}"
+            )
+            
+            # Call the policy lifecycle service
+            result = self.policy_lifecycle_service.create_endorsement(
+                control_number=control_number,
+                endorsement_effective_date=effective_date,
+                endorsement_comment=comment,
+                endorsement_reason_id=reason_id,
+                user_guid=user_guid,
+                calculation_type=calculation_type,
+                copy_exposures=True,
+                copy_premiums=False
+            )
+            
+            if result.get("success"):
+                transaction.ims_processing.add_log(f"Endorsement created successfully: {result.get('message')}")
+                
+                # Store endorsement details
+                if result.get("endorsement_quote_guid"):
+                    transaction.ims_processing.quote = IMSQuote(
+                        guid=result["endorsement_quote_guid"],
+                        submission_guid="",  # Not applicable for endorsements
+                        effective_date=effective_date,
+                        expiration_date=effective_date,  # Will be updated later
+                        state=""  # Will be populated from original policy
+                    )
+                
+                transaction.ims_processing.status = IMSProcessingStatus.ENDORSED
+                transaction.update_status(
+                    TransactionStatus.COMPLETED,
+                    f"Endorsement created for policy {control_number}"
+                )
+            else:
+                raise Exception(result.get("message", "Endorsement creation failed"))
+                
+            return transaction
+            
+        except Exception as e:
+            self._handle_workflow_error(transaction, e)
+            return transaction
+    
+    def _process_reinstatement(self, transaction: Transaction) -> Transaction:
+        """Process a policy reinstatement"""
+        transaction.ims_processing.add_log("Processing policy reinstatement")
+        
+        try:
+            # Extract reinstatement data
+            if not transaction.processed_data:
+                raise ValueError("No processed data available for reinstatement")
+            
+            reinstatement_data = transaction.processed_data.get("reinstatement_data", {})
+            if not reinstatement_data:
+                raise ValueError("Missing reinstatement_data in processed data")
+            
+            # Get required fields
+            control_number = reinstatement_data.get("control_number")
+            if not control_number:
+                raise ValueError("Control number is required for reinstatement")
+            
+            reinstatement_date = reinstatement_data.get("reinstatement_date")
+            if not reinstatement_date:
+                raise ValueError("Reinstatement date is required")
+            
+            reason_id = reinstatement_data.get("reinstatement_reason_id")
+            comments = reinstatement_data.get("comments", "Policy reinstated via API")
+            payment_received = reinstatement_data.get("payment_received")
+            check_number = reinstatement_data.get("check_number")
+            
+            # Get user GUID
+            user_guid = self._get_user_guid(transaction)
+            
+            transaction.ims_processing.add_log(
+                f"Reinstating policy {control_number} effective {reinstatement_date}"
+            )
+            
+            # Call the policy lifecycle service
+            result = self.policy_lifecycle_service.reinstate_policy(
+                control_number=control_number,
+                reinstatement_date=reinstatement_date,
+                reinstatement_reason_id=reason_id,
+                comments=comments,
+                user_guid=user_guid,
+                generate_invoice=True,
+                payment_received=payment_received,
+                check_number=check_number
+            )
+            
+            if result.get("success"):
+                transaction.ims_processing.add_log(f"Policy reinstated successfully: {result.get('message')}")
+                
+                # Store reinstatement details
+                if result.get("invoice_number"):
+                    transaction.ims_processing.add_log(f"Reinstatement invoice: {result['invoice_number']}")
+                if result.get("reinstatement_amount"):
+                    transaction.ims_processing.add_log(f"Reinstatement amount: ${result['reinstatement_amount']}")
+                
+                transaction.ims_processing.status = IMSProcessingStatus.REINSTATED
+                transaction.update_status(
+                    TransactionStatus.COMPLETED,
+                    f"Policy {control_number} reinstated successfully"
+                )
+            else:
+                raise Exception(result.get("message", "Reinstatement failed"))
+                
+            return transaction
+            
+        except Exception as e:
+            self._handle_workflow_error(transaction, e)
+            return transaction
+    
+    def _get_user_guid(self, transaction: Transaction) -> str:
+        """Get user GUID from transaction or use default"""
+        if transaction.processed_data:
+            user_guid = transaction.processed_data.get("user_guid")
+            if user_guid:
+                return user_guid
+        
+        # Use default based on source
+        source = transaction.source.lower()
+        source_config = self._get_source_config(source)
+        return source_config.get("default_user_guid", "00000000-0000-0000-0000-000000000000")
+    
+    def _get_source_config(self, source: str) -> Dict[str, Any]:
+        """Get configuration for a specific source system"""
+        # Get environment-specific configuration
+        env_config = settings.IMS_ENVIRONMENTS.get(self.environment, {})
+        sources_config = env_config.get("sources", {})
+        source_config = sources_config.get(source, {})
+        
+        # Apply defaults if not specified
+        defaults = {
+            "default_user_guid": "00000000-0000-0000-0000-000000000000",
+            "default_underwriter_guid": "00000000-0000-0000-0000-000000000000",
+            "quoting_location_guid": "00000000-0000-0000-0000-000000000000",
+            "issuing_location_guid": "00000000-0000-0000-0000-000000000000",
+            "company_location_guid": "00000000-0000-0000-0000-000000000000"
+        }
+        
+        # Merge defaults with source config
+        return {**defaults, **source_config}
+    
+    def _retrieve_invoice_number(self, policy_number: str, max_attempts: int = 3, wait_seconds: int = 2) -> Optional[str]:
+        """
+        Retrieve invoice number for a policy with retry logic
+        
+        Args:
+            policy_number: The policy number to get invoice for
+            max_attempts: Maximum number of attempts to retrieve invoice
+            wait_seconds: Seconds to wait between attempts
+            
+        Returns:
+            Invoice number if found, None otherwise
+        """
+        import time
+        
+        for attempt in range(max_attempts):
+            try:
+                # Try to get the latest invoice
+                invoice_data = self.invoice_service.get_latest_invoice_by_policy(policy_number)
+                
+                if invoice_data and invoice_data.get("invoice_number"):
+                    logger.info(f"Retrieved invoice number {invoice_data['invoice_number']} for policy {policy_number}")
+                    return invoice_data["invoice_number"]
+                
+                # If no invoice yet and not the last attempt, wait and retry
+                if attempt < max_attempts - 1:
+                    logger.info(f"No invoice found for policy {policy_number}, attempt {attempt + 1}/{max_attempts}. Waiting {wait_seconds}s...")
+                    time.sleep(wait_seconds)
+                    
+            except Exception as e:
+                logger.warning(f"Error retrieving invoice for policy {policy_number}: {str(e)}")
+                if attempt < max_attempts - 1:
+                    time.sleep(wait_seconds)
+        
+        logger.warning(f"Could not retrieve invoice number for policy {policy_number} after {max_attempts} attempts")
+        return None

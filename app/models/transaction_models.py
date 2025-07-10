@@ -8,6 +8,9 @@ import uuid
 class TransactionType(str, Enum):
     NEW = "new"
     UPDATE = "update"
+    CANCELLATION = "cancellation"
+    ENDORSEMENT = "endorsement"
+    REINSTATEMENT = "reinstatement"
 
 class TransactionStatus(str, Enum):
     RECEIVED = "received"
@@ -23,6 +26,9 @@ class IMSProcessingStatus(str, Enum):
     RATED = "rated"
     BOUND = "bound"
     ISSUED = "issued"
+    CANCELLED = "cancelled"
+    ENDORSED = "endorsed"
+    REINSTATED = "reinstated"
     ERROR = "error"
 
 class IMSEntity(BaseModel):
@@ -64,6 +70,8 @@ class IMSPolicy(IMSEntity):
     policy_number: str
     bound_date: date
     status: str = "Active"
+    invoice_number: Optional[str] = None
+    invoice_retrieved_at: Optional[datetime] = None
     
 class TransactionProcessingData(BaseModel):
     """Tracks the IMS processing steps for a transaction"""

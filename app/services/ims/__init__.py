@@ -11,6 +11,7 @@ from app.services.ims.producer_service import IMSProducerService
 from app.services.ims.quote_service import IMSQuoteService
 from app.services.ims.document_service import IMSDocumentService
 from app.services.ims.data_access_service import IMSDataAccessService
+from app.services.ims.policy_lifecycle_service import IMSPolicyLifecycleService
 
 __all__ = [
     'BaseIMSService',
@@ -19,5 +20,6 @@ __all__ = [
     'IMSProducerService',
     'IMSQuoteService',
     'IMSDocumentService',
-    'IMSDataAccessService'
+    'IMSDataAccessService',
+    'IMSPolicyLifecycleService'
 ]

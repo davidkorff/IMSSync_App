@@ -1,0 +1,112 @@
+TRITON → IMS INTEGRATION WORKFLOW
+=================================
+
+1. TRITON SENDS DATA
+   │
+   ├─→ POST /api/triton/transaction/new
+   │   └─→ JSON Payload (TEST.json format)
+   │       ├── transaction_type: "NEW BUSINESS"
+   │       ├── insured_name: "BLC Industries, LLC"
+   │       ├── gross_premium: 3094
+   │       └── ... (all other fields)
+   │
+   ▼
+
+2. SERVICE RECEIVES & VALIDATES
+   │
+   ├─→ TritonProcessor.process_transaction()
+   │   ├── Detect structure (flat vs nested) ✓
+   │   ├── Normalize transaction_type ✓
+   │   └── Route to handler ✓
+   │
+   ▼
+
+3. TRANSFORM DATA
+   │
+   ├─→ _transform_flat_binding_data()
+   │   ├── Map insured fields
+   │   ├── Determine line of business
+   │   ├── Map producer to GUID
+   │   └── Parse dates & amounts
+   │
+   ▼
+
+4. IMS API CALLS (Sequential)
+   │
+   ├─→ [1] find_or_create_insured()
+   │   └─→ Returns: insured_guid
+   │
+   ├─→ [2] create_submission()
+   │   └─→ Returns: submission_guid
+   │
+   ├─→ [3] create_quote()
+   │   └─→ Returns: quote_guid
+   │
+   ├─→ [4] RATING (Two Options)
+   │   │
+   │   ├─→ Option A: Excel Rating (Preserves ALL data)
+   │   │   ├── _generate_excel_from_triton()
+   │   │   ├── import_excel_rater()
+   │   │   └── save_rating_sheet()
+   │   │
+   │   └─→ Option B: Direct Premium
+   │       ├── add_quote_option()
+   │       ├── add_premium()
+   │       └── _store_triton_data()
+   │
+   ├─→ [5] bind_quote()
+   │   └─→ Returns: policy_number
+   │
+   ├─→ [6] get_latest_invoice() (optional)
+   │   └─→ Returns: invoice_number (if available)
+   │
+   └─→ [7] update_external_id()
+       └─→ Links Triton ID to IMS Quote
+   
+   ▼
+
+5. RESPONSE TO TRITON
+   │
+   └─→ HTTP 200 OK
+       {
+         "status": "success",
+         "data": {
+           "success": true,
+           "transaction_id": "5754934b-a66c-4173-8972-ab6c7fe1d384",
+           "policy_number": "POL-2024-001",
+           "quote_guid": "12345678-...",
+           "invoice_number": null,
+           "ims_reference": "12345678-..."
+         }
+       }
+
+
+ERROR HANDLING
+==============
+
+At any stage, if error occurs:
+   │
+   └─→ TritonError
+       ├── stage: "BINDING" | "VALIDATION" | "IMS_CALL"
+       ├── message: "Detailed error message"
+       └── details: { context object }
+   
+   Returns HTTP 400 with error details
+
+
+DATA PRESERVATION
+=================
+
+ALL Triton data is preserved through:
+
+1. Excel Rating Sheet
+   - Sheet 1: IMS standard fields
+   - Sheet 2: Complete flattened Triton data
+
+2. Custom Stored Procedure (StoreTritonData)
+   - Stores complete JSON in IMS database
+
+3. External ID Linking
+   - Triton transaction_id linked to IMS quote
+
+This ensures NO DATA IS LOST even if IMS doesn't have specific fields.

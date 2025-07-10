@@ -82,9 +82,10 @@ class IMSIntegrationService:
         internal_type_map = {
             "binding": TransactionType.NEW,
             "midterm_endorsement": TransactionType.ENDORSEMENT,
-            "cancellation": TransactionType.CANCELLATION
+            "cancellation": TransactionType.CANCELLATION,
+            "reinstatement": TransactionType.REINSTATEMENT
         }
-        internal_type = internal_type_map[transaction_type]
+        internal_type = internal_type_map.get(transaction_type, TransactionType.NEW)
         
         # Create internal transaction record
         # This would typically involve database operations, but for this example

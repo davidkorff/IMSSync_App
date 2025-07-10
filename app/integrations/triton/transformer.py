@@ -101,6 +101,21 @@ class TritonTransformer:
             logger.info("Detected flat structure, using flat transformer")
             return self._transform_flat_to_nested(data)
         
+        # Check transaction type and route accordingly
+        transaction_type = data.get("transaction_type", "").lower()
+        
+        if transaction_type == "cancellation":
+            return self._transform_cancellation(data)
+        elif transaction_type in ["endorsement", "midterm_endorsement"]:
+            return self._transform_endorsement(data)
+        elif transaction_type == "reinstatement":
+            return self._transform_reinstatement(data)
+        else:
+            # Default to binding/new policy transformation
+            return self._transform_binding(data)
+    
+    def _transform_binding(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform binding/new policy data"""
         # Determine line of business
         line_of_business, line_guid = self.determine_line_of_business(data)
         
@@ -131,11 +146,33 @@ class TritonTransformer:
                     "contact_email": contact.get("email"),
                     "contact_phone": contact.get("phone")
                 })
+        elif "account" in data and isinstance(data["account"], dict):
+            # Handle account structure (like in Triton binding transactions)
+            account = data["account"]
+            insured_data = {
+                "name": account.get("name", ""),
+                "tax_id": account.get("id"),
+                "business_type_id": 1,  # Default to Corporation
+                "dba": account.get("dba"),
+                "address": account.get("street_1", ""),
+                "city": account.get("city", ""),
+                "state": account.get("state", ""),
+                "zip": account.get("zip", "")
+            }
         
         # Extract location info
         locations = []
         if "locations" in data and isinstance(data["locations"], list):
             locations = data["locations"]
+        elif insured_data.get("address"):
+            # Create location from insured data
+            locations = [{
+                "address": insured_data.get("address", ""),
+                "city": insured_data.get("city", ""),
+                "state": insured_data.get("state", ""),
+                "zip": insured_data.get("zip", ""),
+                "location_type": "primary"
+            }]
         
         # Build result
         result = {
@@ -153,8 +190,154 @@ class TritonTransformer:
             "premium": data.get("premium")
         }
         
-        logger.info(f"Transformed Triton data for policy: {policy_number}, LOB: {line_of_business}")
+        logger.info(f"Transformed Triton binding data for policy: {policy_number}, LOB: {line_of_business}")
         return result
+    
+    def _transform_cancellation(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform cancellation transaction data"""
+        logger.info("Transforming cancellation transaction")
+        
+        # Extract control number from policy number
+        policy_number = data.get("policy_number", "")
+        control_number = self._extract_control_number(policy_number)
+        
+        # Build cancellation data
+        cancellation_data = {
+            "control_number": control_number,
+            "cancellation_date": data.get("cancellation_date"),
+            "cancellation_reason": data.get("cancellation_reason", ""),
+            "cancellation_reason_id": self._map_cancellation_reason(data.get("cancellation_reason", "")),
+            "comments": data.get("cancellation_reason", "Policy cancelled via Triton"),
+            "flat_cancel": data.get("flat_cancel", False),
+            "return_premium": data.get("return_premium_entries") is not None
+        }
+        
+        # Add user info if available
+        if "user" in data:
+            cancellation_data["user_guid"] = data["user"].get("guid")
+        
+        result = {
+            "cancellation_data": cancellation_data,
+            "policy_number": policy_number,
+            "original_premium": data.get("original_premium"),
+            "return_premium_entries": data.get("return_premium_entries", [])
+        }
+        
+        logger.info(f"Transformed cancellation for policy: {policy_number}")
+        return result
+    
+    def _transform_endorsement(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform endorsement transaction data"""
+        logger.info("Transforming endorsement transaction")
+        
+        # Extract control number from policy number
+        policy_number = data.get("policy_number", "")
+        control_number = self._extract_control_number(policy_number)
+        
+        # Extract endorsement details
+        endorsement = data.get("endorsement", {})
+        if isinstance(data.get("endorsement"), dict):
+            endorsement = data["endorsement"]
+        
+        # Build endorsement data
+        endorsement_data = {
+            "control_number": control_number,
+            "endorsement_effective_date": endorsement.get("effective_from") or data.get("effective_date"),
+            "endorsement_comment": endorsement.get("description", "Policy endorsement via Triton"),
+            "endorsement_reason_id": self._map_endorsement_reason(endorsement.get("endorsement_code", "")),
+            "calculation_type": "P",  # Default to pro-rata
+            "endorsement_number": endorsement.get("endorsement_number"),
+            "premium_change": endorsement.get("premium", 0)
+        }
+        
+        # Add user info if available
+        if "user" in data:
+            endorsement_data["user_guid"] = data["user"].get("guid")
+        
+        result = {
+            "endorsement_data": endorsement_data,
+            "policy_number": policy_number,
+            "endorsement_details": endorsement,
+            "account": data.get("account"),
+            "producer": data.get("producer")
+        }
+        
+        logger.info(f"Transformed endorsement for policy: {policy_number}")
+        return result
+    
+    def _transform_reinstatement(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform reinstatement transaction data"""
+        logger.info("Transforming reinstatement transaction")
+        
+        # Extract control number from policy number
+        policy_number = data.get("policy_number", "")
+        control_number = self._extract_control_number(policy_number)
+        
+        # Build reinstatement data
+        reinstatement_data = {
+            "control_number": control_number,
+            "reinstatement_date": data.get("reinstatement_date") or data.get("effective_date"),
+            "reinstatement_reason_id": self._map_reinstatement_reason(data.get("reason", "")),
+            "comments": data.get("comments", "Policy reinstated via Triton"),
+            "payment_received": data.get("payment_amount"),
+            "check_number": data.get("check_number"),
+            "generate_invoice": data.get("generate_invoice", True)
+        }
+        
+        # Add user info if available
+        if "user" in data:
+            reinstatement_data["user_guid"] = data["user"].get("guid")
+        
+        result = {
+            "reinstatement_data": reinstatement_data,
+            "policy_number": policy_number,
+            "payment_details": data.get("payment_details")
+        }
+        
+        logger.info(f"Transformed reinstatement for policy: {policy_number}")
+        return result
+    
+    def _extract_control_number(self, policy_number: str) -> Optional[int]:
+        """Extract control number from policy number or lookup in IMS"""
+        # For now, we'll need to implement a lookup service
+        # This is a placeholder that assumes the control number is embedded in the policy number
+        # In reality, this would query IMS to get the control number
+        logger.warning(f"Control number extraction not implemented, using placeholder for policy: {policy_number}")
+        # TODO: Implement actual control number lookup
+        return 12345  # Placeholder
+    
+    def _map_cancellation_reason(self, reason: str) -> int:
+        """Map Triton cancellation reason to IMS reason ID"""
+        reason_mapping = {
+            "non-payment": 1,
+            "request": 2,
+            "underwriting": 3,
+            "fraud": 4,
+            "other": 99
+        }
+        return reason_mapping.get(reason.lower(), 99)
+    
+    def _map_endorsement_reason(self, code: str) -> int:
+        """Map Triton endorsement code to IMS reason ID"""
+        reason_mapping = {
+            "add_coverage": 1,
+            "remove_coverage": 2,
+            "change_limit": 3,
+            "add_location": 4,
+            "remove_location": 5,
+            "other": 99
+        }
+        return reason_mapping.get(code.lower(), 99)
+    
+    def _map_reinstatement_reason(self, reason: str) -> int:
+        """Map reinstatement reason to IMS reason ID"""
+        reason_mapping = {
+            "payment_received": 1,
+            "error": 2,
+            "appeal": 3,
+            "other": 99
+        }
+        return reason_mapping.get(reason.lower(), 99)
         
     def get_excel_rater_info(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """

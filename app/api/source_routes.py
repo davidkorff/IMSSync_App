@@ -2,7 +2,7 @@
 Source-specific API routes
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from app.api.dependencies import get_api_key
 from app.services.transaction_service import TransactionService
@@ -13,7 +13,9 @@ from app.core.config import settings
 import logging
 import json
 import asyncio
+import os
 from typing import Dict, Any, Union, Optional
+from datetime import datetime
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -24,16 +26,19 @@ transaction_service = TransactionService()
 # Source-specific services will be initialized with appropriate config when needed
 
 # Triton routes
-@router.post("/triton/transaction/{transaction_type}")
+@router.post("/triton/transaction/new")
 async def create_triton_transaction(
-    transaction_type: TransactionType,
     request: Request,
+    background_tasks: BackgroundTasks,
     api_key: str = Depends(get_api_key),
     external_id: Optional[str] = None,
     sync_mode: bool = True  # Default to synchronous processing
 ):
     """
-    Create a new transaction from Triton data
+    Create a new Triton transaction
+    
+    The transaction type is determined by the 'transaction_type' field in the JSON payload.
+    Supports: binding, cancellation, endorsement, reinstatement
     
     By default, processes synchronously through IMS and returns the complete result.
     Set sync_mode=false for async processing (returns immediately without IMS result).
@@ -43,79 +48,113 @@ async def create_triton_transaction(
         body = await request.body()
         content_type = request.headers.get("content-type", "").lower()
         
-        logger.info(f"Received {transaction_type} transaction from Triton")
-        logger.info(f"Content-Type: {content_type}")
-        
-        # Parse data based on content type
+        # Parse JSON data
         if "application/json" in content_type:
             data = json.loads(body)
-            logger.info(f"Parsed JSON data from Triton")
-        elif "application/xml" in content_type or "text/xml" in content_type:
-            data = body.decode("utf-8")  # Keep as string for XML
-            logger.info(f"Received XML data from Triton")
         else:
-            # Try to auto-detect format
+            # Try to parse as JSON anyway
             try:
                 data = json.loads(body)
-                logger.info(f"Auto-detected JSON data from Triton")
             except json.JSONDecodeError:
-                data = body.decode("utf-8")
-                logger.info(f"Auto-detected non-JSON data from Triton")
+                raise HTTPException(status_code=400, detail="Invalid JSON payload")
         
         # Get external ID from header or query parameter if not provided
         if not external_id:
             external_id = request.headers.get("X-External-ID") or request.query_params.get("external_id")
         
-        # Create transaction
-        transaction = transaction_service.create_transaction(
-            transaction_type, 
-            "triton", 
-            data, 
-            external_id
-        )
-        logger.info(f"Created Triton transaction {transaction.transaction_id}")
+        # Extract transaction type from payload
+        transaction_type = data.get('transaction_type', '').lower()
+        transaction_id = data.get('transaction_id', f"triton_{datetime.now().timestamp()}")
+        
+        # Log incoming transaction
+        logger.info("TRITON_TRANSACTION_RECEIVED", extra={
+            'transaction_id': transaction_id,
+            'transaction_type': transaction_type,
+            'policy_number': data.get('policy_number'),
+            'sync_mode': sync_mode
+        })
+        
+        # Import and use the simplified processor
+        from app.services.triton_processor import TritonProcessor, TritonError
+        from app.services.ims_client import IMSClient
+        from app.config.triton_config import get_config_for_environment
+        
+        # Get configuration
+        env = os.getenv('IMS_ENVIRONMENT', 'ims_one')
+        config = get_config_for_environment(env)
+        
+        # Create IMS client and processor
+        ims_client = IMSClient(config)
+        processor = TritonProcessor(ims_client, config)
         
         if sync_mode:
-            # Process synchronously and wait for IMS result
-            logger.info(f"Processing Triton transaction {transaction.transaction_id} synchronously")
-            
-            # Get environment and source config
-            environment = transaction_service.environment
-            source_config = settings.IMS_ENVIRONMENTS.get(environment, {}).get("sources", {}).get("triton", {})
-            
-            # Initialize Triton service with config
-            triton_service = TritonIntegrationService(environment, source_config)
-            
-            # Process with Triton-specific service
-            result = triton_service.process_transaction(transaction)
-            
-            # Save the updated transaction
-            transaction_service._save_transaction(result)
-            
-            logger.info(f"Completed synchronous processing of Triton transaction {transaction.transaction_id}")
-            
-            return TransactionResponse(
-                transaction_id=result.transaction_id,
-                status=result.status,
-                ims_status=result.ims_processing.status if result.ims_processing else None,
-                message=f"Triton {transaction_type.value} transaction processed: {result.status.value}",
-                ims_details={
-                    "processing_status": result.ims_processing.status.value if result.ims_processing else None,
-                    "insured_guid": result.ims_processing.insured.guid if result.ims_processing and result.ims_processing.insured else None,
-                    "submission_guid": result.ims_processing.submission.guid if result.ims_processing and result.ims_processing.submission else None,
-                    "quote_guid": result.ims_processing.quote.guid if result.ims_processing and result.ims_processing.quote else None,
-                    "policy_number": result.ims_processing.policy.policy_number if result.ims_processing and result.ims_processing.policy else None,
-                    "error": result.error_message
-                } if result.ims_processing else None
-            )
+            # Process synchronously
+            try:
+                result = processor.process_transaction(data)
+                
+                logger.info("TRITON_TRANSACTION_SUCCESS", extra={
+                    'transaction_id': transaction_id,
+                    'result': result
+                })
+                
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        'status': 'success',
+                        'data': result
+                    }
+                )
+                
+            except TritonError as e:
+                logger.error("TRITON_TRANSACTION_ERROR", extra={
+                    'transaction_id': transaction_id,
+                    'stage': e.stage,
+                    'error': e.message,
+                    'details': e.details
+                })
+                
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        'status': 'error',
+                        'error': {
+                            'stage': e.stage,
+                            'message': e.message,
+                            'details': e.details
+                        }
+                    }
+                )
+                
+            except Exception as e:
+                logger.exception("TRITON_TRANSACTION_UNEXPECTED_ERROR", extra={
+                    'transaction_id': transaction_id,
+                    'error': str(e)
+                })
+                
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        'status': 'error',
+                        'error': {
+                            'stage': 'UNKNOWN',
+                            'message': 'Internal server error',
+                            'details': {'error': str(e)}
+                        }
+                    }
+                )
         else:
-            # Start processing in background (async mode)
-            asyncio.create_task(process_triton_transaction_async(transaction.transaction_id))
+            # Process asynchronously
+            background_tasks.add_task(process_async, processor, data, transaction_id)
             
-            return TransactionResponse(
-                transaction_id=transaction.transaction_id,
-                status=transaction.status,
-                message=f"Triton {transaction_type.value} transaction created and queued for processing"
+            return JSONResponse(
+                status_code=202,
+                content={
+                    'status': 'accepted',
+                    'data': {
+                        'transaction_id': transaction_id,
+                        'message': 'Transaction queued for processing'
+                    }
+                }
             )
     except Exception as e:
         logger.error(f"Error creating Triton transaction: {str(e)}")
@@ -181,47 +220,34 @@ async def create_xuber_transaction(
         logger.error(f"Error creating Xuber transaction: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-# Asynchronous processing functions
-async def process_triton_transaction_async(transaction_id: str):
-    """Process a Triton transaction asynchronously"""
+# Asynchronous processing function
+async def process_async(processor, data: Dict[str, Any], transaction_id: str):
+    """Process transaction asynchronously"""
     try:
-        logger.info(f"Begin async processing of Triton transaction {transaction_id}")
+        logger.info("TRITON_ASYNC_START", extra={'transaction_id': transaction_id})
         
-        # Get the transaction
-        transaction = transaction_service.get_transaction(transaction_id)
-        if not transaction:
-            logger.error(f"Transaction not found: {transaction_id}")
-            return
-            
-        # Get environment and source config
-        environment = transaction_service.environment
-        source_config = settings.IMS_ENVIRONMENTS.get(environment, {}).get("sources", {}).get("triton", {})
+        result = processor.process_transaction(data)
         
-        # Initialize Triton service with config
-        triton_service = TritonIntegrationService(environment, source_config)
+        logger.info("TRITON_ASYNC_SUCCESS", extra={
+            'transaction_id': transaction_id,
+            'result': result
+        })
         
-        # Process with Triton-specific service
-        result = triton_service.process_transaction(transaction)
-        
-        # Save the updated transaction
-        transaction_service._save_transaction(result)
-        
-        logger.info(f"Completed processing Triton transaction {transaction_id}")
+        # Here you would typically:
+        # 1. Store the result in a database
+        # 2. Send a webhook back to Triton with the result
+        # 3. Send an email notification
         
     except Exception as e:
-        logger.error(f"Error processing Triton transaction {transaction_id}: {str(e)}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.exception("TRITON_ASYNC_ERROR", extra={
+            'transaction_id': transaction_id,
+            'error': str(e)
+        })
         
-        # Update transaction status to failed
-        try:
-            transaction_service.update_transaction_status(
-                transaction_id,
-                TransactionStatus.FAILED,
-                f"Error during Triton processing: {str(e)}"
-            )
-        except Exception as update_error:
-            logger.error(f"Failed to update transaction status: {str(update_error)}")
+        # Here you would typically:
+        # 1. Store the error in a database
+        # 2. Send an error notification
+        # 3. Potentially retry the operation
 
 async def process_xuber_transaction_async(transaction_id: str):
     """Process a Xuber transaction asynchronously"""

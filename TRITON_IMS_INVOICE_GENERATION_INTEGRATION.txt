@@ -1,0 +1,255 @@
+# TRITON TO IMS INVOICE PDF RETRIEVAL INTEGRATION
+
+## Overview
+This document outlines the integration between Triton and the Invoice Management System (IMS) for retrieving invoice PDFs. When Triton needs an invoice PDF, it will query IMS using the policy number, and IMS will return a generated PDF using its custom invoice templates.
+
+## Integration Architecture
+
+```
+[Triton] --> [Middleware Service] --> [IMS]
+   ^                                     |
+   |                                     |
+   +-------- Invoice PDF (Binary) <------+
+```
+
+## 1. TRITON TO MIDDLEWARE SERVICE API CALL
+
+### Endpoint
+```
+GET https://middleware.ultrathink.com/api/v1/invoice/policy/{policy_number}/pdf
+```
+
+### Headers
+```
+Authorization: Bearer {api_token}
+X-Request-ID: {unique_request_id}
+Accept: application/pdf
+```
+
+### Path Parameters
+- `policy_number`: The IMS policy number (e.g., "POL-2024-001234")
+
+### Query Parameters (Optional)
+- `format`: string (default: "pdf") - Response format, can be "pdf" or "base64"
+
+### Example Request
+```
+GET https://middleware.ultrathink.com/api/v1/invoice/policy/POL-2024-001234/pdf
+```
+
+## 2. MIDDLEWARE TO IMS PDF GENERATION
+
+The middleware service calls IMS to generate the invoice PDF:
+
+### Step 1: Get Invoice Number from Policy Number
+First, query to get the invoice number associated with the policy:
+
+```xml
+POST https://webservices.mgasystems.com/ims_greyhawk/DataAccess.asmx
+SOAPAction: "http://tempuri.org/IMSWebServices/DataAccess/ExecuteDataSet"
+
+<ExecuteDataSet xmlns="http://tempuri.org/IMSWebServices/DataAccess">
+  <procedureName>GetLatestInvoiceNumberByPolicy</procedureName>
+  <parameters>
+    <string>PolicyNumber</string>
+    <string>POL-2024-001234</string>
+  </parameters>
+</ExecuteDataSet>
+```
+
+### Step 2: Generate Invoice PDF using InvoiceFactory
+Once we have the invoice number, call the InvoiceFactory to generate the PDF:
+
+```xml
+POST https://webservices.mgasystems.com/ims_greyhawk/InvoiceFactory.asmx
+SOAPAction: "http://tempuri.org/Invoicing/InvoiceFactory/GenerateInvoiceAsPDF"
+
+<GenerateInvoiceAsPDF xmlns="http://tempuri.org/Invoicing/InvoiceFactory">
+  <invoiceNumber>12345</invoiceNumber>
+  <args>
+    <!-- Optional arguments for PDF customization -->
+  </args>
+</GenerateInvoiceAsPDF>
+```
+
+### IMS Response
+The `GenerateInvoiceAsPDF` method returns the PDF as base64-encoded binary data:
+
+```xml
+<GenerateInvoiceAsPDFResponse xmlns="http://tempuri.org/Invoicing/InvoiceFactory">
+  <GenerateInvoiceAsPDFResult>base64Binary</GenerateInvoiceAsPDFResult>
+</GenerateInvoiceAsPDFResponse>
+```
+
+## 3. MIDDLEWARE RESPONSE TO TRITON
+
+The middleware returns the PDF to Triton in the requested format:
+
+### Success Response - PDF Format (200 OK)
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="invoice_POL-2024-001234.pdf"
+
+[Binary PDF data]
+```
+
+### Success Response - Base64 Format (200 OK)
+```json
+{
+  "success": true,
+  "invoice": {
+    "invoice_number": "12345",
+    "policy_number": "POL-2024-001234",
+    "filename": "invoice_POL-2024-001234.pdf",
+    "content_type": "application/pdf",
+    "pdf_base64": "JVBERi0xLjQKJeLjz9MKNCAwIG9iago8PC9GaWx0ZXI...",
+    "size_bytes": 245678,
+    "generated_at": "2024-01-15T10:30:45Z"
+  }
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVOICE_GENERATION_FAILED",
+    "message": "Unable to generate invoice",
+    "details": "Invalid tax ID format",
+    "retry_after": 300
+  }
+}
+```
+
+## 4. TRITON PDF GENERATION
+
+Upon receiving the successful response, Triton will:
+
+1. Use the `invoice_data` to populate its existing Prawn PDF template
+2. Generate the PDF using `InvoicePdfGenerator` service
+3. Attach the PDF to the binder email
+4. Store the external references for future lookups
+
+### Triton's PDF Generation Call
+```ruby
+# In app/services/invoice_pdf_generator.rb
+class InvoicePdfGenerator
+  def generate(invoice_data)
+    Prawn::Document.new(page_size: 'LETTER') do |pdf|
+      # Header
+      pdf.image invoice_data[:header][:logo_url], width: 150
+      pdf.text invoice_data[:header][:title], size: 24, style: :bold
+      
+      # Company info
+      pdf.text invoice_data[:header][:company_name]
+      pdf.text "#{invoice_data[:header][:company_address][:street]}"
+      pdf.text "#{invoice_data[:header][:company_address][:city]}, #{invoice_data[:header][:company_address][:state]} #{invoice_data[:header][:company_address][:zip]}"
+      
+      # Invoice details
+      pdf.text "Invoice #: #{invoice_data[:invoice_number]}"
+      pdf.text "Date: #{invoice_data[:invoice_date]}"
+      pdf.text "Due Date: #{invoice_data[:due_date]}"
+      
+      # Bill To section
+      pdf.text "BILL TO:", style: :bold
+      pdf.text invoice_data[:bill_to][:name]
+      pdf.text "Attn: #{invoice_data[:bill_to][:attention]}" if invoice_data[:bill_to][:attention]
+      pdf.text invoice_data[:bill_to][:address][:street1]
+      pdf.text "#{invoice_data[:bill_to][:address][:city]}, #{invoice_data[:bill_to][:address][:state]} #{invoice_data[:bill_to][:address][:zip]}"
+      
+      # ... rest of PDF generation logic
+    end
+  end
+end
+```
+
+## 5. ERROR HANDLING
+
+### Retry Logic
+- Middleware should implement exponential backoff for IMS calls
+- Max 3 retries with delays: 1s, 2s, 4s
+- Return error to Triton after max retries
+
+### Timeout Handling
+- Triton to Middleware: 30 second timeout
+- Middleware to IMS: 25 second timeout
+- Always return response before timeout
+
+### Validation Errors
+The middleware should validate data before sending to IMS:
+- Required fields present
+- Numeric values are valid
+- Dates in correct format
+- Tax ID matches expected pattern
+
+## 6. SECURITY CONSIDERATIONS
+
+### API Authentication
+- Use rotating API tokens
+- Implement HMAC signature verification
+- Whitelist IP addresses where possible
+
+### Data Encryption
+- All API calls over HTTPS
+- Sensitive data should be encrypted at rest
+- No storing of full account numbers
+
+### Audit Trail
+- Log all API calls with request IDs
+- Track invoice generation attempts
+- Store error details for debugging
+
+## 7. IMPLEMENTATION CHECKLIST
+
+### Triton Changes
+- [ ] Modify binding process to call middleware instead of generating PDF directly
+- [ ] Update `InvoicePdfGenerator` to accept external data format
+- [ ] Add webhook configuration for middleware endpoint
+- [ ] Implement response parsing and error handling
+- [ ] Store external invoice references
+
+### Middleware Requirements
+- [ ] Create GET endpoint for invoice data retrieval by policy number
+- [ ] Implement IMS DataAccess SOAP calls to query invoice data
+- [ ] Transform IMS dataset results to Triton JSON format
+- [ ] Set up error handling and retries
+- [ ] Implement logging and monitoring
+- [ ] Add caching for recently retrieved invoices
+
+### IMS Requirements
+- [ ] Create stored procedure GetLatestInvoiceByPolicy_WS (if not exists)
+- [ ] Ensure invoice data includes all required fields for Triton
+- [ ] Return payment method details (ACH, Wire, Check info)
+- [ ] Include agent/agency information in results
+
+## 8. TESTING SCENARIOS
+
+1. **Happy Path**: Successful invoice data retrieval
+2. **Policy Not Found**: Policy number doesn't exist in IMS
+3. **No Invoice Found**: Policy exists but no invoice generated yet
+4. **IMS Timeout**: IMS doesn't respond in time
+5. **IMS Error**: IMS returns error response
+6. **Multiple Invoices**: Policy has multiple invoices (returns latest)
+7. **Network Failure**: Connection drops during request
+8. **Special Characters**: Company names with &, ', " etc.
+
+## 9. MONITORING & ALERTS
+
+### Key Metrics
+- Invoice generation success rate
+- Average response time
+- Error rate by type
+- Retry frequency
+
+### Alerts
+- IMS availability < 99%
+- Response time > 10 seconds
+- Error rate > 5%
+- Repeated failures for same quote
+
+---
+
+**Document Version**: 3.0
+**Last Updated**: January 2024
+**Contact**: integrations@ultrathink.com

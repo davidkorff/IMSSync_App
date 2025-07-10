@@ -6,6 +6,7 @@ import uvicorn
 import time
 from app.api.routes import router as api_router
 from app.api.source_routes import router as source_router
+from app.api.invoice_routes import router as invoice_router
 from app.core.config import settings
 from app.core.monitoring import setup_monitoring
 
@@ -70,6 +71,9 @@ app.include_router(api_router, prefix="/api")
 # Include source-specific routes
 app.include_router(source_router, prefix="/api")
 
+# Include invoice routes
+app.include_router(invoice_router)
+
 @app.on_event("startup")
 async def startup_event():
     # Setup monitoring
@@ -84,9 +88,13 @@ async def startup_event():
     logger.info("  GET /api/health - Health check with detailed status")
     logger.info("  GET /api/metrics - Prometheus metrics endpoint")
     logger.info("")
-    logger.info("Source-specific endpoints:")
-    logger.info("  POST /api/triton/transaction/{transaction_type} - Create Triton transaction")
-    logger.info("  POST /api/xuber/transaction/{transaction_type} - Create Xuber transaction")
+    logger.info("Triton endpoints:")
+    logger.info("  POST /api/triton/transaction/new - Process ALL Triton transactions (binding, cancellation, endorsement, reinstatement)")
+    logger.info("    Transaction type determined by 'transaction_type' field in JSON payload")
+    logger.info("")
+    logger.info("Invoice endpoints:")
+    logger.info("  GET /api/v1/invoice/policy/{policy_number}/latest - Get latest invoice by policy number")
+    logger.info("  GET /api/v1/invoice/quote/{quote_id}/latest - Get latest invoice by quote ID")
     logger.info("")
     logger.info("Transaction types: new, update, cancellation, endorsement, reinstatement")
     logger.info("Example: POST /api/transaction/new?source=triton")

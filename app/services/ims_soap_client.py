@@ -591,13 +591,14 @@ class IMSSoapClient:
             logger.error(f"Error adding quote: {str(e)}")
             raise
     
-    def add_quote_option(self, quote_guid):
+    def add_quote_option(self, quote_guid, line_guid='07564291-CBFE-4BBE-88D1-0548C88ACED4'):
         """Add a quote option"""
-        logger.info(f"Adding quote option for quote: {quote_guid}")
+        logger.info(f"Adding quote option for quote: {quote_guid} with line: {line_guid}")
         
         body_content = f"""
         <AddQuoteOption xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
             <quoteGuid>{quote_guid}</quoteGuid>
+            <lineGuid>{line_guid}</lineGuid>
         </AddQuoteOption>
         """
         
