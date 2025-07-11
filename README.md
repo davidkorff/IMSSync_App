@@ -1,249 +1,230 @@
-# IMS Integration
+# RSG IMS Integration Service
 
-This project provides a service to integrate bound policy data from external sources (like Triton) into the IMS (Insurance Management System) platform.
+A comprehensive integration service that connects external insurance systems (like Triton) with IMS (Insurance Management System) through a microservice architecture.
 
 ## Overview
 
-The integration allows importing bound policy data from various sources (like Triton) and creating submissions and quotes in IMS through its SOAP web services. The service exposes REST API endpoints that accept JSON or XML payloads and processes them asynchronously.
+This service provides REST API endpoints for:
+- Processing NEW BUSINESS transactions from external sources
+- Policy lifecycle operations (cancellation, endorsement, reinstatement)
+- Invoice generation and retrieval
+- Complete integration with IMS SOAP web services
 
 ## Architecture
 
-The integration follows a modern web service architecture:
+### Microservice Architecture
 
-1. **REST API Layer**: FastAPI-based endpoints for receiving transaction data from external systems.
+The system uses a modular microservice architecture with the following services:
 
-2. **Transaction Processing**: Asynchronous processing of incoming transactions with status tracking.
+1. **Insured Service** - Manages insured entities with fuzzy matching capabilities
+2. **Quote Service** - Handles submissions, quotes, rating, and binding
+3. **Policy Service** - Manages policy lifecycle operations
+4. **Invoice Service** - Retrieves and manages invoices with retry logic
+5. **Document Service** - Generates policy documents (binders, invoices, etc.)
+6. **Producer Service** - Manages producers/agents and underwriters
+7. **Data Access Service** - Provides database queries and caching
 
-3. **Data Transformation**: Conversion of source-specific data to the common policy model.
+### Key Components
 
-4. **IMS Integration Layer**: The core integration layer that interacts with IMS SOAP APIs.
+```
+app/
+├── api/
+│   ├── sources/
+│   │   └── triton_routes.py         # Triton-specific endpoints
+│   └── invoice_routes.py            # Invoice endpoints
+├── microservices/
+│   ├── core/                        # Base service infrastructure
+│   ├── insured/                     # Insured management
+│   ├── quote/                       # Quote/submission handling
+│   ├── policy/                      # Policy lifecycle
+│   ├── invoice/                     # Invoice operations
+│   ├── document/                    # Document generation
+│   ├── producer/                    # Producer management
+│   └── data_access/                 # Database operations
+├── services/
+│   ├── triton_processor.py          # Triton transaction processor
+│   └── ims/                         # IMS SOAP client and services
+└── models/                          # Data models
+```
 
-## Components
+## API Endpoints
 
-- **app/main.py**: FastAPI application entry point
-- **app/api/routes.py**: API endpoint definitions
-- **app/services/transaction_service.py**: Manages transactions and their lifecycle
-- **app/services/transaction_processor.py**: Processes transactions based on their type
-- **app/services/ims_integration_service.py**: Main integration module that works with IMS
-- **app/services/ims_soap_client.py**: Handles SOAP XML request/response processing
-- **app/models/policy_data.py**: Data models for transactions and policy data
-- **app/core/config.py**: Configuration settings for different environments
-- **IMS_Configs/**: Configuration files for different IMS environments
-- **Documentation/**: Documentation for IMS web services
-- **OutstandingQuestions.txt**: Tracking document for open questions and issues
+### Triton Integration
 
-## Requirements
+**Process Transaction**
+```http
+POST /api/triton/transaction/new
+Content-Type: application/json
 
-- Python 3.9+
-- Required packages: See requirements.txt
+{
+  "transaction_type": "NEW BUSINESS",
+  "insured_name": "ABC Company LLC",
+  "policy_number": "TRI-123456",
+  "effective_date": "2025-01-01",
+  "expiration_date": "2026-01-01",
+  "premium": 10000.00,
+  ...
+}
+```
+
+### Invoice Operations
+
+**Get Latest Invoice by Policy**
+```http
+GET /api/invoices/policy/{policy_number}/latest
+```
+
+**Get All Invoices by Policy**
+```http
+GET /api/invoices/policy/{policy_number}
+```
+
+**Get Invoice as PDF**
+```http
+GET /api/invoices/{invoice_guid}/pdf
+```
+
+### Policy Lifecycle
+
+The Triton endpoint supports all lifecycle operations through the `transaction_type` field:
+- `NEW BUSINESS` - Create new policy
+- `CANCEL` - Cancel existing policy
+- `MIDTERM_ENDORSEMENT` - Endorse policy
+- `REINSTATEMENT` - Reinstate cancelled policy
 
 ## Installation
 
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd rsg-integration
+cd RSG-Integration
 
-# Create and activate a virtual environment (optional but recommended)
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
+## Configuration
+
+Create a `.env` file with the following variables:
+
+```env
+# IMS Credentials
+IMS_USERNAME=your_username
+IMS_PASSWORD=your_encrypted_password
+IMS_ENVIRONMENT=https://yourims.imsone.com
+
+# Default GUIDs (obtain from IMS)
+TRITON_DEFAULT_PRODUCER_GUID=
+TRITON_PRIMARY_LINE_GUID=
+TRITON_EXCESS_LINE_GUID=
+TRITON_DEFAULT_UNDERWRITER_GUID=
+TRITON_ISSUING_LOCATION_GUID=
+TRITON_COMPANY_LOCATION_GUID=
+TRITON_QUOTING_LOCATION_GUID=
+TRITON_DEFAULT_BUSINESS_TYPE_ID=5
+```
+
 ## Running the Service
 
 ```bash
-# Start the service with uvicorn
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+# Development
+uvicorn app.main:app --reload --port 8000
 
-The service will start and listen for incoming transactions on port 8000.
-
-## API Endpoints
-
-### Transaction Endpoints
-
-**Create a New Transaction**
-
-```http
-POST /api/transaction/new
-Content-Type: application/json
-X-API-Key: your-api-key
-
-{
-  "policy": {
-    "policy_number": "TRI-123456",
-    "effective_date": "2025-06-01",
-    "expiration_date": "2026-06-01",
-    "bound_date": "2025-05-15",
-    ... (other policy data)
-  }
-}
-```
-
-**Update an Existing Policy**
-
-```http
-POST /api/transaction/update
-Content-Type: application/json
-X-API-Key: your-api-key
-
-{
-  "policy_number": "TRI-123456",
-  "updates": {
-    "premium": 15000.00,
-    ... (other fields to update)
-  }
-}
-```
-
-**Check Transaction Status**
-
-```http
-GET /api/transaction/{transaction_id}
-X-API-Key: your-api-key
-```
-
-**Health Check**
-
-```http
-GET /api/health
-```
-
-## Configuration
-
-Edit the `.env` file to set environment variables:
-
-```
-API_KEYS=["your-api-key-1", "your-api-key-2"]
-IMS_ONE_USERNAME=your-username
-IMS_ONE_PASSWORD=your-encrypted-password
-ISCMGA_TEST_USERNAME=your-username
-ISCMGA_TEST_PASSWORD=your-encrypted-password
-```
-
-## Data Model
-
-The integration uses a common data model (PolicyData) that includes:
-
-- Policy Identification: policy number, program, line of business
-- Dates: effective date, expiration date, bound date
-- Insured Information: name, address, contact details
-- Parties: producer, underwriter, locations
-- Policy Details: limits, deductibles, commission
-- Financial Information: premium
-- Additional Data: source-specific information
-
-## Transaction Processing
-
-The service processes incoming transactions asynchronously:
-
-1. When a transaction is received, it's assigned a unique transaction ID and stored
-2. The transaction is queued for processing in the background
-3. The client can check the status of the transaction using the transaction ID
-4. Once processing is complete, the transaction status is updated
-
-## Data Formats
-
-The service supports both JSON and XML data formats. The content type header should be set appropriately:
-
-- `application/json` for JSON data
-- `application/xml` or `text/xml` for XML data
-
-If the content type is not specified, the service will attempt to determine the format from the content.
-
-## Implementing New Features
-
-To extend the transaction processor:
-
-1. Update the `_transform_to_policy_submission` method in `transaction_processor.py` to map from Triton's data format to the PolicySubmission model
-2. Implement any additional validation or business logic in the transaction processor
-3. Add new endpoints to the API as needed
-
-## Deployment
-
-The service can be deployed using various methods:
-
-### Docker
-
-To containerize the application (Dockerfile to be created):
-
-```bash
-# Build Docker image
-docker build -t rsg-ims-integration .
-
-# Run container
-docker run -d -p 8000:8000 --name rsg-ims-integration rsg-ims-integration
-```
-
-### Production Deployment
-
-For production, it's recommended to use Gunicorn as the WSGI server:
-
-```bash
-# Install Gunicorn
-pip install gunicorn
-
-# Run with Gunicorn
+# Production
 gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
-## Security
+## Testing
 
-The service uses API keys for authentication. Each API key can be associated with specific permissions or rate limits as needed.
+```bash
+# Test with sample data
+python test_policy_lifecycle.py
 
-API keys are defined in the `.env` file or environment variables:
+# Test specific operations
+python test_cancellation_flow.py
+python test_endorsement_flow.py
+python test_reinstatement_flow.py
+```
 
-## Data Mapping
+## Transaction Processing Flow
 
-The integration maps the following data from source systems to IMS:
+### NEW BUSINESS Flow
+1. Search for insured by name (create if not found)
+2. Create submission with default GUIDs
+3. Create and rate quote
+4. Add premium and fees
+5. Bind policy with provided policy number
+6. Generate invoice after binding
+7. Return comprehensive response with IMS data and invoice
 
-### Authentication Data
-- Username
-- Password (triple DES encrypted)
+### Key Features
+- Automatic insured matching with fuzzy logic
+- Retry logic for invoice retrieval
+- Comprehensive error handling and logging
+- Support for both primary and excess lines
+- Flexible premium and fee handling
 
-### Submission Data
-- Insured (guid)
-- ProducerContact (guid)
-- Underwriter (guid)
-- SubmissionDate (date)
-- ProducerLocation (guid)
-- TACSR (guid) - Technical Assistant/Customer Service Rep
-- InHouseProducer (guid)
+## Microservice Usage
 
-### Quote Data
-- Submission (guid - created from submission data)
-- QuotingLocation (guid)
-- IssuingLocation (guid)
-- CompanyLocation (guid)
-- Line (guid)
-- StateID (string)
-- ProducerContact (guid)
-- QuoteStatusID (int)
-- Effective (date)
-- Expiration (date)
-- BillingTypeID (int)
-- FinanceCompany (guid)
+```python
+from app.microservices import get_service
 
-### Quote Detail
-- CompanyCommission (decimal)
-- ProducerCommission (decimal)
-- TermsOfPayment (int)
-- ProgramCode (string)
-- CompanyContactGuid (guid)
-- RaterID (int)
-- FactorSetGuid (guid)
-- ProgramID (int)
-- LineGUID (guid)
-- CompanyLocationGUID (guid)
+# Get services
+insured_service = get_service('insured')
+quote_service = get_service('quote')
+policy_service = get_service('policy')
 
-### Risk Information
-- PolicyName (string)
-- CorporationName (string)
-- DBA (string)
-- Contact details (Name, Address, etc.)
-- Tax identifiers (SSN/FEIN)
-- Contact information (Phone, Fax, etc.)
-- BusinessType (int)
+# Use services
+response = await insured_service.find_or_create(insured_data)
+if response.success:
+    insured = response.data
+```
+
+## Response Format
+
+```json
+{
+  "success": true,
+  "transaction_id": "550e8400-e29b-41d4-a716-446655440000",
+  "ims_response": {
+    "insured_guid": "...",
+    "submission_guid": "...",
+    "quote_guid": "...",
+    "policy_number": "TRI-123456"
+  },
+  "invoice_details": {
+    "invoice_number": "INV-001",
+    "total_amount": "10500.00",
+    "due_date": "2025-02-01"
+  }
+}
+```
+
+## Error Handling
+
+The service provides detailed error responses:
+```json
+{
+  "success": false,
+  "error": "Detailed error message",
+  "transaction_id": "..."
+}
+```
+
+## Documentation
+
+- [Policy Lifecycle Operations](POLICY_LIFECYCLE_OPERATIONS.md)
+- [Integration Guide](INTEGRATION_GUIDE.md)
+- [Endpoint Summary](ENDPOINT_SUMMARY.md)
+- [Microservice Architecture](MICROSERVICE_ARCHITECTURE_DESIGN.md)
+
+## Support
+
+For issues or questions:
+1. Check the documentation in the `Documentation/` folder
+2. Review test files for usage examples
+3. Contact the development team

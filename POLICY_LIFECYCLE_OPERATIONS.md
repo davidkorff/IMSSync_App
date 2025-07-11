@@ -42,7 +42,7 @@ Updated `app/integrations/triton/transformer.py` to transform:
 
 ### 5. API Route Support
 
-The existing `/api/sources/triton/transaction/{transaction_type}` endpoint supports:
+The `/api/triton/transaction/new` endpoint supports all transaction types:
 - `/cancellation`
 - `/endorsement` or `/midterm_endorsement`
 - `/reinstatement`

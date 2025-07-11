@@ -88,7 +88,7 @@ async def startup_event():
     logger.info("  GET /api/health - Health check with detailed status")
     logger.info("  GET /api/metrics - Prometheus metrics endpoint")
     logger.info("")
-    logger.info("Triton endpoints:")
+    logger.info("Source-specific endpoints:")
     logger.info("  POST /api/triton/transaction/new - Process ALL Triton transactions (binding, cancellation, endorsement, reinstatement)")
     logger.info("    Transaction type determined by 'transaction_type' field in JSON payload")
     logger.info("")

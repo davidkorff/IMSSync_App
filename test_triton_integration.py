@@ -1,176 +1,260 @@
 #!/usr/bin/env python3
 """
 Test script for Triton integration
+This script tests the complete NEW BUSINESS flow with the actual IMS integration.
+
+Usage:
+    python test_triton_integration.py <json_file>
+    python test_triton_integration.py TEST.json
+    python test_triton_integration.py sample_data/another_test.json
 """
 
-import logging
 import json
 import requests
 import sys
+import os
+from datetime import datetime
 import time
-from datetime import date, datetime, timedelta
+import argparse
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
-# Configuration
-BASE_URL = "http://localhost:8000"
-API_KEY = "test_api_key"
-
-def generate_test_data():
-    """Generate sample Triton policy data"""
+def test_triton_new_business(json_file_path):
+    """Test the Triton endpoint with provided JSON data"""
     
-    # Use effective dates in the future
-    today = date.today()
-    effective_date = today + timedelta(days=30)
-    expiration_date = effective_date.replace(year=effective_date.year + 1)
+    # Configuration - adjust these for your environment
+    BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+    ENDPOINT = "/api/triton/transaction/new"
+    API_KEY = os.getenv("API_KEY", "test-api-key")
     
-    # Sample policy data in JSON format
-    return {
-        "policy_number": f"TRI-TEST-{int(time.time())}",
-        "effective_date": effective_date.isoformat(),
-        "expiration_date": expiration_date.isoformat(),
-        "bound_date": today.isoformat(),
-        "program": "Test Program",
-        "line_of_business": "General Liability",
-        "state": "TX",
-        "insured": {
-            "name": "Triton Test Company LLC",
-            "dba": "Test Co",
-            "contact": {
-                "name": "John Smith",
-                "email": "john@example.com",
-                "phone": "555-123-4567",
-                "address": "123 Main St",
-                "city": "Austin",
-                "state": "TX",
-                "zip_code": "78701"
-            },
-            "tax_id": "12-3456789",
-            "business_type": "LLC"
-        },
-        "locations": [
-            {
-                "address": "123 Main St",
-                "city": "Austin",
-                "state": "TX",
-                "zip_code": "78701",
-                "country": "USA",
-                "description": "Main Office"
-            }
-        ],
-        "producer": {
-            "name": "ABC Insurance Agency",
-            "id": "TRITON-PROD-123",
-            "contact": {
-                "name": "Jane Doe",
-                "email": "jane@example.com",
-                "phone": "555-987-6543"
-            },
-            "commission": 15.0
-        },
-        "underwriter": "Bob Johnson",
-        "coverages": [
-            {
-                "type": "General Liability",
-                "limit": 1000000.0,
-                "deductible": 5000.0,
-                "premium": 10000.0
-            }
-        ],
-        "premium": 10000.0,
-        "billing_type": "Agency Bill",
-        "additional_data": {
-            "source_system": "triton",
-            "source_id": f"TRITON-ID-{int(time.time())}"
-        }
-    }
-
-def create_triton_transaction():
-    """Create a new transaction using the Triton-specific endpoint"""
+    # Load JSON file
+    print("=" * 60)
+    print("TRITON INTEGRATION TEST")
+    print("=" * 60)
+    print(f"\nTimestamp: {datetime.now().isoformat()}")
+    print(f"Environment: {BASE_URL}")
+    print(f"Test File: {json_file_path}")
     
-    url = f"{BASE_URL}/api/triton/transaction/new"
+    print(f"\n1. Loading {json_file_path}...")
+    try:
+        with open(json_file_path, 'r') as f:
+            test_data = json.load(f)
+        print(f"   ✓ {json_file_path} loaded successfully")
+    except FileNotFoundError:
+        print(f"   ✗ ERROR: File '{json_file_path}' not found")
+        print(f"   Current directory: {os.getcwd()}")
+        return False
+    except json.JSONDecodeError as e:
+        print(f"   ✗ ERROR: Invalid JSON in {json_file_path} - {e}")
+        return False
+    except Exception as e:
+        print(f"   ✗ ERROR: Could not read file - {e}")
+        return False
+    
+    # Determine transaction type
+    transaction_type = test_data.get('transaction_type', 'Unknown')
+    
+    # Display test data
+    print("\n2. Test Data Summary:")
+    print(f"   - Transaction Type: {transaction_type}")
+    print(f"   - Policy Number: {test_data.get('policy_number')}")
+    print(f"   - Insured: {test_data.get('insured_name')}")
+    print(f"   - State: {test_data.get('insured_state')}")
+    
+    # Display relevant fields based on transaction type
+    if transaction_type.upper() in ['NEW BUSINESS', 'BINDING']:
+        print(f"   - Address: {test_data.get('address_1')}, {test_data.get('city')}, {test_data.get('state')} {test_data.get('zip')}")
+        print(f"   - Premium: ${test_data.get('gross_premium', test_data.get('premium', 0))}")
+        print(f"   - Policy Fee: ${test_data.get('policy_fee', 0)}")
+        print(f"   - Effective Date: {test_data.get('effective_date')}")
+        print(f"   - Expiration Date: {test_data.get('expiration_date')}")
+    elif transaction_type.upper() in ['CANCEL', 'CANCELLATION']:
+        print(f"   - Cancellation Date: {test_data.get('cancellation_date')}")
+        print(f"   - Cancellation Reason: {test_data.get('cancellation_reason_id')}")
+        print(f"   - Flat Cancel: {test_data.get('flat_cancel', False)}")
+    elif transaction_type.upper() in ['ENDORSEMENT', 'MIDTERM_ENDORSEMENT']:
+        print(f"   - Endorsement Date: {test_data.get('endorsement_date')}")
+        print(f"   - Premium Change: ${test_data.get('premium_change', 0)}")
+        print(f"   - Comments: {test_data.get('comment', 'N/A')}")
+    elif transaction_type.upper() == 'REINSTATEMENT':
+        print(f"   - Reinstatement Date: {test_data.get('reinstatement_date')}")
+        print(f"   - Payment Received: ${test_data.get('payment_received', 0)}")
+    
+    # Prepare headers
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": API_KEY
     }
     
-    data = generate_test_data()
+    # Make request
+    print(f"\n3. Sending request to {BASE_URL}{ENDPOINT}")
+    print("   Headers:")
+    print(f"   - Content-Type: application/json")
+    print(f"   - X-API-Key: {'*' * len(API_KEY)}")
     
-    logger.info(f"Sending test transaction to {url}")
-    logger.info(f"Policy Number: {data['policy_number']}")
+    start_time = time.time()
     
     try:
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
+        response = requests.post(
+            f"{BASE_URL}{ENDPOINT}",
+            json=test_data,
+            headers=headers,
+            timeout=60  # 60 second timeout for IMS processing
+        )
         
-        result = response.json()
-        logger.info(f"Transaction created: {result.get('transaction_id')}")
-        logger.info(f"Status: {result.get('status')}")
-        logger.info(f"Message: {result.get('message')}")
+        elapsed_time = time.time() - start_time
+        print(f"\n4. Response received in {elapsed_time:.2f} seconds")
+        print(f"   Status Code: {response.status_code}")
         
-        return result.get('transaction_id')
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error creating transaction: {str(e)}")
-        if hasattr(e, 'response') and e.response:
-            logger.error(f"Response: {e.response.text}")
-        return None
+        # Parse response
+        try:
+            response_data = response.json()
+        except:
+            response_data = {"raw": response.text}
+        
+        # Check if successful
+        if response.status_code == 200:
+            print("   ✓ SUCCESS!")
+            
+            # Display response data
+            print("\n5. Response Data:")
+            
+            # Handle different response structures
+            if 'success' in response_data and response_data['success']:
+                # New structure with success flag
+                print(f"   Transaction ID: {response_data.get('transaction_id', 'N/A')}")
+                
+                if 'ims_response' in response_data:
+                    print("\n   IMS Response:")
+                    ims = response_data['ims_response']
+                    for key, value in ims.items():
+                        print(f"     - {key}: {value}")
+                
+                if 'invoice_details' in response_data:
+                    print("\n   Invoice Details:")
+                    invoice = response_data['invoice_details']
+                    for key, value in invoice.items():
+                        print(f"     - {key}: {value}")
+                
+                if 'errors' in response_data and response_data['errors']:
+                    print("\n   Errors:")
+                    for error in response_data['errors']:
+                        print(f"     - {error}")
+                
+                if 'warnings' in response_data and response_data['warnings']:
+                    print("\n   Warnings:")
+                    for warning in response_data['warnings']:
+                        print(f"     - {warning}")
+            
+            elif 'data' in response_data:
+                # Old structure with data wrapper
+                data = response_data['data']
+                
+                # IMS Response
+                if 'ims_response' in data:
+                    print("\n   IMS Response:")
+                    ims = data['ims_response']
+                    for key, value in ims.items():
+                        print(f"     - {key}: {value}")
+                
+                # Invoice Details
+                if 'invoice_details' in data:
+                    print("\n   Invoice Details:")
+                    invoice = data['invoice_details']
+                    for key, value in invoice.items():
+                        print(f"     - {key}: {value}")
+                
+                # Warnings
+                if 'warnings' in data and data['warnings']:
+                    print("\n   Warnings:")
+                    for warning in data['warnings']:
+                        print(f"     - {warning}")
+            
+            else:
+                # Unknown structure - just print it
+                print(json.dumps(response_data, indent=2))
+            
+            # Success summary
+            print("\n" + "=" * 60)
+            print(f"TEST COMPLETED SUCCESSFULLY! ({transaction_type})")
+            print("=" * 60)
+            
+            return True
+                
+        else:
+            print("   ✗ FAILED!")
+            print("\n5. Error Response:")
+            
+            if isinstance(response_data, dict):
+                # Handle structured error
+                if 'error' in response_data:
+                    error = response_data['error']
+                    if isinstance(error, dict):
+                        print(f"   Stage: {error.get('stage', 'Unknown')}")
+                        print(f"   Message: {error.get('message', 'No message')}")
+                        if 'details' in error and error['details']:
+                            print("   Details:")
+                            for key, value in error['details'].items():
+                                print(f"     - {key}: {value}")
+                    else:
+                        print(f"   Error: {error}")
+                elif 'errors' in response_data:
+                    print("   Errors:")
+                    for err in response_data['errors']:
+                        print(f"     - {err}")
+                else:
+                    print(json.dumps(response_data, indent=2))
+            else:
+                print(f"   Raw Response: {response_data}")
+            
+            return False
+            
+    except requests.exceptions.Timeout:
+        print(f"\n   ✗ ERROR: Request timed out after 60 seconds")
+        return False
+    except requests.exceptions.ConnectionError:
+        print(f"\n   ✗ ERROR: Could not connect to {BASE_URL}")
+        print("   Please ensure the service is running and accessible")
+        return False
+    except Exception as e:
+        print(f"\n   ✗ ERROR: {type(e).__name__}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        return False
 
-def check_transaction_status(transaction_id):
-    """Check the status of a transaction"""
-    
-    url = f"{BASE_URL}/api/transaction/{transaction_id}"
-    headers = {
-        "X-API-Key": API_KEY
-    }
-    
-    logger.info(f"Checking status of transaction {transaction_id}")
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        result = response.json()
-        logger.info(f"Transaction {transaction_id} status: {result.get('status')}")
-        logger.info(f"IMS status: {result.get('ims_status')}")
-        logger.info(f"Message: {result.get('message')}")
-        
-        return result
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error checking transaction status: {str(e)}")
-        if hasattr(e, 'response') and e.response:
-            logger.error(f"Response: {e.response.text}")
-        return None
 
 def main():
-    """Main test function"""
+    """Main test runner"""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Test Triton integration with a JSON file',
+        epilog='Environment variables: API_BASE_URL (default: http://localhost:8000), API_KEY (default: test-api-key)'
+    )
+    parser.add_argument('json_file', 
+                       help='Path to JSON test file (e.g., TEST.json, cancellation_test.json)')
+    parser.add_argument('--url', 
+                       help='Override API base URL (can also use API_BASE_URL env var)')
+    parser.add_argument('--key', 
+                       help='Override API key (can also use API_KEY env var)')
     
-    # Create a transaction
-    transaction_id = create_triton_transaction()
-    if not transaction_id:
-        logger.error("Failed to create transaction")
-        sys.exit(1)
+    args = parser.parse_args()
     
-    # Check status a few times
-    for i in range(5):
-        time.sleep(3)  # Wait a bit between checks
-        status = check_transaction_status(transaction_id)
-        if not status:
-            logger.error("Failed to check status")
-            continue
-            
-        # If processing is complete, we can stop checking
-        if status.get('status') in ['completed', 'failed']:
-            break
+    # Override environment variables if command line args provided
+    if args.url:
+        os.environ['API_BASE_URL'] = args.url
+    if args.key:
+        os.environ['API_KEY'] = args.key
     
-    logger.info("Test completed")
+    # Show configuration
+    print("Environment Configuration:")
+    print(f"  API_BASE_URL: {os.getenv('API_BASE_URL', 'http://localhost:8000')}")
+    print(f"  API_KEY: {'Set' if os.getenv('API_KEY') else 'Not set (using default)'}")
+    
+    # Run the test
+    success = test_triton_new_business(args.json_file)
+    
+    # Exit with appropriate code
+    sys.exit(0 if success else 1)
+
 
 if __name__ == "__main__":
     main()
