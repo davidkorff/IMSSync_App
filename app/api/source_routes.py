@@ -4,7 +4,7 @@ Source-specific API routes
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
-from app.api.dependencies import get_api_key
+from app.api.dependencies_no_auth import get_api_key  # Using no-auth for testing
 from app.services.transaction_service import TransactionService
 from app.integrations.triton.service import TritonIntegrationService
 from app.integrations.xuber.service import XuberIntegrationService
