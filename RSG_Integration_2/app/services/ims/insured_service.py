@@ -43,16 +43,48 @@ class InsuredService(BaseIMSService):
         """Create a new insured with primary location"""
         try:
             token = self.auth_service.get_token()
+            
+            # Create insured object
+            insured = {
+                'BusinessTypeID': 1,  # Default to individual
+                'CorporationName': data["insured_name"] if data.get("business_type") != "individual" else None,
+                'LastName': data["insured_name"] if data.get("business_type") == "individual" else None,
+                'NameOnPolicy': data["insured_name"],
+                'DBA': None,
+                'FEIN': None,
+                'SSN': None,
+                'DateOfBirth': None,
+                'RiskId': None,
+                'Office': "00000000-0000-0000-0000-000000000000"  # Default GUID
+            }
+            
+            # Create location object
+            location = {
+                'InsuredGuid': "00000000-0000-0000-0000-000000000000",  # Will be set by server
+                'InsuredLocationGuid': "00000000-0000-0000-0000-000000000000",  # Will be set by server
+                'LocationName': 'Primary',
+                'Address1': data["address_1"],
+                'Address2': data.get("address_2", ""),
+                'City': data["city"],
+                'County': None,
+                'State': data["state"],
+                'Zip': data["zip"],
+                'ZipPlus': None,
+                'ISOCountryCode': 'US',
+                'Region': None,
+                'Phone': None,
+                'Fax': None,
+                'Email': None,
+                'Website': None,
+                'DeliveryMethodID': 1,  # Default
+                'LocationTypeID': 1,  # Primary
+                'MobileNumber': None,
+                'OptOut': False
+            }
+            
             response = self.client.service.AddInsuredWithLocation(
-                insuredName=data["insured_name"],
-                insuredType=data.get("business_type", "individual"),
-                locationCode="LOC001",
-                locationType="Primary",
-                address1=data["address_1"],
-                address2=data.get("address_2", ""),
-                city=data["city"],
-                state=data["state"],
-                zip=data["zip"],
+                insured=insured,
+                location=location,
                 _soapheaders=self.get_header(token)
             )
             
