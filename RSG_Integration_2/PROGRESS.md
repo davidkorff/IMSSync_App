@@ -35,10 +35,11 @@ Building a service that processes insurance transactions from Triton and transfo
 
 2. ~~**Quote Creation - Null Reference Error**~~ 🔄 IN PROGRESS
    - `AddQuoteWithInsured` method not available in this IMS instance
-   - Reverted to multi-step approach with fixes:
+   - Fixed issues with AddQuote:
      - Changed empty strings to null values in RiskInformation
-     - Added missing TACSR field to quote object
-   - Using separate calls: AddInsured + AddSubmission + AddQuote
+     - Removed TACSR field from quote object (only valid in submission)
+     - AddQuote creates both submission and quote together (not separate calls)
+   - Current approach: AddInsured + AddQuote (which creates submission and quote)
 
 3. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
@@ -48,19 +49,14 @@ Building a service that processes insurance transactions from Triton and transfo
 ### Transaction Flow Progress
 
 ```
-Bind Transaction (NEW FLOW):
-1. ✅ Authenticate with IMS
-2. ✅ Create insured, location, submission and quote with AddQuoteWithInsured
-3. ⏸️ Bind quote
-4. ⏸️ Get invoice details
-5. ⏸️ Store policy mapping
-
-Old Flow (deprecated):
+Bind Transaction (CURRENT FLOW):
 1. ✅ Authenticate with IMS
 2. ✅ Search for existing insured 
 3. ✅ Create insured if not found
-4. ✅ Create submission
-5. ❌ Create quote (null reference error)
+4. 🔄 Create submission and quote with AddQuote
+5. ⏸️ Bind quote
+6. ⏸️ Get invoice details
+7. ⏸️ Store policy mapping
 ```
 
 ### Key Learnings
@@ -68,8 +64,10 @@ Old Flow (deprecated):
 1. **IMS API Expectations**
    - All methods expect complex objects, not individual parameters
    - Strict type requirements (e.g., BusinessTypeID must exist in DB)
-   - Date formats need to be XML-compliant
+   - Date formats need to be XML-compliant (YYYY-MM-DD)
    - Some documented methods may not be available in all instances
+   - AddQuote creates both submission and quote (not just quote)
+   - TACSR field belongs in submission, not quote object
 
 2. **Environment-Specific GUIDs**
    - Producer: 895E9291-CFB6-4299-8799-9AF77DF937D6

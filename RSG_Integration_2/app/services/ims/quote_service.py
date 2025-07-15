@@ -173,11 +173,11 @@ class QuoteService(BaseIMSService):
             raise
     
     def _create_submission_and_quote_separately(self, insured_guid: UUID, data: Dict[str, Any]) -> Dict[str, UUID]:
-        """Create submission and quote using separate API calls (fallback method)"""
+        """Create submission and quote using AddQuote (which creates both)"""
         try:
             token = self.auth_service.get_token()
             
-            # Step 1: Create submission
+            # Create submission object for AddQuote
             submission = {
                 'Insured': str(insured_guid),
                 'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
@@ -188,16 +188,9 @@ class QuoteService(BaseIMSService):
                 'InHouseProducer': data.get("inhouse_producer_guid", "00000000-0000-0000-0000-000000000000")
             }
             
-            submission_response = self.client.service.AddSubmission(
-                submission=submission,
-                _soapheaders=self.get_header(token)
-            )
-            submission_guid = UUID(str(submission_response))
-            logger.info(f"Created submission: {submission_guid}")
-            
-            # Step 2: Create quote with the submission
+            # Create quote object (Submission field will be set by server)
             quote = {
-                'Submission': str(submission_guid),
+                'Submission': "00000000-0000-0000-0000-000000000000",  # Will be set by server
                 'QuotingLocation': data.get("quoting_location_guid", os.getenv("TRITON_QUOTING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
                 'IssuingLocation': data.get("issuing_location_guid", os.getenv("TRITON_ISSUING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
                 'CompanyLocation': data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
@@ -260,16 +253,18 @@ class QuoteService(BaseIMSService):
                 'ProgramID': data.get("program_id", 0)
             }
             
+            # AddQuote creates both submission and quote
             quote_response = self.client.service.AddQuote(
+                submission=submission,
                 quote=quote,
                 _soapheaders=self.get_header(token)
             )
             quote_guid = UUID(str(quote_response))
-            logger.info(f"Created quote: {quote_guid}")
+            logger.info(f"Created submission and quote: {quote_guid}")
             
             return {
                 "quote_guid": quote_guid,
-                "submission_guid": submission_guid
+                "submission_guid": None  # AddQuote doesn't return submission GUID separately
             }
             
         except Exception as e:
