@@ -313,7 +313,7 @@ class IMSClient:
                 'FinanceCompany': '00000000-0000-0000-0000-000000000000',  # null GUID - no finance company
                 'NetRateQuoteID': 0,  # 0 indicates not using net rate
                 'ExpiringQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
-                'Underwriter': quote_data.get('underwriter_guid', submission_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000')),
+                'Underwriter': quote_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000'),
                 'ExpiringPolicyNumber': None,  # null for new business
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
