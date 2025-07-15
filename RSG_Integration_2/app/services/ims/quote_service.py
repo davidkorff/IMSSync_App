@@ -89,8 +89,8 @@ class QuoteService(BaseIMSService):
                 'FinanceCompany': "00000000-0000-0000-0000-000000000000",
                 'NetRateQuoteID': 0,
                 'QuoteDetail': {
-                    'CompanyCommission': data.get("company_commission", 0),
-                    'ProducerCommission': data.get("producer_commission", data.get("commission_rate", 0)),
+                    'CompanyCommission': data.get("company_commission", 0) / 100 if data.get("company_commission") else 0,
+                    'ProducerCommission': data.get("commission_rate", 0) / 100 if data.get("commission_rate") else 0,
                     'TermsOfPayment': 1,  # Default terms
                     'ProgramCode': data.get("program_code", ""),
                     'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",
@@ -204,8 +204,8 @@ class QuoteService(BaseIMSService):
                 'FinanceCompany': "00000000-0000-0000-0000-000000000000",
                 'NetRateQuoteID': 0,
                 'QuoteDetail': {
-                    'CompanyCommission': data.get("company_commission", 0),
-                    'ProducerCommission': data.get("producer_commission", data.get("commission_rate", 0)),
+                    'CompanyCommission': data.get("company_commission", 0) / 100 if data.get("company_commission") else 0,
+                    'ProducerCommission': data.get("commission_rate", 0) / 100 if data.get("commission_rate") else 0,
                     'TermsOfPayment': 1,  # Default terms
                     'ProgramCode': data.get("program_code", ""),
                     'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",

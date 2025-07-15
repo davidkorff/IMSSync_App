@@ -33,12 +33,13 @@ Building a service that processes insurance transactions from Triton and transfo
 1. ~~**Quote Creation - DateTime Format Error**~~ ✅ FIXED
    - Converted dates from MM/DD/YYYY to YYYY-MM-DD format
 
-2. ~~**Quote Creation - Null Reference Error**~~ 🔄 IN PROGRESS
+2. ~~**Quote Creation - Null Reference Error**~~ ✅ FIXED
    - `AddQuoteWithInsured` method not available in this IMS instance
    - Fixed issues with AddQuote:
      - Changed empty strings to null values in RiskInformation
      - Removed TACSR field from quote object (only valid in submission)
      - AddQuote creates both submission and quote together (not separate calls)
+     - Fixed decimal conversion error by converting commission rates from percentage to decimal
    - Current approach: AddInsured + AddQuote (which creates submission and quote)
 
 3. **Method Availability**
