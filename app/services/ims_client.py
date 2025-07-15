@@ -123,9 +123,9 @@ class IMSClient:
             
             # Get valid office GUID from config
             office_guid = insured_data.get('office_guid')
-            if not office_guid or office_guid == '00000000-0000-0000-0000-000000000000':
-                # Use a valid default - empty string works better than zeros
-                office_guid = ''
+            if not office_guid:
+                # Use null GUID as default
+                office_guid = '00000000-0000-0000-0000-000000000000'
             
             # Create insured object with required fields
             insured = {
