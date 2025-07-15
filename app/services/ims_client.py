@@ -243,13 +243,9 @@ class IMSClient:
             # Log the submission object
             logger.info(f"Submission object to send: {submission}")
             
-            # The AddSubmission method expects individual parameters, not an object
+            # Try calling AddSubmission with just the submission object (no named parameter)
             result = service.AddSubmission(
-                submission['InsuredGUID'],
-                submission['SubmissionDate'],
-                submission['ProducerContactGUID'],
-                submission['UnderwriterGUID'],
-                submission['ProducerLocationGUID'],
+                submission,
                 _soapheaders=self._get_header()
             )
             
