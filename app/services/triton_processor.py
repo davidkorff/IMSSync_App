@@ -113,7 +113,8 @@ class TritonProcessor:
                 'line_guid': ims_data['line_guid'],
                 'producer_guid': ims_data['producer_guid'],
                 'location_guids': ims_data['location_guids'],
-                'underwriter_guid': ims_data.get('underwriter_guid', self.config['defaults']['underwriter_guid'])
+                'underwriter_guid': ims_data.get('underwriter_guid', self.config['defaults']['underwriter_guid']),
+                'insured_business_type_id': ims_data['insured']['business_type_id']  # Pass the business type ID
             }
             quote_guid = self.ims.create_quote(quote_data)
             
@@ -410,10 +411,28 @@ class TritonProcessor:
         
         # Extract account/insured data (nested structure)
         account = data.get('account', {})
+        
+        # Map business type from account data
+        business_type = account.get('business_type', '').lower()
+        business_type_mapping = {
+            'individual': 4,
+            'partnership': 2,
+            'limited partnership': 3,
+            'llc': 9,
+            'llp': 9,
+            'llc/llp': 9,
+            'joint venture': 10,
+            'trust': 11,
+            'corporation': 13,
+            'other': 5
+        }
+        business_type_id = business_type_mapping.get(business_type, 5)  # Default to 5 (Other)
+        logger.info(f"Mapped business type '{business_type}' to ID {business_type_id}")
+        
         insured_data = {
             'name': account.get('name', ''),
             'tax_id': account.get('id'),
-            'business_type_id': 5,  # Hardcoded for Triton (LLC)
+            'business_type_id': business_type_id,
             'address': account.get('street_1', ''),
             'city': account.get('city', ''),
             'state': account.get('state', ''),
@@ -688,11 +707,28 @@ class TritonProcessor:
         """
         Transform flat Triton data (like TEST.json) to IMS format
         """
+        # Map business type string to IMS ID
+        business_type = data.get('business_type', '').lower()
+        business_type_mapping = {
+            'individual': 4,
+            'partnership': 2,
+            'limited partnership': 3,
+            'llc': 9,
+            'llp': 9,
+            'llc/llp': 9,
+            'joint venture': 10,
+            'trust': 11,
+            'corporation': 13,
+            'other': 5
+        }
+        business_type_id = business_type_mapping.get(business_type, 5)  # Default to 5 (Other)
+        logger.info(f"Mapped business type '{business_type}' to ID {business_type_id}")
+        
         # Build insured data from flat structure
         insured_data = {
             'name': data.get('insured_name', ''),
             'tax_id': data.get('tax_id') or data.get('fein') or data.get('insured_fein'),
-            'business_type_id': 5,  # Hardcoded for Triton (LLC)
+            'business_type_id': business_type_id,
             'address': data.get('address_1', ''),
             'city': data.get('city', '') or data.get('insured_city', ''),
             'state': data.get('state', '') or data.get('insured_state', ''),

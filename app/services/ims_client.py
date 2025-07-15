@@ -204,13 +204,15 @@ class IMSClient:
             # Create location object
             location = {
                 'InsuredGuid': insured_guid,
+                'LocationName': location_data.get('name', 'Primary Location'),  # Required field
                 'Address1': location_data.get('address', ''),
                 'Address2': location_data.get('address2', ''),
                 'City': location_data.get('city', ''),
                 'State': location_data.get('state', ''),
                 'Zip': location_data.get('zip', ''),
                 'ISOCountryCode': 'USA',
-                'LocationTypeID': 1  # Primary location
+                'LocationTypeID': 1,  # Primary location
+                'DeliveryMethodID': 1  # Mail (required)
             }
             
             result = service.AddInsuredLocation(
@@ -316,6 +318,7 @@ class IMSClient:
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'InsuredBusinessTypeID': quote_data.get('insured_business_type_id', 5),  # Same as insured's business type
                 'OnlineRaterID': 0,  # 0 for default
                 'CostCenterID': 0  # 0 for default cost center
             }
@@ -402,6 +405,7 @@ class IMSClient:
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'InsuredBusinessTypeID': quote_data.get('insured_business_type_id', 5),  # Same as insured's business type
                 'OnlineRaterID': 0,  # 0 for default
                 'CostCenterID': 0  # 0 for default cost center
             }
