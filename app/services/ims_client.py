@@ -231,13 +231,13 @@ class IMSClient:
             # Log the submission data we're about to send
             logger.info(f"Creating submission with data: {submission_data}")
             
-            # Create submission object
+            # Create submission object with correct field names for SOAP
             submission = {
-                'InsuredGUID': submission_data['insured_guid'],
+                'Insured': submission_data['insured_guid'],
                 'SubmissionDate': submission_data['submission_date'],
-                'ProducerContactGUID': submission_data['producer_guid'],
-                'UnderwriterGUID': submission_data['underwriter_guid'],
-                'ProducerLocationGUID': submission_data['producer_guid']  # producer location
+                'ProducerContact': submission_data['producer_guid'],
+                'Underwriter': submission_data['underwriter_guid'],
+                'ProducerLocation': submission_data['producer_guid']  # producer location
             }
             
             # Log the submission object
