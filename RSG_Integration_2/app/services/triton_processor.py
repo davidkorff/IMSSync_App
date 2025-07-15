@@ -109,7 +109,25 @@ class TritonProcessor:
                 "address_1": payload.address_1,
                 "address_2": payload.address_2,
                 "city": payload.city,
-                "zip": payload.zip
+                "zip": payload.zip,
+                # Additional Triton data for AdditionalInformation field
+                "additional_data": {
+                    "transaction_id": payload.transaction_id,
+                    "prior_transaction_id": payload.prior_transaction_id,
+                    "opportunity_id": payload.opportunity_id,
+                    "opportunity_type": payload.opportunity_type,
+                    "policy_fee": payload.policy_fee,
+                    "surplus_lines_tax": payload.surplus_lines_tax,
+                    "stamping_fee": payload.stamping_fee,
+                    "other_fee": payload.other_fee,
+                    "commission_percent": payload.commission_percent,
+                    "commission_amount": payload.commission_amount,
+                    "net_premium": payload.net_premium,
+                    "base_premium": payload.base_premium,
+                    "status": payload.status,
+                    "limit_prior": payload.limit_prior,
+                    "invoice_date": payload.invoice_date
+                }
             }
             
             result = self.quote_service.create_submission_and_quote(insured_guid, quote_data)
@@ -141,26 +159,30 @@ class TritonProcessor:
             
             # Step 4b: Store additional Triton data using ImportNetRateXml
             try:
-                # Build XML with additional Triton data
-                triton_xml = f"""<?xml version="1.0" encoding="utf-8"?>
-<TritonData>
-    <TransactionId>{payload.transaction_id}</TransactionId>
-    <OpportunityId>{payload.opportunity_id}</OpportunityId>
-    <OpportunityType>{payload.opportunity_type}</OpportunityType>
-    <InvoiceDate>{payload.invoice_date}</InvoiceDate>
-    <PolicyFee>{payload.policy_fee}</PolicyFee>
-    <SurplusLinesTax>{payload.surplus_lines_tax}</SurplusLinesTax>
-    <StampingFee>{payload.stamping_fee}</StampingFee>
-    <OtherFee>{payload.other_fee}</OtherFee>
-    <CommissionPercent>{payload.commission_percent}</CommissionPercent>
-    <CommissionAmount>{payload.commission_amount}</CommissionAmount>
-    <NetPremium>{payload.net_premium}</NetPremium>
-    <BasePremium>{payload.base_premium}</BasePremium>
-    <Status>{payload.status}</Status>
-    <LimitPrior>{payload.limit_prior}</LimitPrior>
-</TritonData>"""
+                # Try NetRate format first - based on error, it might expect specific tags
+                netrate_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<NetRateQuote>
+    <QuoteGuid>{quote_guid}</QuoteGuid>
+    <ExternalData>
+        <TransactionId>{payload.transaction_id}</TransactionId>
+        <PriorTransactionId>{payload.prior_transaction_id or ''}</PriorTransactionId>
+        <OpportunityId>{payload.opportunity_id}</OpportunityId>
+        <OpportunityType>{payload.opportunity_type}</OpportunityType>
+        <InvoiceDate>{payload.invoice_date}</InvoiceDate>
+        <PolicyFee>{payload.policy_fee}</PolicyFee>
+        <SurplusLinesTax>{payload.surplus_lines_tax or ''}</SurplusLinesTax>
+        <StampingFee>{payload.stamping_fee or ''}</StampingFee>
+        <OtherFee>{payload.other_fee or ''}</OtherFee>
+        <CommissionPercent>{payload.commission_percent}</CommissionPercent>
+        <CommissionAmount>{payload.commission_amount}</CommissionAmount>
+        <NetPremium>{payload.net_premium}</NetPremium>
+        <BasePremium>{payload.base_premium}</BasePremium>
+        <Status>{payload.status}</Status>
+        <LimitPrior>{payload.limit_prior}</LimitPrior>
+    </ExternalData>
+</NetRateQuote>"""
                 
-                xml_response = self.quote_service.import_net_rate_xml(quote_guid, triton_xml)
+                xml_response = self.quote_service.import_net_rate_xml(quote_guid, netrate_xml)
                 ims_responses.append({
                     "action": "import_net_rate_xml",
                     "result": {"response": xml_response}
@@ -173,8 +195,24 @@ class TritonProcessor:
             except Exception as e:
                 logger.warning(f"Failed to import NetRate XML: {e}")
                 warnings.append(f"Could not store additional data via XML: {str(e)}")
+                
+                # If ImportNetRateXml fails, we should implement the fallback
+                # to AdditionalInformation field during quote creation
+                logger.info("ImportNetRateXml failed - consider using AdditionalInformation field instead")
             
-            # Step 5: Bind the quote
+            # Step 5: Add quote option to enable binding
+            try:
+                option_guid = self.quote_service.add_quote_option(quote_guid)
+                ims_responses.append({
+                    "action": "add_quote_option",
+                    "result": {"option_guid": str(option_guid)}
+                })
+                logger.info(f"Added quote option {option_guid} to quote {quote_guid}")
+            except Exception as e:
+                logger.error(f"Failed to add quote option: {e}")
+                raise
+            
+            # Step 6: Bind the quote
             bind_data = {
                 "bound_date": bound_date,  # Use converted date
                 "policy_number": payload.policy_number
@@ -185,7 +223,7 @@ class TritonProcessor:
                 "result": bind_result
             })
             
-            # Step 6: Get invoice details
+            # Step 7: Get invoice details
             invoice_details = self.invoice_service.get_invoice(quote_guid)
             
             # Store policy mapping

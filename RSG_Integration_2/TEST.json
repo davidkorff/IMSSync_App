@@ -44,5 +44,6 @@
   "state":                       "MI",
   "zip":                         "49048",
   "transaction_id":              "5754934b-a66c-4173-8972-ab6c7fe1d384",
+  "prior_transaction_id":        "null",
   "transaction_type":            "Bind"
 }

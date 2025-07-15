@@ -51,6 +51,7 @@ class TritonPayload(BaseModel):
     state: str
     zip: str
     transaction_id: str
+    prior_transaction_id: Optional[str] = None
     transaction_type: Literal["Bind", "Unbind", "Issue", "Midterm Endorsement", "Cancellation"]
 
 class ProcessingResult(BaseModel):

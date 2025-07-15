@@ -108,7 +108,7 @@ class QuoteService(BaseIMSService):
                 'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
                 'InsuredBusinessTypeID': 9,  # LLC - Partnership
                 'AccountNumber': "",
-                'AdditionalInformation': [],
+                'AdditionalInformation': self._build_additional_info(data),
                 'OnlineRaterID': 0,
                 'CostCenterID': 0,
                 'ProgramCode': data.get("program_code", ""),
@@ -223,7 +223,7 @@ class QuoteService(BaseIMSService):
                 'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
                 'InsuredBusinessTypeID': 9,  # LLC - Partnership
                 'AccountNumber': "",
-                'AdditionalInformation': [],
+                'AdditionalInformation': self._build_additional_info(data),
                 'OnlineRaterID': 0,
                 'CostCenterID': 0,
                 'ProgramCode': data.get("program_code", ""),
@@ -379,18 +379,44 @@ class QuoteService(BaseIMSService):
             logger.error(f"Error cancelling policy: {e}")
             raise
     
-    def import_excel_rater(self, quote_guid: UUID, excel_data: bytes) -> Dict[str, Any]:
-        """Import Excel rater data"""
+    def import_excel_rater(self, quote_guid: UUID, file_bytes: bytes, file_name: str = "TritonData.xlsx", 
+                          rater_id: int = 0, factor_set_guid: UUID = None, apply_fees: bool = False) -> Dict[str, Any]:
+        """Import Excel rater data - can be used to store additional data"""
         try:
             token = self.auth_service.get_token()
+            
+            # Use default empty GUID if not provided
+            if not factor_set_guid:
+                factor_set_guid = UUID("00000000-0000-0000-0000-000000000000")
+            
             response = self.client.service.ImportExcelRater(
-                quoteGuid=str(quote_guid),
-                excelData=excel_data,
+                QuoteGuid=str(quote_guid),
+                FileBytes=file_bytes,
+                FileName=file_name,
+                RaterID=rater_id,
+                FactorSetGuid=str(factor_set_guid),
+                ApplyFees=apply_fees,
                 _soapheaders=self.get_header(token)
             )
             
             logger.info(f"Imported Excel rater for quote {quote_guid}")
-            return {"success": True, "import_result": response}
+            
+            # Parse response
+            result = {
+                "success": response.Success if hasattr(response, 'Success') else False,
+                "error_message": response.ErrorMessage if hasattr(response, 'ErrorMessage') else None,
+                "premiums": []
+            }
+            
+            if hasattr(response, 'Premiums') and response.Premiums:
+                for option in response.Premiums.OptionResult:
+                    result["premiums"].append({
+                        "option_guid": str(option.QuoteOptionGuid),
+                        "premium_total": float(option.PremiumTotal),
+                        "fee_total": float(option.FeeTotal)
+                    })
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error importing Excel rater: {e}")
@@ -431,3 +457,75 @@ class QuoteService(BaseIMSService):
         except Exception as e:
             logger.error(f"Error importing NetRate XML: {e}")
             raise
+    
+    def add_quote_option(self, quote_guid: UUID, line_guid: UUID = None) -> UUID:
+        """Add a quote option to enable binding"""
+        try:
+            token = self.auth_service.get_token()
+            
+            # Use the line GUID from environment if not provided
+            if not line_guid:
+                line_guid = UUID(os.getenv("TRITON_PRIMARY_LINE_GUID", "07564291-CBFE-4BBE-88D1-0548C88ACED4"))
+            
+            response = self.client.service.AddQuoteOption(
+                quoteGuid=str(quote_guid),
+                lineGuid=str(line_guid),
+                _soapheaders=self.get_header(token)
+            )
+            
+            option_guid = UUID(str(response))
+            logger.info(f"Added quote option {option_guid} to quote {quote_guid}")
+            return option_guid
+            
+        except Exception as e:
+            logger.error(f"Error adding quote option: {e}")
+            raise
+    
+    def _build_additional_info(self, data: Dict[str, Any]) -> List[str]:
+        """Build additional information array for storing Triton data"""
+        additional_info = []
+        
+        # Check if we have additional data to store
+        if "additional_data" in data:
+            triton_data = data["additional_data"]
+            # Store each piece of Triton data as a key-value string
+            additional_info.extend([
+                f"TRITON:transaction_id={triton_data.get('transaction_id', '')}",
+                f"TRITON:prior_transaction_id={triton_data.get('prior_transaction_id', '')}",
+                f"TRITON:opportunity_id={triton_data.get('opportunity_id', '')}",
+                f"TRITON:opportunity_type={triton_data.get('opportunity_type', '')}",
+                f"TRITON:policy_fee={triton_data.get('policy_fee', '')}",
+                f"TRITON:surplus_lines_tax={triton_data.get('surplus_lines_tax', '')}",
+                f"TRITON:stamping_fee={triton_data.get('stamping_fee', '')}",
+                f"TRITON:other_fee={triton_data.get('other_fee', '')}",
+                f"TRITON:commission_percent={triton_data.get('commission_percent', '')}",
+                f"TRITON:commission_amount={triton_data.get('commission_amount', '')}",
+                f"TRITON:net_premium={triton_data.get('net_premium', '')}",
+                f"TRITON:base_premium={triton_data.get('base_premium', '')}",
+                f"TRITON:status={triton_data.get('status', '')}",
+                f"TRITON:limit_prior={triton_data.get('limit_prior', '')}",
+                f"TRITON:invoice_date={triton_data.get('invoice_date', '')}"
+            ])
+        
+        return additional_info
+    
+    def _create_triton_excel_data(self, data: Dict[str, Any]) -> bytes:
+        """Create Excel file with Triton data for ImportExcelRater (future use)"""
+        # This is a placeholder for creating Excel data
+        # Would need to implement with openpyxl or similar library
+        # Example structure:
+        # Sheet 1: Triton Data
+        # Row 1: Headers (Field, Value)
+        # Row 2+: Data rows
+        # 
+        # For now, return empty bytes
+        # In production, would use:
+        # import openpyxl
+        # wb = openpyxl.Workbook()
+        # ws = wb.active
+        # ws.title = "Triton Data"
+        # ... add data ...
+        # return wb.save(as_bytes=True)
+        
+        logger.warning("Excel data creation not implemented - would need openpyxl library")
+        return b""
