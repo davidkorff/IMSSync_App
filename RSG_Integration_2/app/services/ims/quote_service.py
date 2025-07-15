@@ -297,8 +297,6 @@ class QuoteService(BaseIMSService):
             token = self.auth_service.get_token()
             response = self.client.service.BindQuote(
                 quoteGuid=str(quote_guid),
-                bindDate=data["bound_date"],
-                policyNumber=data.get("policy_number"),
                 _soapheaders=self.get_header(token)
             )
             
