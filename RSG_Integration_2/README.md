@@ -69,9 +69,10 @@ app/
 Configure the service using environment variables:
 
 - `IMS_BASE_URL`: Base URL for IMS web services
-- `IMS_EMAIL`: Authentication email
-- `IMS_PASSWORD`: Authentication password
+- `IMS_ONE_USERNAME`: IMS username for authentication
+- `IMS_ONE_PASSWORD`: Triple DES encrypted password for IMS
 - `IMS_PROGRAM_CODE`: IMS program code (default: TRTON)
+- `IMS_PROJECT_NAME`: IMS project name (default: RSG_Integration)
 - `TRITON_API_KEY`: API key for Triton authentication
 - `DEBUG`: Enable debug mode
 - `LOG_LEVEL`: Logging level (INFO, DEBUG, ERROR)
@@ -156,3 +157,18 @@ Example test payload:
 - Environment-based configuration
 - CORS configured for API access
 - No hardcoded credentials
+
+## Troubleshooting
+
+### Authentication Errors
+
+If you get authentication errors:
+1. Ensure `IMS_ONE_USERNAME` and `IMS_ONE_PASSWORD` are set in your `.env` file
+2. The password must be Triple DES encrypted - do not use plain text
+3. Check that the IMS web services are accessible from your server
+
+### Common Error Messages
+
+- **"contactType must be either I, P, or C"**: This indicates the wrong login method is being used. The service should use `LoginIMSUser` not `Login`.
+- **"Server was unable to process request"**: Check your credentials and ensure the IMS service is available.
+- **"Policy not found"**: The policy number doesn't exist in the local store. Ensure the policy was created through a Bind transaction first.

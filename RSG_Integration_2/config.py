@@ -19,10 +19,9 @@ IMS_CONFIG = {
         "clearance": "/clearance.asmx"
     },
     "credentials": {
+        "username": os.getenv("IMS_ONE_USERNAME"),
+        "password": os.getenv("IMS_ONE_PASSWORD"),  # Already encrypted
         "program_code": os.getenv("IMS_PROGRAM_CODE", "TRTON"),
-        "contact_type": os.getenv("IMS_CONTACT_TYPE", "External"),
-        "email": os.getenv("IMS_EMAIL"),
-        "password": os.getenv("IMS_PASSWORD"),
         "project_name": os.getenv("IMS_PROJECT_NAME", "RSG_Integration")
     },
     "timeout": int(os.getenv("IMS_TIMEOUT", "30"))

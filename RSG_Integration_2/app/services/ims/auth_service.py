@@ -26,19 +26,20 @@ class AuthService(BaseIMSService):
         """Authenticate with IMS"""
         try:
             credentials = IMS_CONFIG["credentials"]
-            response = self.client.service.Login(
-                programCode=credentials["program_code"],
-                contactType=credentials["contact_type"],
-                email=credentials["email"],
-                password=credentials["password"],
-                projectName=credentials["project_name"]
+            response = self.client.service.LoginIMSUser(
+                userName=credentials["username"],
+                tripleDESEncryptedPassword=credentials["password"]
             )
             
+            # Extract token from response
+            token = response.Token if hasattr(response, 'Token') else str(response)
+            user_guid = response.UserGuid if hasattr(response, 'UserGuid') else None
+            
             self._auth_token = IMSAuthToken(
-                token=str(response),
+                token=token,
                 expires_at=datetime.now() + timedelta(hours=1)
             )
-            logger.info("Successfully authenticated with IMS")
+            logger.info(f"Successfully authenticated with IMS (UserGuid: {user_guid})")
             return self._auth_token.token
             
         except Exception as e:
