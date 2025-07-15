@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any
 from uuid import UUID
+from datetime import datetime
 
 from .base_service import BaseIMSService
 from .auth_service import AuthService
@@ -14,26 +15,104 @@ class QuoteService(BaseIMSService):
         super().__init__("quote_functions")
         self.auth_service = auth_service
     
-    def create_submission(self, insured_guid: UUID, data: Dict[str, Any]) -> UUID:
-        """Create a submission for an insured"""
+    def create_submission_and_quote(self, insured_guid: UUID, data: Dict[str, Any]) -> Dict[str, UUID]:
+        """Create a submission and quote together"""
         try:
             token = self.auth_service.get_token()
-            response = self.client.service.AddSubmission(
-                insuredGuid=str(insured_guid),
-                producerContactGuid=data.get("producer_guid", ""),
-                underwriterUserGuid=data.get("underwriter_guid", ""),
-                effectiveDate=data["effective_date"],
-                expirationDate=data["expiration_date"],
-                description=f"{data['program_name']} - {data['class_of_business']}",
+            
+            # Create submission object
+            submission = {
+                'Insured': str(insured_guid),
+                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
+                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'SubmissionDate': data.get("submission_date", datetime.now().strftime("%Y-%m-%d")),
+                'ProducerLocation': data.get("producer_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
+                'InHouseProducer': data.get("inhouse_producer_guid", "00000000-0000-0000-0000-000000000000")
+            }
+            
+            # Create quote object with risk information
+            quote = {
+                'Submission': "00000000-0000-0000-0000-000000000000",  # Will be set by server
+                'QuotingLocation': data.get("quoting_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'IssuingLocation': data.get("issuing_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'CompanyLocation': data.get("company_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'Line': data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
+                'StateID': data["state"],
+                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
+                'QuoteStatusID': 1,  # Active/New
+                'Effective': data["effective_date"],
+                'Expiration': data["expiration_date"],
+                'BillingTypeID': 1,  # Default billing type
+                'FinanceCompany': "00000000-0000-0000-0000-000000000000",
+                'NetRateQuoteID': 0,
+                'QuoteDetail': {
+                    'CompanyCommission': data.get("company_commission", 0),
+                    'ProducerCommission': data.get("producer_commission", data.get("commission_rate", 0)),
+                    'TermsOfPayment': 1,  # Default terms
+                    'ProgramCode': data.get("program_code", ""),
+                    'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",
+                    'RaterID': data.get("rater_id", 1),
+                    'FactorSetGuid': "00000000-0000-0000-0000-000000000000",
+                    'ProgramID': data.get("program_id", 0),
+                    'LineGUID': data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
+                    'CompanyLocationGUID': data.get("company_location_guid", "00000000-0000-0000-0000-000000000000")
+                },
+                'ExpiringQuoteGuid': "00000000-0000-0000-0000-000000000000",
+                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'ExpiringPolicyNumber': "",
+                'ExpiringCompanyLocationGuid': "00000000-0000-0000-0000-000000000000",
+                'PolicyTypeID': 1,  # Default policy type
+                'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
+                'InsuredBusinessTypeID': 9,  # LLC - Partnership
+                'AccountNumber': "",
+                'AdditionalInformation': [],
+                'OnlineRaterID': 0,
+                'CostCenterID': 0,
+                'ProgramCode': data.get("program_code", ""),
+                'RiskInformation': {
+                    'PolicyName': data["insured_name"],
+                    'CorporationName': data["insured_name"],
+                    'DBA': "",
+                    'Salutation': "",
+                    'FirstName': "",
+                    'MiddleName': "",
+                    'LastName': "",
+                    'SSN': "",
+                    'FEIN': "",
+                    'Address1': data["address_1"],
+                    'Address2': data.get("address_2", ""),
+                    'City': data["city"],
+                    'State': data["state"],
+                    'ISOCountryCode': "US",
+                    'Region': "",
+                    'ZipCode': data["zip"],
+                    'ZipPlus': "",
+                    'Phone': "",
+                    'Fax': "",
+                    'Mobile': "",
+                    'BusinessType': 9  # LLC - Partnership
+                },
+                'ProgramID': data.get("program_id", 0)
+            }
+            
+            response = self.client.service.AddQuoteWithSubmission(
+                submission=submission,
+                quote=quote,
                 _soapheaders=self.get_header(token)
             )
             
-            submission_guid = UUID(str(response))
-            logger.info(f"Created submission: {submission_guid}")
-            return submission_guid
+            quote_guid = UUID(str(response))
+            logger.info(f"Created submission and quote: {quote_guid}")
+            
+            # Return both submission and quote GUIDs (quote GUID is returned, submission is implicit)
+            return {
+                "quote_guid": quote_guid,
+                "submission_guid": None  # Not returned by this method, but quote is linked to submission
+            }
             
         except Exception as e:
-            logger.error(f"Error creating submission: {e}")
+            logger.error(f"Error creating submission and quote: {e}")
             raise
     
     def create_quote(self, submission_guid: UUID, data: Dict[str, Any]) -> UUID:

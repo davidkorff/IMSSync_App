@@ -83,32 +83,39 @@ class TritonProcessor:
                     "result": {"insured_guid": str(insured_guid)}
                 })
             
-            # Step 3: Create submission
-            submission_data = {
+            # Step 3: Create submission and quote together
+            quote_data = {
+                # Submission data
                 "effective_date": payload.effective_date,
                 "expiration_date": payload.expiration_date,
                 "program_name": payload.program_name,
                 "class_of_business": payload.class_of_business,
                 "producer_name": payload.producer_name,
-                "underwriter_name": payload.underwriter_name
-            }
-            submission_guid = self.quote_service.create_submission(insured_guid, submission_data)
-            ims_responses.append({
-                "action": "create_submission",
-                "result": {"submission_guid": str(submission_guid)}
-            })
-            
-            # Step 4: Create quote
-            quote_data = {
+                "underwriter_name": payload.underwriter_name,
+                # Quote data
                 "state": payload.state,
                 "limit_amount": payload.limit_amount,
                 "deductible_amount": payload.deductible_amount,
-                "premium": payload.gross_premium
+                "premium": payload.gross_premium,
+                "commission_rate": payload.commission_rate,
+                # Risk/Insured data (for quote)
+                "insured_name": payload.insured_name,
+                "address_1": payload.address_1,
+                "address_2": payload.address_2,
+                "city": payload.city,
+                "zip": payload.zip
             }
-            quote_guid = self.quote_service.create_quote(submission_guid, quote_data)
+            
+            result = self.quote_service.create_submission_and_quote(insured_guid, quote_data)
+            quote_guid = result["quote_guid"]
+            submission_guid = result["submission_guid"]
+            
             ims_responses.append({
-                "action": "create_quote",
-                "result": {"quote_guid": str(quote_guid)}
+                "action": "create_submission_and_quote",
+                "result": {
+                    "quote_guid": str(quote_guid),
+                    "submission_guid": str(submission_guid) if submission_guid else None
+                }
             })
             
             # Step 5: Bind the quote
