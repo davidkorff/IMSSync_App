@@ -314,7 +314,7 @@ class IMSClient:
             logger.info(f"Creating quote with object: {quote}")
             
             result = service.AddQuote(
-                quote,
+                quote=quote,
                 _soapheaders=self._get_header()
             )
             
@@ -355,6 +355,88 @@ class IMSClient:
                 
         except Exception as e:
             logger.error(f"Error creating quote: {str(e)}")
+            raise
+    
+    def create_submission_and_quote(self, submission_data: Dict[str, Any], quote_data: Dict[str, Any]) -> str:
+        """Create submission and quote together using AddQuoteWithSubmission"""
+        try:
+            service = self.clients['QuoteFunctions'].service
+            
+            # Create submission object with correct field names for SOAP
+            submission = {
+                'Insured': submission_data['insured_guid'],
+                'SubmissionDate': submission_data['submission_date'],
+                'ProducerContact': submission_data['producer_guid'],
+                'Underwriter': submission_data['underwriter_guid'],
+                'ProducerLocation': submission_data['producer_guid']  # producer location
+            }
+            
+            # Create quote object with correct field names for SOAP
+            quote = {
+                'Submission': '00000000-0000-0000-0000-000000000000',  # Will be set by IMS
+                'QuotingLocation': quote_data['location_guids']['quoting'],
+                'IssuingLocation': quote_data['location_guids']['issuing'],
+                'CompanyLocation': quote_data['location_guids']['company'],
+                'Line': quote_data['line_guid'],
+                'StateID': quote_data['state'],
+                'ProducerContact': quote_data['producer_guid'],
+                'QuoteStatusID': 1,  # status (new)
+                'Effective': quote_data['effective_date'],
+                'Expiration': quote_data['expiration_date'],
+                'BillingTypeID': 1  # billing type (agency bill)
+            }
+            
+            # Log what we're sending
+            logger.info(f"Creating submission and quote together")
+            logger.info(f"Submission object: {submission}")
+            logger.info(f"Quote object: {quote}")
+            
+            result = service.AddQuoteWithSubmission(
+                submission=submission,
+                quote=quote,
+                _soapheaders=self._get_header()
+            )
+            
+            # Log the raw result
+            logger.info(f"AddQuoteWithSubmission raw result: {result}")
+            logger.info(f"Result type: {type(result)}")
+            if hasattr(result, '__dict__'):
+                logger.info(f"Result attributes: {result.__dict__}")
+            
+            # Try different ways to get the GUID
+            quote_guid = None
+            
+            # Method 1: Direct string result
+            if isinstance(result, str) and result != '00000000-0000-0000-0000-000000000000':
+                quote_guid = result
+            # Method 2: QuoteGUID attribute
+            elif hasattr(result, 'QuoteGUID'):
+                quote_guid = str(result.QuoteGUID)
+            # Method 3: QuoteGuid attribute (different case)
+            elif hasattr(result, 'QuoteGuid'):
+                quote_guid = str(result.QuoteGuid)
+            # Method 4: AddQuoteWithSubmissionResult
+            elif hasattr(result, 'AddQuoteWithSubmissionResult'):
+                quote_guid = str(result.AddQuoteWithSubmissionResult)
+            # Method 5: GUID attribute
+            elif hasattr(result, 'GUID'):
+                quote_guid = str(result.GUID)
+            # Method 6: Guid attribute
+            elif hasattr(result, 'Guid'):
+                quote_guid = str(result.Guid)
+            # Method 7: If result is the GUID itself
+            elif result and str(result) != '00000000-0000-0000-0000-000000000000':
+                quote_guid = str(result)
+            
+            if quote_guid and quote_guid != '00000000-0000-0000-0000-000000000000':
+                logger.info(f"Created submission and quote: {quote_guid}")
+                return quote_guid
+            else:
+                logger.error(f"No valid GUID returned. Result was: {result}")
+                raise Exception(f"Failed to create submission and quote - no valid GUID returned. Result: {result}")
+                
+        except Exception as e:
+            logger.error(f"Error creating submission and quote: {str(e)}")
             raise
     
     def add_quote_option(self, quote_guid: str) -> int:
