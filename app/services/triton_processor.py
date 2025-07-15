@@ -93,28 +93,27 @@ class TritonProcessor:
             })
             insured_guid = self.ims.find_or_create_insured(ims_data['insured'])
             
-            # 3. Create submission
-            logger.info("TRITON_BINDING_SUBMISSION", extra={'transaction_id': transaction_id})
+            # 3. Create submission and quote together
+            logger.info("TRITON_BINDING_SUBMISSION_AND_QUOTE", extra={'transaction_id': transaction_id})
             submission_data = {
                 'insured_guid': insured_guid,
                 'producer_guid': ims_data['producer_guid'],
                 'underwriter_guid': ims_data.get('underwriter_guid', self.config['defaults']['underwriter_guid']),
                 'submission_date': ims_data['submission_date']
             }
-            submission_guid = self.ims.create_submission(submission_data)
             
-            # 4. Create quote
-            logger.info("TRITON_BINDING_QUOTE", extra={'transaction_id': transaction_id})
             quote_data = {
-                'submission_guid': submission_guid,
                 'effective_date': ims_data['effective_date'],
                 'expiration_date': ims_data['expiration_date'],
                 'state': ims_data['state'],
                 'line_guid': ims_data['line_guid'],
                 'producer_guid': ims_data['producer_guid'],
-                'location_guids': ims_data['location_guids']
+                'location_guids': ims_data['location_guids'],
+                'underwriter_guid': ims_data.get('underwriter_guid', self.config['defaults']['underwriter_guid'])
             }
-            quote_guid = self.ims.create_quote(quote_data)
+            
+            # Use AddQuoteWithSubmission to create both at once
+            quote_guid = self.ims.create_submission_and_quote(submission_data, quote_data)
             
             # 5. Handle rating - either Excel or direct premium
             use_excel_rating = self.config.get('use_excel_rating', True)
