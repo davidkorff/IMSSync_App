@@ -331,15 +331,42 @@ class IMSClient:
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'InsuredBusinessTypeID': 9,  # ALWAYS use 9 (LLC/LLP) per requirements
+                'AccountNumber': '',  # Empty for new business
+                'AdditionalInformation': [],  # Empty array
                 'OnlineRaterID': 0,  # 0 for default
-                'CostCenterID': 0  # 0 for default cost center
+                'CostCenterID': 0,  # 0 for default cost center
+                'ProgramCode': '',  # Empty program code
+                'RiskInformation': {
+                    'PolicyName': quote_data.get('insured_name', ''),
+                    'CorporationName': quote_data.get('insured_name', ''),
+                    'DBA': quote_data.get('insured_dba', ''),
+                    'Salutation': '',
+                    'FirstName': '',
+                    'MiddleName': '',
+                    'LastName': '',
+                    'SSN': '',
+                    'FEIN': quote_data.get('tax_id', ''),
+                    'Address1': quote_data.get('address', ''),
+                    'Address2': '',
+                    'City': quote_data.get('city', ''),
+                    'State': quote_data.get('state', ''),
+                    'ISOCountryCode': 'USA',
+                    'Region': '',
+                    'ZipCode': quote_data.get('zip', ''),
+                    'ZipPlus': '',
+                    'Phone': quote_data.get('phone', ''),
+                    'Fax': '',
+                    'Mobile': '',
+                    'BusinessType': 9  # ALWAYS use 9 (LLC/LLP) per requirements
+                },
+                'ProgramID': 0  # 0 for default
             }
             
             # Log the quote object
             logger.info(f"Creating quote with object: {quote}")
             
             result = service.AddQuote(
-                quote=quote,
+                quote,
                 _soapheaders=self._get_header()
             )
             

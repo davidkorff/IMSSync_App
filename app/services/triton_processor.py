@@ -114,7 +114,15 @@ class TritonProcessor:
                 'producer_guid': ims_data['producer_guid'],
                 'location_guids': ims_data['location_guids'],
                 'underwriter_guid': ims_data.get('underwriter_guid', self.config['defaults']['underwriter_guid']),
-                'insured_business_type_id': ims_data['insured']['business_type_id']  # Pass the business type ID
+                'insured_business_type_id': ims_data['insured']['business_type_id'],  # Pass the business type ID
+                # Add insured info for RiskInformation
+                'insured_name': ims_data['insured']['name'],
+                'insured_dba': ims_data['insured'].get('dba', ''),
+                'tax_id': ims_data['insured'].get('tax_id', ''),
+                'address': ims_data['insured'].get('address', ''),
+                'city': ims_data['insured'].get('city', ''),
+                'zip': ims_data['insured'].get('zip', ''),
+                'phone': ims_data['insured'].get('phone', '')
             }
             quote_guid = self.ims.create_quote(quote_data)
             
@@ -423,7 +431,9 @@ class TritonProcessor:
             'address': account.get('street_1', ''),
             'city': account.get('city', ''),
             'state': account.get('state', ''),
-            'zip': account.get('zip', '')
+            'zip': account.get('zip', ''),
+            'phone': account.get('phone', ''),
+            'dba': account.get('dba', '')
         }
         
         # Determine line of business
@@ -706,7 +716,9 @@ class TritonProcessor:
             'address': data.get('address_1', ''),
             'city': data.get('city', '') or data.get('insured_city', ''),
             'state': data.get('state', '') or data.get('insured_state', ''),
-            'zip': data.get('zip', '') or data.get('insured_zip', '')
+            'zip': data.get('zip', '') or data.get('insured_zip', ''),
+            'phone': data.get('insured_phone', '') or data.get('phone', ''),
+            'dba': data.get('insured_dba', '') or data.get('dba', '')
         }
         
         # Determine line of business from program name
