@@ -309,7 +309,15 @@ class IMSClient:
                 'Expiration': quote_data['expiration_date'],
                 'BillingTypeID': 1,  # billing type (agency bill)
                 'FinanceCompany': '00000000-0000-0000-0000-000000000000',  # null GUID - no finance company
-                'NetRateQuoteID': 0  # 0 indicates not using net rate
+                'NetRateQuoteID': 0,  # 0 indicates not using net rate
+                'ExpiringQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'Underwriter': quote_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000'),
+                'ExpiringPolicyNumber': '',  # empty for new business
+                'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'PolicyTypeID': 1,  # 1 = New (from documentation)
+                'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'OnlineRaterID': 0,  # 0 for default
+                'CostCenterID': 0  # 0 for default cost center
             }
             
             # Log the quote object
@@ -403,6 +411,9 @@ class IMSClient:
             logger.info(f"Submission object: {submission}")
             logger.info(f"Quote object: {quote}")
             
+            # Note: AddQuoteWithSubmission may not be available in all IMS environments
+            # If you get "Service has no operation 'AddQuoteWithSubmission'" error,
+            # use create_submission and create_quote separately instead
             result = service.AddQuoteWithSubmission(
                 submission=submission,
                 quote=quote,
