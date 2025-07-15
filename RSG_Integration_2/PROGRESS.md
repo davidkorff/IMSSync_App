@@ -4,7 +4,7 @@ Last Updated: 2025-07-15
 ## Project Overview
 Building a service that processes insurance transactions from Triton and transforms them into IMS API calls. The service handles 5 transaction types: Bind, Unbind, Issue, Midterm Endorsement, and Cancellation.
 
-## Current Status: Implementing AddQuoteWithInsured to fix null reference errors
+## Current Status: Fixing null reference errors in quote creation
 
 ### What We've Accomplished ✅
 
@@ -34,13 +34,16 @@ Building a service that processes insurance transactions from Triton and transfo
    - Converted dates from MM/DD/YYYY to YYYY-MM-DD format
 
 2. ~~**Quote Creation - Null Reference Error**~~ 🔄 IN PROGRESS
-   - Implemented `AddQuoteWithInsured` method to create everything in one atomic operation
-   - This eliminates the multi-step process that was causing null reference errors
-   - Creates insured, location, submission, and quote all at once
+   - `AddQuoteWithInsured` method not available in this IMS instance
+   - Reverted to multi-step approach with fixes:
+     - Changed empty strings to null values in RiskInformation
+     - Added missing TACSR field to quote object
+   - Using separate calls: AddInsured + AddSubmission + AddQuote
 
 3. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
-   - Now using `AddQuoteWithInsured` instead of separate calls
+   - `AddQuoteWithInsured` also not available in this instance
+   - Using fallback approach with separate API calls
 
 ### Transaction Flow Progress
 
