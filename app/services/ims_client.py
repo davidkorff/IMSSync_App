@@ -387,7 +387,15 @@ class IMSClient:
                 'Expiration': quote_data['expiration_date'],
                 'BillingTypeID': 1,  # billing type (agency bill)
                 'FinanceCompany': '00000000-0000-0000-0000-000000000000',  # null GUID - no finance company
-                'NetRateQuoteID': 0  # 0 indicates not using net rate
+                'NetRateQuoteID': 0,  # 0 indicates not using net rate
+                'ExpiringQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'Underwriter': quote_data.get('underwriter_guid', submission_data['underwriter_guid']),
+                'ExpiringPolicyNumber': '',  # empty for new business
+                'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'PolicyTypeID': 1,  # 1 = New (from documentation)
+                'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
+                'OnlineRaterID': 0,  # 0 for default
+                'CostCenterID': 0  # 0 for default cost center
             }
             
             # Log what we're sending
