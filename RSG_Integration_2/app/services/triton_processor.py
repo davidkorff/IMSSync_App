@@ -124,6 +124,56 @@ class TritonProcessor:
                 }
             })
             
+            # Step 4a: Update external quote ID for tracking
+            try:
+                self.quote_service.update_external_quote_id(
+                    quote_guid=quote_guid,
+                    external_quote_id=payload.transaction_id,
+                    external_system_id="TRITON"
+                )
+                ims_responses.append({
+                    "action": "update_external_quote_id",
+                    "result": {"success": True}
+                })
+            except Exception as e:
+                logger.warning(f"Failed to update external quote ID: {e}")
+                warnings.append(f"Could not update external quote ID: {str(e)}")
+            
+            # Step 4b: Store additional Triton data using ImportNetRateXml
+            try:
+                # Build XML with additional Triton data
+                triton_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+<TritonData>
+    <TransactionId>{payload.transaction_id}</TransactionId>
+    <OpportunityId>{payload.opportunity_id}</OpportunityId>
+    <OpportunityType>{payload.opportunity_type}</OpportunityType>
+    <InvoiceDate>{payload.invoice_date}</InvoiceDate>
+    <PolicyFee>{payload.policy_fee}</PolicyFee>
+    <SurplusLinesTax>{payload.surplus_lines_tax}</SurplusLinesTax>
+    <StampingFee>{payload.stamping_fee}</StampingFee>
+    <OtherFee>{payload.other_fee}</OtherFee>
+    <CommissionPercent>{payload.commission_percent}</CommissionPercent>
+    <CommissionAmount>{payload.commission_amount}</CommissionAmount>
+    <NetPremium>{payload.net_premium}</NetPremium>
+    <BasePremium>{payload.base_premium}</BasePremium>
+    <Status>{payload.status}</Status>
+    <LimitPrior>{payload.limit_prior}</LimitPrior>
+</TritonData>"""
+                
+                xml_response = self.quote_service.import_net_rate_xml(quote_guid, triton_xml)
+                ims_responses.append({
+                    "action": "import_net_rate_xml",
+                    "result": {"response": xml_response}
+                })
+                
+                # Log response to understand behavior
+                if xml_response:
+                    logger.info(f"ImportNetRateXml response: {xml_response}")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to import NetRate XML: {e}")
+                warnings.append(f"Could not store additional data via XML: {str(e)}")
+            
             # Step 5: Bind the quote
             bind_data = {
                 "bound_date": bound_date,  # Use converted date

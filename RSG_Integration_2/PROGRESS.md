@@ -42,7 +42,10 @@ Building a service that processes insurance transactions from Triton and transfo
      - Fixed decimal conversion error by converting commission rates from percentage to decimal
    - Current approach: AddInsured + AddQuote (which creates submission and quote)
 
-3. **Method Availability**
+3. ~~**RaterID Foreign Key Error**~~ ✅ FIXED
+   - Changed default RaterID from 1 to 0 to avoid foreign key constraint
+
+4. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
    - `AddQuoteWithInsured` also not available in this instance
    - Using fallback approach with separate API calls
@@ -54,10 +57,12 @@ Bind Transaction (CURRENT FLOW):
 1. ✅ Authenticate with IMS
 2. ✅ Search for existing insured 
 3. ✅ Create insured if not found
-4. 🔄 Create submission and quote with AddQuote
-5. ⏸️ Bind quote
-6. ⏸️ Get invoice details
-7. ⏸️ Store policy mapping
+4. ✅ Create submission and quote with AddQuote
+5. ✅ Update external quote ID (UpdateExternalQuoteId)
+6. 🔄 Store additional data (ImportNetRateXml - testing)
+7. ⏸️ Bind quote
+8. ⏸️ Get invoice details
+9. ⏸️ Store policy mapping
 ```
 
 ### Key Learnings
@@ -89,28 +94,43 @@ Bind Transaction (CURRENT FLOW):
    - Now creates everything fresh for each bind transaction
    - Simplified flow reduces potential error points
 
+### Current Plan: Additional Data Storage
+
+**Primary Approach (Testing Now):**
+1. **UpdateExternalQuoteId** - Store Triton transaction_id with "TRITON" as system ID
+2. **ImportNetRateXml** - Attempting to store additional Triton data as XML
+   - Creating well-formed XML with Triton fields
+   - Monitoring response to check for side effects
+   - If successful, will continue using this method
+
+**Fallback Approach (If ImportNetRateXml Fails):**
+- Use AdditionalInformation field in Quote object
+- Store data as JSON strings in the array
+- Already part of quote structure, no extra calls needed
+
 ### Next Steps
 
-1. **Test New Implementation**
-   - Validate AddQuoteWithInsured works correctly
-   - Ensure bind operation completes successfully
-   - Test invoice retrieval with new quote GUIDs
-   - Verify policy mapping storage
+1. **Test Current Implementation**
+   - Run bind transaction with RaterID fix
+   - Verify UpdateExternalQuoteId works
+   - Monitor ImportNetRateXml behavior and response
+   - Check for any unwanted side effects
 
 2. **Complete Bind Flow**
-   - ✅ Create insured/quote with AddQuoteWithInsured
+   - ✅ Create insured/quote 
+   - ✅ Update external ID
+   - 🔄 Store additional data (testing approach)
    - ⏸️ Bind the quote
    - ⏸️ Get invoice details
    - ⏸️ Store policy mappings
 
-3. **Update Other Transactions**
-   - Consider if other transactions need similar atomic operations
-   - Update flows to match new pattern where appropriate
+3. **Implement Fallback if Needed**
+   - If ImportNetRateXml causes issues, switch to AdditionalInformation
+   - Update quote creation to include additional data
 
-4. **Implement Remaining Features**
-   - Policy lookup for existing policies
-   - Proper error handling and retry logic
-   - Request/response logging for debugging
+4. **Update Other Transactions**
+   - Apply same data storage pattern to other transaction types
+   - Ensure consistent approach across all flows
 
 ### Technical Debt
 

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 
@@ -94,7 +94,7 @@ class QuoteService(BaseIMSService):
                     'TermsOfPayment': 1,  # Default terms
                     'ProgramCode': data.get("program_code", ""),
                     'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",
-                    'RaterID': data.get("rater_id", 1),
+                    'RaterID': data.get("rater_id", 0),  # Use 0 as default if no rater specified
                     'FactorSetGuid': "00000000-0000-0000-0000-000000000000",
                     'ProgramID': data.get("program_id", 0),
                     'LineGUID': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
@@ -209,7 +209,7 @@ class QuoteService(BaseIMSService):
                     'TermsOfPayment': 1,  # Default terms
                     'ProgramCode': data.get("program_code", ""),
                     'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",
-                    'RaterID': data.get("rater_id", 1),
+                    'RaterID': data.get("rater_id", 0),  # Use 0 as default if no rater specified
                     'FactorSetGuid': "00000000-0000-0000-0000-000000000000",
                     'ProgramID': data.get("program_id", 0),
                     'LineGUID': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
@@ -396,4 +396,40 @@ class QuoteService(BaseIMSService):
             
         except Exception as e:
             logger.error(f"Error importing Excel rater: {e}")
+            raise
+    
+    def update_external_quote_id(self, quote_guid: UUID, external_quote_id: str, external_system_id: str = "TRITON") -> Dict[str, Any]:
+        """Update external quote ID for integration tracking"""
+        try:
+            token = self.auth_service.get_token()
+            self.client.service.UpdateExternalQuoteId(
+                quoteGuid=str(quote_guid),
+                externalQuoteId=external_quote_id,
+                externalSystemId=external_system_id,
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Updated external quote ID for {quote_guid}: {external_quote_id} ({external_system_id})")
+            return {"success": True}
+            
+        except Exception as e:
+            logger.error(f"Error updating external quote ID: {e}")
+            raise
+    
+    def import_net_rate_xml(self, quote_guid: UUID, xml_data: str) -> List[str]:
+        """Import NetRate XML data - can be used for storing additional data"""
+        try:
+            token = self.auth_service.get_token()
+            response = self.client.service.ImportNetRateXml(
+                quoteGuid=str(quote_guid),
+                xml=xml_data,
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Imported XML data for quote {quote_guid}")
+            # Response is array of strings (status messages)
+            return response if response else []
+            
+        except Exception as e:
+            logger.error(f"Error importing NetRate XML: {e}")
             raise
