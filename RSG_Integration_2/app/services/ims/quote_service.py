@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Any
 from uuid import UUID
 from datetime import datetime
@@ -23,10 +24,10 @@ class QuoteService(BaseIMSService):
             # Create submission object
             submission = {
                 'Insured': str(insured_guid),
-                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
-                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
+                'Underwriter': data.get("underwriter_guid", os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'SubmissionDate': data.get("submission_date", datetime.now().strftime("%Y-%m-%d")),
-                'ProducerLocation': data.get("producer_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'ProducerLocation': data.get("producer_location_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
                 'InHouseProducer': data.get("inhouse_producer_guid", "00000000-0000-0000-0000-000000000000")
             }
@@ -34,12 +35,12 @@ class QuoteService(BaseIMSService):
             # Create quote object with risk information
             quote = {
                 'Submission': "00000000-0000-0000-0000-000000000000",  # Will be set by server
-                'QuotingLocation': data.get("quoting_location_guid", "00000000-0000-0000-0000-000000000000"),
-                'IssuingLocation': data.get("issuing_location_guid", "00000000-0000-0000-0000-000000000000"),
-                'CompanyLocation': data.get("company_location_guid", "00000000-0000-0000-0000-000000000000"),
-                'Line': data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
+                'QuotingLocation': data.get("quoting_location_guid", os.getenv("TRITON_QUOTING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'IssuingLocation': data.get("issuing_location_guid", os.getenv("TRITON_ISSUING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'CompanyLocation': data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'Line': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
                 'StateID': data["state"],
-                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
+                'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'QuoteStatusID': 1,  # Active/New
                 'Effective': data["effective_date"],
                 'Expiration': data["expiration_date"],
@@ -55,11 +56,11 @@ class QuoteService(BaseIMSService):
                     'RaterID': data.get("rater_id", 1),
                     'FactorSetGuid': "00000000-0000-0000-0000-000000000000",
                     'ProgramID': data.get("program_id", 0),
-                    'LineGUID': data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
-                    'CompanyLocationGUID': data.get("company_location_guid", "00000000-0000-0000-0000-000000000000")
+                    'LineGUID': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
+                    'CompanyLocationGUID': data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000"))
                 },
                 'ExpiringQuoteGuid': "00000000-0000-0000-0000-000000000000",
-                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'Underwriter': data.get("underwriter_guid", os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'ExpiringPolicyNumber': "",
                 'ExpiringCompanyLocationGuid': "00000000-0000-0000-0000-000000000000",
                 'PolicyTypeID': 1,  # Default policy type
@@ -132,10 +133,10 @@ class QuoteService(BaseIMSService):
             # Step 1: Create submission
             submission = {
                 'Insured': str(insured_guid),
-                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
-                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
+                'Underwriter': data.get("underwriter_guid", os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'SubmissionDate': data.get("submission_date", datetime.now().strftime("%Y-%m-%d")),
-                'ProducerLocation': data.get("producer_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'ProducerLocation': data.get("producer_location_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
                 'InHouseProducer': data.get("inhouse_producer_guid", "00000000-0000-0000-0000-000000000000")
             }
@@ -150,8 +151,8 @@ class QuoteService(BaseIMSService):
             # Step 2: Create quote with the submission
             quote_response = self.client.service.AddQuote(
                 submissionGuid=str(submission_guid),
-                companyLocationGuid=data.get("company_location_guid", "00000000-0000-0000-0000-000000000000"),
-                lineOfCoverageGuid=data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
+                companyLocationGuid=data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                lineOfCoverageGuid=data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
                 issuingStateCode=data["state"],
                 _soapheaders=self.get_header(token)
             )
