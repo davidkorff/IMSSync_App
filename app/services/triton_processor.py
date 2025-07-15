@@ -412,22 +412,9 @@ class TritonProcessor:
         # Extract account/insured data (nested structure)
         account = data.get('account', {})
         
-        # Map business type from account data
-        business_type = account.get('business_type', '').lower()
-        business_type_mapping = {
-            'individual': 4,
-            'partnership': 2,
-            'limited partnership': 3,
-            'llc': 9,
-            'llp': 9,
-            'llc/llp': 9,
-            'joint venture': 10,
-            'trust': 11,
-            'corporation': 13,
-            'other': 5
-        }
-        business_type_id = business_type_mapping.get(business_type, 5)  # Default to 5 (Other)
-        logger.info(f"Mapped business type '{business_type}' to ID {business_type_id}")
+        # ALWAYS use business type 9 (LLC/LLP) per requirements
+        business_type_id = 9
+        logger.info(f"Using hardcoded business type ID: {business_type_id} (LLC/LLP)")
         
         insured_data = {
             'name': account.get('name', ''),
@@ -707,22 +694,9 @@ class TritonProcessor:
         """
         Transform flat Triton data (like TEST.json) to IMS format
         """
-        # Map business type string to IMS ID
-        business_type = data.get('business_type', '').lower()
-        business_type_mapping = {
-            'individual': 4,
-            'partnership': 2,
-            'limited partnership': 3,
-            'llc': 9,
-            'llp': 9,
-            'llc/llp': 9,
-            'joint venture': 10,
-            'trust': 11,
-            'corporation': 13,
-            'other': 5
-        }
-        business_type_id = business_type_mapping.get(business_type, 5)  # Default to 5 (Other)
-        logger.info(f"Mapped business type '{business_type}' to ID {business_type_id}")
+        # ALWAYS use business type 9 (LLC/LLP) per requirements
+        business_type_id = 9
+        logger.info(f"Using hardcoded business type ID: {business_type_id} (LLC/LLP)")
         
         # Build insured data from flat structure
         insured_data = {

@@ -313,14 +313,16 @@ class IMSClient:
                 'FinanceCompany': '00000000-0000-0000-0000-000000000000',  # null GUID - no finance company
                 'NetRateQuoteID': 0,  # 0 indicates not using net rate
                 'ExpiringQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
-                'Underwriter': quote_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000'),
-                'ExpiringPolicyNumber': '',  # empty for new business
+                'Underwriter': quote_data.get('underwriter_guid', submission_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000')),
+                'ExpiringPolicyNumber': None,  # null for new business
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
-                'InsuredBusinessTypeID': quote_data.get('insured_business_type_id', 5),  # Same as insured's business type
+                'InsuredBusinessTypeID': 9,  # ALWAYS use 9 (LLC/LLP) per requirements
+                'AccountNumber': None,  # null for new business
                 'OnlineRaterID': 0,  # 0 for default
-                'CostCenterID': 0  # 0 for default cost center
+                'CostCenterID': 0,  # 0 for default cost center
+                'ProgramCode': None  # null for standard business
             }
             
             # Log the quote object
@@ -405,9 +407,11 @@ class IMSClient:
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
-                'InsuredBusinessTypeID': quote_data.get('insured_business_type_id', 5),  # Same as insured's business type
+                'InsuredBusinessTypeID': 9,  # ALWAYS use 9 (LLC/LLP) per requirements
+                'AccountNumber': None,  # null for new business
                 'OnlineRaterID': 0,  # 0 for default
-                'CostCenterID': 0  # 0 for default cost center
+                'CostCenterID': 0,  # 0 for default cost center
+                'ProgramCode': None  # null for standard business
             }
             
             # Log what we're sending
