@@ -220,6 +220,24 @@ class IMSWorkflowOrchestrator:
         # Use producer from submission
         quote_data["producer_contact_guid"] = transaction.ims_processing.submission.producer_contact_guid
         
+        # Add underwriter at quote level (required by IMS)
+        quote_data["underwriter_guid"] = transaction.ims_processing.submission.underwriter_guid
+        
+        # Get rater info for QuoteDetail
+        rater_id, factor_set_guid = self.quote_service.get_rater_info(source, coverage_type)
+        
+        # Add QuoteDetail (required by IMS)
+        quote_data["quote_detail"] = {
+            "company_commission": 0,  # Default commission
+            "producer_commission": 0,  # Default commission
+            "terms_of_payment": 30,  # Default terms
+            "program_code": "",  # Empty for now
+            "company_contact_guid": "",  # Empty for now
+            "rater_id": rater_id,
+            "factor_set_guid": factor_set_guid,
+            "program_id": "",  # Empty for now
+        }
+        
         # Create quote
         quote_guid = self.quote_service.create_quote(quote_data)
         transaction.ims_processing.add_log(f"Created quote: {quote_guid}")

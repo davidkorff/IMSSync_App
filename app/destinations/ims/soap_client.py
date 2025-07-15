@@ -429,6 +429,21 @@ class IMSSoapClient:
         
         billing_type_id = quote_data.get('billing_type_id', 1)  # Default to 1 (Agency Bill)
         
+        # Extract QuoteDetail fields
+        quote_detail = quote_data.get('quote_detail', {})
+        company_commission = quote_detail.get('company_commission', 0)
+        producer_commission = quote_detail.get('producer_commission', 0)
+        terms_of_payment = quote_detail.get('terms_of_payment', 30)
+        program_code = quote_detail.get('program_code', '')
+        company_contact_guid = quote_detail.get('company_contact_guid', '')
+        rater_id = quote_detail.get('rater_id', '')
+        factor_set_guid = quote_detail.get('factor_set_guid', '')
+        program_id = quote_detail.get('program_id', '')
+        
+        # Extract optional fields
+        underwriter_guid = quote_data.get('underwriter_guid', '')
+        policy_type_id = quote_data.get('policy_type_id', '')
+        
         body_content = f"""
         <AddQuote xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
             <quote>
@@ -443,6 +458,27 @@ class IMSSoapClient:
                 <Effective>{effective_date}</Effective>
                 <Expiration>{expiration_date}</Expiration>
                 <BillingTypeID>{billing_type_id}</BillingTypeID>
+                <QuoteDetail>
+                    <CompanyCommission>{company_commission}</CompanyCommission>
+                    <ProducerCommission>{producer_commission}</ProducerCommission>
+                    <TermsOfPayment>{terms_of_payment}</TermsOfPayment>
+                    <ProgramCode>{program_code}</ProgramCode>
+                    <CompanyContactGuid>{company_contact_guid}</CompanyContactGuid>
+                    <RaterID>{rater_id}</RaterID>
+                    <FactorSetGuid>{factor_set_guid}</FactorSetGuid>
+                    <ProgramID>{program_id}</ProgramID>
+                    <LineGUID>{line_guid}</LineGUID>
+                    <CompanyLocationGUID>{company_location_guid}</CompanyLocationGUID>
+                </QuoteDetail>"""
+        
+        # Add optional fields if provided
+        if underwriter_guid:
+            body_content += f"\n                <Underwriter>{underwriter_guid}</Underwriter>"
+        
+        if policy_type_id:
+            body_content += f"\n                <PolicyTypeID>{policy_type_id}</PolicyTypeID>"
+        
+        body_content += """
             </quote>
         </AddQuote>
         """

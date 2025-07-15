@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import threading
 
-from app.services.ims_soap_client import IMSSoapClient
+from app.destinations.ims.soap_client import IMSSoapClient
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
