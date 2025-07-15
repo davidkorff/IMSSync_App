@@ -51,46 +51,22 @@ class TritonProcessor:
         warnings = []
         
         try:
-            # Step 1: Search for existing insured
-            insured_guid = self.insured_service.find_by_name_and_address(
-                name=payload.insured_name,
-                address=payload.address_1,
-                city=payload.city,
-                state=payload.state,
-                zip_code=payload.zip
-            )
-            
-            # Step 2: Create insured if not found
-            if not insured_guid:
-                logger.info(f"Creating new insured: {payload.insured_name}")
-                insured_data = {
-                    "insured_name": payload.insured_name,
-                    "business_type": payload.business_type,
-                    "address_1": payload.address_1,
-                    "address_2": payload.address_2,
-                    "city": payload.city,
-                    "state": payload.state,
-                    "zip": payload.zip
-                }
-                insured_guid = self.insured_service.create_with_location(insured_data)
-                ims_responses.append({
-                    "action": "create_insured",
-                    "result": {"insured_guid": str(insured_guid)}
-                })
-            else:
-                ims_responses.append({
-                    "action": "find_insured",
-                    "result": {"insured_guid": str(insured_guid)}
-                })
-            
-            # Step 3: Create submission and quote together
             # Convert dates from MM/DD/YYYY to YYYY-MM-DD for IMS
             from datetime import datetime
             effective_date = datetime.strptime(payload.effective_date, "%m/%d/%Y").strftime("%Y-%m-%d")
             expiration_date = datetime.strptime(payload.expiration_date, "%m/%d/%Y").strftime("%Y-%m-%d")
             bound_date = datetime.strptime(payload.bound_date, "%m/%d/%Y").strftime("%Y-%m-%d")
             
+            # Prepare data for AddQuoteWithInsured
             quote_data = {
+                # Insured data
+                "insured_name": payload.insured_name,
+                "business_type": payload.business_type,
+                "address_1": payload.address_1,
+                "address_2": payload.address_2,
+                "city": payload.city,
+                "state": payload.state,
+                "zip": payload.zip,
                 # Submission data
                 "effective_date": effective_date,
                 "expiration_date": expiration_date,
@@ -99,28 +75,25 @@ class TritonProcessor:
                 "producer_name": payload.producer_name,
                 "underwriter_name": payload.underwriter_name,
                 # Quote data
-                "state": payload.state,
                 "limit_amount": payload.limit_amount,
                 "deductible_amount": payload.deductible_amount,
                 "premium": payload.gross_premium,
-                "commission_rate": payload.commission_rate,
-                # Risk/Insured data (for quote)
-                "insured_name": payload.insured_name,
-                "address_1": payload.address_1,
-                "address_2": payload.address_2,
-                "city": payload.city,
-                "zip": payload.zip
+                "commission_rate": payload.commission_rate
             }
             
-            result = self.quote_service.create_submission_and_quote(insured_guid, quote_data)
+            # Create insured, location, submission and quote in one call
+            result = self.quote_service.create_quote_with_insured(quote_data)
+            insured_guid = result["insured_guid"]
             quote_guid = result["quote_guid"]
             submission_guid = result["submission_guid"]
             
             ims_responses.append({
-                "action": "create_submission_and_quote",
+                "action": "create_quote_with_insured",
                 "result": {
-                    "quote_guid": str(quote_guid),
-                    "submission_guid": str(submission_guid) if submission_guid else None
+                    "insured_guid": str(insured_guid),
+                    "insured_location_guid": str(result["insured_location_guid"]),
+                    "submission_guid": str(submission_guid),
+                    "quote_guid": str(quote_guid)
                 }
             })
             

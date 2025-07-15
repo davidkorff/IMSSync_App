@@ -16,14 +16,55 @@ class QuoteService(BaseIMSService):
         super().__init__("quote_functions")
         self.auth_service = auth_service
     
-    def create_submission_and_quote(self, insured_guid: UUID, data: Dict[str, Any]) -> Dict[str, UUID]:
-        """Create a submission and quote together"""
+    def create_quote_with_insured(self, data: Dict[str, Any]) -> Dict[str, UUID]:
+        """Create insured, location, submission and quote in one call"""
         try:
             token = self.auth_service.get_token()
             
+            # Create insured object
+            ins = {
+                'BusinessTypeID': 9,  # LLC - Partnership (hardcoded per IMS requirement)
+                'Salutation': '',
+                'FirstName': '',
+                'MiddleName': '',
+                'LastName': '',
+                'CorporationName': data["insured_name"],
+                'NameOnPolicy': data["insured_name"],
+                'DBA': '',
+                'FEIN': '',
+                'SSN': '',
+                'DateOfBirth': None,
+                'RiskId': '',
+                'Office': "00000000-0000-0000-0000-000000000000"
+            }
+            
+            # Create insured location object
+            insLocation = {
+                'InsuredGuid': "00000000-0000-0000-0000-000000000000",  # Will be set by server
+                'InsuredLocationGuid': "00000000-0000-0000-0000-000000000000",
+                'LocationName': 'Primary',
+                'Address1': data["address_1"],
+                'Address2': data.get("address_2", ""),
+                'City': data["city"],
+                'County': '',
+                'State': data["state"],
+                'Zip': data["zip"],
+                'ZipPlus': '',
+                'ISOCountryCode': 'US',
+                'Region': '',
+                'Phone': '',
+                'Fax': '',
+                'Email': '',
+                'Website': '',
+                'DeliveryMethodID': 1,  # Default delivery method
+                'LocationTypeID': 1,  # Primary location
+                'MobileNumber': '',
+                'OptOut': False
+            }
+            
             # Create submission object
             submission = {
-                'Insured': str(insured_guid),
+                'Insured': "00000000-0000-0000-0000-000000000000",  # Will be set by server
                 'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'Underwriter': data.get("underwriter_guid", os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "00000000-0000-0000-0000-000000000000")),
                 'SubmissionDate': data.get("submission_date", datetime.now().strftime("%Y-%m-%d")),
@@ -74,52 +115,58 @@ class QuoteService(BaseIMSService):
                 'RiskInformation': {
                     'PolicyName': data["insured_name"],
                     'CorporationName': data["insured_name"],
-                    'DBA': "",
-                    'Salutation': "",
-                    'FirstName': "",
-                    'MiddleName': "",
-                    'LastName': "",
-                    'SSN': "",
-                    'FEIN': "",
+                    'DBA': '',
+                    'Salutation': '',
+                    'FirstName': '',
+                    'MiddleName': '',
+                    'LastName': '',
+                    'SSN': '',
+                    'FEIN': '',
                     'Address1': data["address_1"],
                     'Address2': data.get("address_2", ""),
                     'City': data["city"],
                     'State': data["state"],
-                    'ISOCountryCode': "US",
-                    'Region': "",
+                    'ISOCountryCode': 'US',
+                    'Region': '',
                     'ZipCode': data["zip"],
-                    'ZipPlus': "",
-                    'Phone': "",
-                    'Fax': "",
-                    'Mobile': "",
+                    'ZipPlus': '',
+                    'Phone': '',
+                    'Fax': '',
+                    'Mobile': '',
                     'BusinessType': 9  # LLC - Partnership
                 },
                 'ProgramID': data.get("program_id", 0)
             }
             
-            # Try AddQuoteWithSubmission first, fall back to separate calls if not available
-            try:
-                response = self.client.service.AddQuoteWithSubmission(
-                    submission=submission,
-                    quote=quote,
-                    _soapheaders=self.get_header(token)
-                )
-            except Exception as e:
-                if "has no operation" in str(e):
-                    logger.warning("AddQuoteWithSubmission not available, using separate calls")
-                    # Fall back to creating submission and quote separately
-                    return self._create_submission_and_quote_separately(insured_guid, data)
-                else:
-                    raise
+            # Call AddQuoteWithInsured to create everything at once
+            response = self.client.service.AddQuoteWithInsured(
+                ins=ins,
+                insLocation=insLocation,
+                submission=submission,
+                quote=quote,
+                _soapheaders=self.get_header(token)
+            )
             
-            quote_guid = UUID(str(response))
-            logger.info(f"Created submission and quote: {quote_guid}")
-            
-            # Return both submission and quote GUIDs (quote GUID is returned, submission is implicit)
-            return {
-                "quote_guid": quote_guid,
-                "submission_guid": None  # Not returned by this method, but quote is linked to submission
+            # Extract GUIDs from response
+            result = {
+                "insured_guid": UUID(str(response.InsuredGuid)),
+                "insured_location_guid": UUID(str(response.InsuredLocationGuid)),
+                "submission_guid": UUID(str(response.SubmissionGroupGuid)),
+                "quote_guid": UUID(str(response.QuoteGuid))
             }
+            
+            logger.info(f"Created insured, location, submission and quote: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error creating quote with insured: {e}")
+            raise
+    
+    def create_submission_and_quote(self, insured_guid: UUID, data: Dict[str, Any]) -> Dict[str, UUID]:
+        """Create a submission and quote together (for existing insured)"""
+        try:
+            # Use the existing fallback method for cases where insured already exists
+            return self._create_submission_and_quote_separately(insured_guid, data)
             
         except Exception as e:
             logger.error(f"Error creating submission and quote: {e}")
