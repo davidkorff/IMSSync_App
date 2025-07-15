@@ -228,21 +228,65 @@ class IMSClient:
         try:
             service = self.clients['QuoteFunctions'].service
             
+            # Log the submission data we're about to send
+            logger.info(f"Creating submission with data: {submission_data}")
+            
+            # Create submission object
+            submission = {
+                'InsuredGUID': submission_data['insured_guid'],
+                'SubmissionDate': submission_data['submission_date'],
+                'ProducerContactGUID': submission_data['producer_guid'],
+                'UnderwriterGUID': submission_data['underwriter_guid'],
+                'ProducerLocationGUID': submission_data['producer_guid']  # producer location
+            }
+            
+            # Log the submission object
+            logger.info(f"Submission object to send: {submission}")
+            
+            # The AddSubmission method expects individual parameters, not an object
             result = service.AddSubmission(
-                submission_data['insured_guid'],
-                submission_data['submission_date'],
-                submission_data['producer_guid'],
-                submission_data['underwriter_guid'],
-                submission_data['producer_guid'],  # producer location
+                submission['InsuredGUID'],
+                submission['SubmissionDate'],
+                submission['ProducerContactGUID'],
+                submission['UnderwriterGUID'],
+                submission['ProducerLocationGUID'],
                 _soapheaders=self._get_header()
             )
             
-            if result and hasattr(result, 'SubmissionGUID'):
+            # Log the raw result
+            logger.info(f"AddSubmission raw result: {result}")
+            logger.info(f"Result type: {type(result)}")
+            if hasattr(result, '__dict__'):
+                logger.info(f"Result attributes: {result.__dict__}")
+            
+            # Try different ways to get the GUID
+            submission_guid = None
+            
+            # Method 1: Direct string result
+            if isinstance(result, str) and result != '00000000-0000-0000-0000-000000000000':
+                submission_guid = result
+            # Method 2: SubmissionGUID attribute
+            elif hasattr(result, 'SubmissionGUID'):
                 submission_guid = str(result.SubmissionGUID)
+            # Method 3: SubmissionGuid attribute (different case)
+            elif hasattr(result, 'SubmissionGuid'):
+                submission_guid = str(result.SubmissionGuid)
+            # Method 4: GUID attribute
+            elif hasattr(result, 'GUID'):
+                submission_guid = str(result.GUID)
+            # Method 5: Guid attribute
+            elif hasattr(result, 'Guid'):
+                submission_guid = str(result.Guid)
+            # Method 6: If result is the GUID itself
+            elif result and str(result) != '00000000-0000-0000-0000-000000000000':
+                submission_guid = str(result)
+            
+            if submission_guid and submission_guid != '00000000-0000-0000-0000-000000000000':
                 logger.info(f"Created submission: {submission_guid}")
                 return submission_guid
             else:
-                raise Exception("Failed to create submission - no GUID returned")
+                logger.error(f"No valid GUID returned. Result was: {result}")
+                raise Exception(f"Failed to create submission - no valid GUID returned. Result: {result}")
                 
         except Exception as e:
             logger.error(f"Error creating submission: {str(e)}")
