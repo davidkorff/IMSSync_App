@@ -149,11 +149,72 @@ class QuoteService(BaseIMSService):
             logger.info(f"Created submission: {submission_guid}")
             
             # Step 2: Create quote with the submission
+            quote = {
+                'Submission': str(submission_guid),
+                'QuotingLocation': data.get("quoting_location_guid", os.getenv("TRITON_QUOTING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'IssuingLocation': data.get("issuing_location_guid", os.getenv("TRITON_ISSUING_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'CompanyLocation': data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
+                'Line': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
+                'StateID': data["state"],
+                'ProducerContact': data.get("producer_guid", os.getenv("TRITON_DEFAULT_PRODUCER_GUID", "00000000-0000-0000-0000-000000000000")),
+                'QuoteStatusID': 1,  # Active/New
+                'Effective': data["effective_date"],
+                'Expiration': data["expiration_date"],
+                'BillingTypeID': 1,  # Default billing type
+                'FinanceCompany': "00000000-0000-0000-0000-000000000000",
+                'NetRateQuoteID': 0,
+                'QuoteDetail': {
+                    'CompanyCommission': data.get("company_commission", 0),
+                    'ProducerCommission': data.get("producer_commission", data.get("commission_rate", 0)),
+                    'TermsOfPayment': 1,  # Default terms
+                    'ProgramCode': data.get("program_code", ""),
+                    'CompanyContactGuid': "00000000-0000-0000-0000-000000000000",
+                    'RaterID': data.get("rater_id", 1),
+                    'FactorSetGuid': "00000000-0000-0000-0000-000000000000",
+                    'ProgramID': data.get("program_id", 0),
+                    'LineGUID': data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
+                    'CompanyLocationGUID': data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000"))
+                },
+                'ExpiringQuoteGuid': "00000000-0000-0000-0000-000000000000",
+                'Underwriter': data.get("underwriter_guid", os.getenv("TRITON_DEFAULT_UNDERWRITER_GUID", "00000000-0000-0000-0000-000000000000")),
+                'ExpiringPolicyNumber': "",
+                'ExpiringCompanyLocationGuid': "00000000-0000-0000-0000-000000000000",
+                'PolicyTypeID': 1,  # Default policy type
+                'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
+                'InsuredBusinessTypeID': 9,  # LLC - Partnership
+                'AccountNumber': "",
+                'AdditionalInformation': [],
+                'OnlineRaterID': 0,
+                'CostCenterID': 0,
+                'ProgramCode': data.get("program_code", ""),
+                'RiskInformation': {
+                    'PolicyName': data["insured_name"],
+                    'CorporationName': data["insured_name"],
+                    'DBA': "",
+                    'Salutation': "",
+                    'FirstName': "",
+                    'MiddleName': "",
+                    'LastName': "",
+                    'SSN': "",
+                    'FEIN': "",
+                    'Address1': data["address_1"],
+                    'Address2': data.get("address_2", ""),
+                    'City': data["city"],
+                    'State': data["state"],
+                    'ISOCountryCode': "US",
+                    'Region': "",
+                    'ZipCode': data["zip"],
+                    'ZipPlus': "",
+                    'Phone': "",
+                    'Fax': "",
+                    'Mobile': "",
+                    'BusinessType': 9  # LLC - Partnership
+                },
+                'ProgramID': data.get("program_id", 0)
+            }
+            
             quote_response = self.client.service.AddQuote(
-                submissionGuid=str(submission_guid),
-                companyLocationGuid=data.get("company_location_guid", os.getenv("TRITON_COMPANY_LOCATION_GUID", "00000000-0000-0000-0000-000000000000")),
-                lineOfCoverageGuid=data.get("line_guid", os.getenv("TRITON_PRIMARY_LINE_GUID", "00000000-0000-0000-0000-000000000000")),
-                issuingStateCode=data["state"],
+                quote=quote,
                 _soapheaders=self.get_header(token)
             )
             quote_guid = UUID(str(quote_response))
