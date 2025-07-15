@@ -314,15 +314,15 @@ class IMSClient:
                 'NetRateQuoteID': 0,  # 0 indicates not using net rate
                 'ExpiringQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'Underwriter': quote_data.get('underwriter_guid', '00000000-0000-0000-0000-000000000000'),
-                'ExpiringPolicyNumber': None,  # null for new business
+                'ExpiringPolicyNumber': '',  # empty for new business
                 'ExpiringCompanyLocationGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'InsuredBusinessTypeID': 9,  # ALWAYS use 9 (LLC/LLP) per requirements
-                'AccountNumber': None,  # null for new business
+                'AccountNumber': '',  # empty for new business
                 'OnlineRaterID': 0,  # 0 for default
                 'CostCenterID': 0,  # 0 for default cost center
-                'ProgramCode': None  # null for standard business
+                'ProgramCode': ''  # empty for standard business
             }
             
             # Log the quote object
@@ -408,10 +408,10 @@ class IMSClient:
                 'PolicyTypeID': 1,  # 1 = New (from documentation)
                 'RenewalOfQuoteGuid': '00000000-0000-0000-0000-000000000000',  # null GUID - new business
                 'InsuredBusinessTypeID': 9,  # ALWAYS use 9 (LLC/LLP) per requirements
-                'AccountNumber': None,  # null for new business
+                'AccountNumber': '',  # empty for new business
                 'OnlineRaterID': 0,  # 0 for default
                 'CostCenterID': 0,  # 0 for default cost center
-                'ProgramCode': None  # null for standard business
+                'ProgramCode': ''  # empty for standard business
             }
             
             # Log what we're sending
