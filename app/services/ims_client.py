@@ -307,7 +307,8 @@ class IMSClient:
                 'QuoteStatusID': 1,  # status (new)
                 'Effective': quote_data['effective_date'],
                 'Expiration': quote_data['expiration_date'],
-                'BillingTypeID': 1  # billing type (agency bill)
+                'BillingTypeID': 1,  # billing type (agency bill)
+                'FinanceCompany': '00000000-0000-0000-0000-000000000000'  # null GUID - no finance company
             }
             
             # Log the quote object
