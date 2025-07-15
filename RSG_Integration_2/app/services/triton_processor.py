@@ -84,10 +84,16 @@ class TritonProcessor:
                 })
             
             # Step 3: Create submission and quote together
+            # Convert dates from MM/DD/YYYY to YYYY-MM-DD for IMS
+            from datetime import datetime
+            effective_date = datetime.strptime(payload.effective_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+            expiration_date = datetime.strptime(payload.expiration_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+            bound_date = datetime.strptime(payload.bound_date, "%m/%d/%Y").strftime("%Y-%m-%d")
+            
             quote_data = {
                 # Submission data
-                "effective_date": payload.effective_date,
-                "expiration_date": payload.expiration_date,
+                "effective_date": effective_date,
+                "expiration_date": expiration_date,
                 "program_name": payload.program_name,
                 "class_of_business": payload.class_of_business,
                 "producer_name": payload.producer_name,
@@ -120,7 +126,7 @@ class TritonProcessor:
             
             # Step 5: Bind the quote
             bind_data = {
-                "bound_date": payload.bound_date,
+                "bound_date": bound_date,  # Use converted date
                 "policy_number": payload.policy_number
             }
             bind_result = self.quote_service.bind(quote_guid, bind_data)
