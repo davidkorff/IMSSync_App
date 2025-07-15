@@ -108,7 +108,6 @@ class QuoteService(BaseIMSService):
                 'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
                 'InsuredBusinessTypeID': 9,  # LLC - Partnership
                 'AccountNumber': "",
-                'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
                 'AdditionalInformation': [],
                 'OnlineRaterID': 0,
                 'CostCenterID': 0,
@@ -231,7 +230,6 @@ class QuoteService(BaseIMSService):
                 'RenewalOfQuoteGuid': "00000000-0000-0000-0000-000000000000",
                 'InsuredBusinessTypeID': 9,  # LLC - Partnership
                 'AccountNumber': "",
-                'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
                 'AdditionalInformation': [],
                 'OnlineRaterID': 0,
                 'CostCenterID': 0,
