@@ -96,11 +96,20 @@ class QuoteService(BaseIMSService):
                 'ProgramID': data.get("program_id", 0)
             }
             
-            response = self.client.service.AddQuoteWithSubmission(
-                submission=submission,
-                quote=quote,
-                _soapheaders=self.get_header(token)
-            )
+            # Try AddQuoteWithSubmission first, fall back to separate calls if not available
+            try:
+                response = self.client.service.AddQuoteWithSubmission(
+                    submission=submission,
+                    quote=quote,
+                    _soapheaders=self.get_header(token)
+                )
+            except Exception as e:
+                if "has no operation" in str(e):
+                    logger.warning("AddQuoteWithSubmission not available, using separate calls")
+                    # Fall back to creating submission and quote separately
+                    return self._create_submission_and_quote_separately(insured_guid, data)
+                else:
+                    raise
             
             quote_guid = UUID(str(response))
             logger.info(f"Created submission and quote: {quote_guid}")
@@ -113,6 +122,49 @@ class QuoteService(BaseIMSService):
             
         except Exception as e:
             logger.error(f"Error creating submission and quote: {e}")
+            raise
+    
+    def _create_submission_and_quote_separately(self, insured_guid: UUID, data: Dict[str, Any]) -> Dict[str, UUID]:
+        """Create submission and quote using separate API calls (fallback method)"""
+        try:
+            token = self.auth_service.get_token()
+            
+            # Step 1: Create submission
+            submission = {
+                'Insured': str(insured_guid),
+                'ProducerContact': data.get("producer_guid", "00000000-0000-0000-0000-000000000000"),
+                'Underwriter': data.get("underwriter_guid", "00000000-0000-0000-0000-000000000000"),
+                'SubmissionDate': data.get("submission_date", datetime.now().strftime("%Y-%m-%d")),
+                'ProducerLocation': data.get("producer_location_guid", "00000000-0000-0000-0000-000000000000"),
+                'TACSR': data.get("tacsr_guid", "00000000-0000-0000-0000-000000000000"),
+                'InHouseProducer': data.get("inhouse_producer_guid", "00000000-0000-0000-0000-000000000000")
+            }
+            
+            submission_response = self.client.service.AddSubmission(
+                submission=submission,
+                _soapheaders=self.get_header(token)
+            )
+            submission_guid = UUID(str(submission_response))
+            logger.info(f"Created submission: {submission_guid}")
+            
+            # Step 2: Create quote with the submission
+            quote_response = self.client.service.AddQuote(
+                submissionGuid=str(submission_guid),
+                companyLocationGuid=data.get("company_location_guid", "00000000-0000-0000-0000-000000000000"),
+                lineOfCoverageGuid=data.get("line_guid", "00000000-0000-0000-0000-000000000000"),
+                issuingStateCode=data["state"],
+                _soapheaders=self.get_header(token)
+            )
+            quote_guid = UUID(str(quote_response))
+            logger.info(f"Created quote: {quote_guid}")
+            
+            return {
+                "quote_guid": quote_guid,
+                "submission_guid": submission_guid
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in fallback submission/quote creation: {e}")
             raise
     
     def create_quote(self, submission_guid: UUID, data: Dict[str, Any]) -> UUID:
