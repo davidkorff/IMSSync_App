@@ -46,7 +46,7 @@ class InsuredService(BaseIMSService):
             
             # Create insured object
             insured = {
-                'BusinessTypeID': 1,  # Default to individual
+                'BusinessTypeID': 9,  # LLC - Partnership (hardcoded per IMS requirement)
                 'CorporationName': data["insured_name"] if data.get("business_type") != "individual" else None,
                 'LastName': data["insured_name"] if data.get("business_type") == "individual" else None,
                 'NameOnPolicy': data["insured_name"],
