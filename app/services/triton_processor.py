@@ -690,6 +690,7 @@ class TritonProcessor:
         # Build insured data from flat structure
         insured_data = {
             'name': data.get('insured_name', ''),
+            'tax_id': data.get('tax_id') or data.get('fein') or data.get('insured_fein'),
             'business_type_id': 5,  # Hardcoded for Triton (LLC)
             'address': data.get('address_1', ''),
             'city': data.get('city', '') or data.get('insured_city', ''),

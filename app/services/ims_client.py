@@ -121,36 +121,76 @@ class IMSClient:
             # Not found, create new
             logger.info(f"Creating new insured: {insured_data['name']}")
             
+            # Get valid office GUID from config
+            office_guid = insured_data.get('office_guid')
+            if not office_guid or office_guid == '00000000-0000-0000-0000-000000000000':
+                # Use a valid default - empty string works better than zeros
+                office_guid = ''
+            
             # Create insured object with required fields
             insured = {
                 'CorporationName': insured_data['name'],
-                'BusinessTypeID': insured_data.get('business_type_id', 1),
+                'BusinessTypeID': insured_data.get('business_type_id', 5),  # Default to 5 for LLC
                 'NameOnPolicy': insured_data['name'],
-                'Office': insured_data.get('office_guid', '00000000-0000-0000-0000-000000000000')
+                'Office': office_guid
             }
             
             # Add optional fields if available
-            if 'tax_id' in insured_data:
+            if 'tax_id' in insured_data and insured_data['tax_id']:
                 insured['FEIN'] = insured_data['tax_id']
-            if 'dba' in insured_data:
+            if 'dba' in insured_data and insured_data['dba']:
                 insured['DBA'] = insured_data['dba']
+            
+            # Log exactly what we're sending
+            logger.info(f"Sending to IMS AddInsured: {insured}")
             
             result = service.AddInsured(
                 insured=insured,
                 _soapheaders=self._get_header()
             )
             
-            if result and hasattr(result, 'InsuredGUID'):
+            # Log the raw result
+            logger.info(f"IMS AddInsured raw result: {result}")
+            logger.info(f"Result type: {type(result)}")
+            if hasattr(result, '__dict__'):
+                logger.info(f"Result attributes: {result.__dict__}")
+            
+            # Try different ways to get the GUID
+            insured_guid = None
+            
+            # Method 1: Direct string result
+            if isinstance(result, str) and result != '00000000-0000-0000-0000-000000000000':
+                insured_guid = result
+            # Method 2: InsuredGUID attribute
+            elif hasattr(result, 'InsuredGUID'):
                 insured_guid = str(result.InsuredGUID)
-                logger.info(f"Created insured: {insured_guid}")
+            # Method 3: InsuredGuid attribute (different case)
+            elif hasattr(result, 'InsuredGuid'):
+                insured_guid = str(result.InsuredGuid)
+            # Method 4: GUID attribute
+            elif hasattr(result, 'GUID'):
+                insured_guid = str(result.GUID)
+            # Method 5: Guid attribute
+            elif hasattr(result, 'Guid'):
+                insured_guid = str(result.Guid)
+            # Method 6: If result is the GUID itself
+            elif result and str(result) != '00000000-0000-0000-0000-000000000000':
+                insured_guid = str(result)
+            
+            if insured_guid and insured_guid != '00000000-0000-0000-0000-000000000000':
+                logger.info(f"Created insured with GUID: {insured_guid}")
                 
                 # Add location if provided
                 if all(key in insured_data for key in ['address', 'city', 'state', 'zip']):
-                    self._add_insured_location(insured_guid, insured_data)
+                    try:
+                        self._add_insured_location(insured_guid, insured_data)
+                    except Exception as loc_err:
+                        logger.warning(f"Failed to add location: {str(loc_err)}")
                 
                 return insured_guid
             else:
-                raise Exception("Failed to create insured - no GUID returned")
+                logger.error(f"No valid GUID returned. Result was: {result}")
+                raise Exception(f"Failed to create insured - no valid GUID returned. Result: {result}")
                 
         except Exception as e:
             logger.error(f"Error in find_or_create_insured: {str(e)}")
