@@ -222,8 +222,8 @@ class TritonProcessor:
                     self.quote_service.add_premium(
                         quote_option_guid=option_guid,
                         premium=float(payload.gross_premium),
-                        office_id=1,  # Default office ID
-                        charge_code=1  # Default charge code
+                        office_id=0,  # Use 0 as default office ID (seems to be the pattern)
+                        charge_code=0  # Use 0 as default charge code
                     )
                     ims_responses.append({
                         "action": "add_premium",
@@ -261,19 +261,25 @@ class TritonProcessor:
             # Step 6a: Store Triton data using DataAccess (now that stored procedure exists)
             try:
                 logger.info("Storing Triton data using DataAccess stored procedure")
+                # Convert empty strings to None/0 for decimal fields
+                def clean_decimal(value):
+                    if value == "" or value is None:
+                        return 0
+                    return value
+                
                 triton_data = {
                     "transaction_id": payload.transaction_id,
-                    "prior_transaction_id": payload.prior_transaction_id,
+                    "prior_transaction_id": payload.prior_transaction_id if payload.prior_transaction_id != "null" else None,
                     "opportunity_id": payload.opportunity_id,
                     "opportunity_type": payload.opportunity_type,
-                    "policy_fee": payload.policy_fee,
-                    "surplus_lines_tax": payload.surplus_lines_tax,
-                    "stamping_fee": payload.stamping_fee,
-                    "other_fee": payload.other_fee,
-                    "commission_percent": payload.commission_percent,
-                    "commission_amount": payload.commission_amount,
-                    "net_premium": payload.net_premium,
-                    "base_premium": payload.base_premium,
+                    "policy_fee": clean_decimal(payload.policy_fee),
+                    "surplus_lines_tax": clean_decimal(payload.surplus_lines_tax),
+                    "stamping_fee": clean_decimal(payload.stamping_fee),
+                    "other_fee": clean_decimal(payload.other_fee),
+                    "commission_percent": clean_decimal(payload.commission_percent),
+                    "commission_amount": clean_decimal(payload.commission_amount),
+                    "net_premium": clean_decimal(payload.net_premium),
+                    "base_premium": clean_decimal(payload.base_premium),
                     "status": payload.status,
                     "limit_prior": payload.limit_prior,
                     "invoice_date": payload.invoice_date
@@ -494,6 +500,12 @@ class TritonProcessor:
                     logger.error("- IMS database lacks installment billing configuration")
                     logger.error("- AddQuoteOption returns GUID but Bind methods need integer ID")
                     logger.error("- spGetQuoteOptions_WS stored procedure missing to map GUID->ID")
+                    logger.error("")
+                    logger.error(f"Quote Details:")
+                    logger.error(f"- Quote GUID: {quote_guid}")
+                    logger.error(f"- Quote Option GUID: {option_guid if option_guid else 'None'}")
+                    logger.error(f"- Quote Option ID: {actual_quote_option_id if actual_quote_option_id else 'Not found'}")
+                    logger.error(f"- Quote ID from error: {quote_id_int if 'quote_id_int' in locals() else 'Not extracted'}")
                     
                     errors.append("All bind methods failed - see logs for detailed analysis")
                     raise Exception("Unable to bind quote - all 4 methods failed")
