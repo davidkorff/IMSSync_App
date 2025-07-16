@@ -4,8 +4,26 @@ from uuid import UUID
 
 from .base_service import BaseIMSService
 from .auth_service import AuthService
+from zeep import Plugin
+from lxml import etree
 
 logger = logging.getLogger(__name__)
+
+class LoggingPlugin(Plugin):
+    """Plugin to log raw SOAP XML requests and responses"""
+    
+    def ingress(self, envelope, http_headers, operation):
+        # Log incoming response
+        logger.info("=== SOAP RESPONSE XML ===")
+        logger.info(etree.tostring(envelope, pretty_print=True, encoding='unicode'))
+        return envelope, http_headers
+    
+    def egress(self, envelope, http_headers, operation, binding_options):
+        # Log outgoing request
+        logger.info("=== SOAP REQUEST XML ===")
+        logger.info(etree.tostring(envelope, pretty_print=True, encoding='unicode'))
+        logger.info("=== END SOAP REQUEST ===")
+        return envelope, http_headers
 
 class DataAccessService(BaseIMSService):
     """Service for IMS DataAccess operations (stored procedures)"""
@@ -13,6 +31,8 @@ class DataAccessService(BaseIMSService):
     def __init__(self, auth_service: AuthService):
         super().__init__("data_access")
         self.auth_service = auth_service
+        # Add the logging plugin to capture SOAP XML
+        self.client.plugins.append(LoggingPlugin())
     
     def execute_command(self, procedure_name: str, parameters: Dict[str, Any]) -> Any:
         """Execute a stored procedure that returns a single result
@@ -79,6 +99,44 @@ class DataAccessService(BaseIMSService):
                     logger.info(f"  Param[{i}]: '{params[i]}' (name)")
                     logger.info(f"  Param[{i+1}]: '{params[i+1]}' (value)")
             logger.info("=== END SOAP DEBUG ===")
+            
+            # Log the exact XML that will be sent for Postman
+            logger.info("\n" + "="*50)
+            logger.info("COPY THIS XML TO POSTMAN:")
+            logger.info("="*50)
+            logger.info("URL: https://webservices.mgasystems.com/ims_demo/Dataaccess.asmx")
+            logger.info("Method: POST")
+            logger.info("Headers:")
+            logger.info("  Content-Type: text/xml; charset=utf-8")
+            logger.info("  SOAPAction: \"http://tempuri.org/IMSWebServices/DataAccess/ExecuteDataSet\"")
+            logger.info("\nBody:")
+            
+            # Build the XML manually for logging
+            param_xml = ""
+            if params:
+                for param in params:
+                    param_xml += f"        <string>{param}</string>\n"
+            
+            soap_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Header>
+    <TokenHeader xmlns="http://tempuri.org/IMSWebServices/DataAccess">
+      <Token>{token}</Token>
+      <Context>RSG</Context>
+    </TokenHeader>
+  </soap:Header>
+  <soap:Body>
+    <ExecuteDataSet xmlns="http://tempuri.org/IMSWebServices/DataAccess">
+      <procedureName>{procedure_name}</procedureName>
+      <parameters>
+{param_xml.rstrip()}
+      </parameters>
+    </ExecuteDataSet>
+  </soap:Body>
+</soap:Envelope>"""
+            
+            logger.info(soap_body)
+            logger.info("=" * 50 + "\n")
             
             # If no parameters, try passing None instead of empty array
             if len(params) == 0:

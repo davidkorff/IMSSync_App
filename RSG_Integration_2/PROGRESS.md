@@ -1,10 +1,10 @@
 # RSG Integration Progress Document
-Last Updated: 2025-07-15
+Last Updated: 2025-07-16
 
 ## Project Overview
 Building a service that processes insurance transactions from Triton and transforms them into IMS API calls. The service handles 5 transaction types: Bind, Unbind, Issue, Midterm Endorsement, and Cancellation.
 
-## Current Status: Testing - Comprehensive bind method analysis completed
+## Current Status: Blocked - DataAccess parameter format preventing Quote Option ID retrieval
 
 ### What We've Accomplished ✅
 
@@ -131,14 +131,21 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
 
 ### Summary of Current Blockers
 
-1. **Installment Billing Error** - Primary blocker
-   - BindQuote fails with "Installment billing information not found for quote ID"
-   - This appears to be an IMS configuration issue
+1. **DataAccess Parameter Format** - Primary blocker
+   - Getting "Parameters must be specified in Key/Value pairs" error
+   - Prevents us from calling `spGetQuoteOptions_WS` to get integer Quote Option ID
+   - The stored procedure EXISTS and expects `@QuoteOptionGuid` parameter
+   - We're sending correct parameter name but wrong format
    
-2. **DataAccess Parameter Format** - Secondary issue
-   - Still getting "Parameters must be specified in Key/Value pairs" error
-   - Prevents using the Bind method with quote option ID workaround
-   - Stored procedure spGetQuoteOptions_WS likely needs to be created
+2. **Installment Billing Configuration** - Root cause
+   - BindQuote/BindQuoteWithInstallment fail with "Installment billing information not found"
+   - IMS database lacks installment billing configuration
+   - Even passing -1 for single-pay doesn't bypass the check
+   
+3. **GUID to Integer ID Mapping** - Core issue
+   - AddQuoteOption returns Quote Option GUID
+   - Bind/BindWithInstallment methods need integer Quote Option ID
+   - Can't get the mapping due to DataAccess parameter format issue
 
 ### Recent Changes
 
@@ -465,59 +472,72 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
 
 From the latest test run, we discovered:
 
-1. **Quote ID Extraction**: The error messages reveal the integer quote ID (e.g., "quote ID 613649")
-2. **DataAccess Parameter Format SOLVED**: Parameters must be passed as alternating name/value pairs in string array
-3. **Stored Procedure Created**: `spGetTritonQuoteData_WS` successfully created and tested
+1. **Quote ID Extraction**: The error messages reveal the integer quote ID (e.g., "quote ID 613653")
+2. **DataAccess Parameter Format UNSOLVED**: Still getting "Parameters must be specified in Key/Value pairs" error
+3. **Stored Procedures Status**:
+   - `spGetQuoteOptions_WS` EXISTS and expects `@QuoteOptionGuid` parameter
+   - `spGetTritonQuoteData_WS` was created by user but still has parameter format issues
 
-#### BREAKTHROUGH: DataAccess Parameter Format
+#### Current Bind Flow Understanding
 
-The correct format for DataAccess ExecuteDataSet is:
+1. **Create Quote Option**:
+   - Call: `AddQuoteOption(quoteGuid, lineGuid)`
+   - Returns: Quote Option GUID (e.g., `05e24c80-ca6c-410b-854d-9a46ecfb5a1d`)
+
+2. **Bind Methods Available**:
+   - `BindQuoteWithInstallment(quoteGuid, -1)` - Uses Quote GUID
+   - `BindQuote(quoteGuid)` - Uses Quote GUID
+   - `Bind(quoteOptionID)` - Needs INTEGER Quote Option ID
+   - `BindWithInstallment(quoteOptionID, -1)` - Needs INTEGER Quote Option ID
+
+3. **The Gap**: 
+   - AddQuoteOption returns a GUID
+   - Bind/BindWithInstallment need an integer ID
+   - Need to map Quote Option GUID → Quote Option ID
+
+4. **Attempted Solution**:
+   - Call `spGetQuoteOptions_WS` with Quote Option GUID
+   - Should return integer Quote Option ID
+   - **BLOCKED**: DataAccess parameter format error
+
+#### DataAccess Parameter Format Issue
+
+We're sending parameters as:
 ```xml
 <parameters>
   <string>QuoteOptionGuid</string>
-  <string>171FAF55-B5F6-42C5-98F2-1FF968B4B715</string>
+  <string>05e24c80-ca6c-410b-854d-9a46ecfb5a1d</string>
 </parameters>
 ```
 
-Parameters are passed as:
-- Array of strings: `['ParamName', 'Value', 'ParamName2', 'Value2', ...]`
-- NO @ prefix on parameter names
-- Parameter names match stored procedure parameters exactly
+Array format: `['QuoteOptionGuid', '05e24c80-ca6c-410b-854d-9a46ecfb5a1d']`
 
-#### New Stored Procedure: spGetTritonQuoteData_WS
+But IMS expects "Key/Value pairs" - possible formats to try:
+- `['QuoteOptionGuid=05e24c80-ca6c-410b-854d-9a46ecfb5a1d']`
+- `['@QuoteOptionGuid', '05e24c80-ca6c-410b-854d-9a46ecfb5a1d']` (already tried)
+- Some other format we haven't discovered
 
-```sql
-CREATE PROCEDURE spGetTritonQuoteData_WS
-    @QuoteGuid UNIQUEIDENTIFIER
-AS
-BEGIN
-    SELECT TOP 1 QuoteOptionID as quoteoptionid
-    FROM tblQuoteOptions
-    WHERE QuoteGuid = @QuoteGuid
-    ORDER BY QuoteOptionID
-END
-```
-
-This procedure takes a Quote GUID and returns the integer QuoteOptionID needed for bind operations.
-
-**Important distinction:**
-- `spGetTritonQuoteData_WS` expects `@QuoteGuid` parameter
-- `spGetQuoteOptions_WS` expects `@QuoteOptionGuid` parameter
-
-Example response:
-```xml
-<Results>
-  <Table>
-    <quoteoptionid>63</quoteoptionid>
-  </Table>
-</Results>
-```
+**Important discoveries:**
+- `spGetQuoteOptions_WS` EXISTS in the database
+- It expects `@QuoteOptionGuid` parameter (confirmed from error message)
+- Our parameter name is correct, but the format is wrong
 
 ### Next Steps
 
-1. **Immediate**: Update data_access_service.py to call spGetTritonQuoteData_WS
-2. **Then**: Use the returned QuoteOptionID with Bind() or BindWithInstallment()
-3. **Finally**: Test the complete bind flow with the correct integer ID
+1. **Critical**: Fix DataAccess parameter format to work with IMS expectations
+   - Try format: `['QuoteOptionGuid=value']` (single string with key=value)
+   - Try other formats based on IMS documentation
+   - Consider using Postman to test different formats
+
+2. **Once DataAccess works**: 
+   - Call `spGetQuoteOptions_WS` with Quote Option GUID
+   - Get integer Quote Option ID from response
+   - Use Bind(quoteOptionID) or BindWithInstallment(quoteOptionID, -1)
+
+3. **Alternative approaches if DataAccess remains blocked**:
+   - Extract Quote Option ID from bind error messages (if available)
+   - Try common Quote Option ID patterns based on Quote ID
+   - Contact IMS support for DataAccess parameter format documentation
 
 ### SQL Scripts Created
 
