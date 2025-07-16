@@ -4,7 +4,7 @@ Last Updated: 2025-07-15
 ## Project Overview
 Building a service that processes insurance transactions from Triton and transforms them into IMS API calls. The service handles 5 transaction types: Bind, Unbind, Issue, Midterm Endorsement, and Cancellation.
 
-## Current Status: Testing - DataAccess stored procedures being implemented
+## Current Status: Testing - Implementing single-pay bind methods
 
 ### What We've Accomplished ✅
 
@@ -54,7 +54,7 @@ Building a service that processes insurance transactions from Triton and transfo
    - Implemented AddQuoteOption method to create options before binding
    - Using the line GUID from environment
 
-6. **Installment billing information not found** ❌ BLOCKING
+6. **Installment billing information not found** 🔄 TESTING NEW APPROACH
    - Error persists with both BindQuote and BindQuoteWithInstallment (with -1)
    - Tried multiple approaches:
      - BindQuote (original) - fails with "Installment billing information not found"
@@ -76,7 +76,11 @@ Building a service that processes insurance transactions from Triton and transfo
        1. The stored procedure spGetQuoteOptions_WS probably doesn't exist in the database
        2. DataAccess may have a different parameter format requirement we haven't discovered
        3. The IMS instance may have specific configuration for DataAccess
-     - Currently blocked on bind operation due to installment billing requirement
+   - NEW APPROACH (2025-07-16):
+     - Implemented dedicated single-pay bind methods
+     - Added bind_single_pay() and bind_single_pay_with_option() 
+     - These use BindQuoteWithInstallment and BindWithInstallment with companyInstallmentID=-1
+     - Testing to see if this properly forces single-pay billing
 
 7. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
@@ -181,6 +185,13 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
    - Provides most flexible and scalable solution
    - Includes SQL scripts for table and stored procedure creation
    - Recommended for long-term production use
+
+8. **Implemented Single-Pay Bind Methods** (2025-07-16)
+   - Added `bind_single_pay()` method using BindQuoteWithInstallment with companyInstallmentID=-1
+   - Added `bind_single_pay_with_option()` method using BindWithInstallment with companyInstallmentID=-1
+   - Updated triton_processor to try these methods before falling back to BindQuote
+   - According to IMS documentation, passing -1 should force single-pay billing
+   - These methods specifically address policies that don't require installment plans
 
 ### Data Storage Options for Extra Policy Details
 

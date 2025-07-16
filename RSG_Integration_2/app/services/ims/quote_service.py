@@ -332,6 +332,50 @@ class QuoteService(BaseIMSService):
             logger.error(f"Error binding quote option: {e}")
             raise
     
+    def bind_single_pay(self, quote_guid: UUID, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Bind a quote as single pay (no installments) using BindQuoteWithInstallment
+        
+        Uses companyInstallmentID = -1 to force single pay billing
+        """
+        try:
+            token = self.auth_service.get_token()
+            
+            # Use BindQuoteWithInstallment with -1 for single pay
+            response = self.client.service.BindQuoteWithInstallment(
+                quoteGuid=str(quote_guid),
+                companyInstallmentID=-1,  # -1 forces single pay
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Bound quote {quote_guid} as single pay")
+            return {"success": True, "policy_guid": str(response)}
+            
+        except Exception as e:
+            logger.error(f"Error binding quote as single pay: {e}")
+            raise
+    
+    def bind_single_pay_with_option(self, quote_option_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Bind a quote option as single pay (no installments) using BindWithInstallment
+        
+        Uses companyInstallmentID = -1 to force single pay billing
+        """
+        try:
+            token = self.auth_service.get_token()
+            
+            # Use BindWithInstallment with -1 for single pay
+            response = self.client.service.BindWithInstallment(
+                quoteOptionID=quote_option_id,
+                companyInstallmentID=-1,  # -1 forces single pay
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Bound quote option {quote_option_id} as single pay")
+            return {"success": True, "policy_guid": str(response)}
+            
+        except Exception as e:
+            logger.error(f"Error binding quote option as single pay: {e}")
+            raise
+    
     def unbind(self, policy_guid: UUID) -> Dict[str, Any]:
         """Unbind a policy"""
         try:

@@ -298,6 +298,37 @@ class TritonProcessor:
                         logger.warning(f"Bind with option ID {option_id} failed: {e}")
                         continue
             
+            # Try single pay bind methods
+            if not bind_successful:
+                logger.info("Trying single-pay bind method with quote GUID")
+                try:
+                    bind_result = self.quote_service.bind_single_pay(quote_guid, bind_data)
+                    ims_responses.append({
+                        "action": "bind_single_pay",
+                        "result": bind_result
+                    })
+                    logger.info(f"Quote bound successfully as single pay: {bind_result}")
+                    bind_successful = True
+                    
+                except Exception as e:
+                    logger.warning(f"Single pay bind failed: {e}")
+                    # Try with option IDs if we have them
+                    if not bind_successful and option_ids:
+                        for option_id in option_ids[:1]:  # Try first option only
+                            try:
+                                logger.info(f"Trying single-pay bind with option ID {option_id}")
+                                bind_result = self.quote_service.bind_single_pay_with_option(option_id, bind_data)
+                                ims_responses.append({
+                                    "action": "bind_single_pay_with_option",
+                                    "result": bind_result
+                                })
+                                logger.info(f"Quote option {option_id} bound successfully as single pay")
+                                bind_successful = True
+                                break
+                            except Exception as e:
+                                logger.warning(f"Single pay bind with option ID {option_id} failed: {e}")
+                                continue
+            
             # Final fallback to BindQuote
             if not bind_successful:
                 logger.info("Falling back to BindQuote method (expected to fail)")
