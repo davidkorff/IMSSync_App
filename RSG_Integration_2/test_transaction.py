@@ -166,11 +166,17 @@ if __name__ == "__main__":
     
     # Simple argument parsing
     args = sys.argv[1:]
-    for i, arg in enumerate(args):
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--port" and i + 1 < len(args):
             port = int(args[i + 1])
+            i += 2  # Skip both --port and the port number
         elif not arg.startswith("--"):
             json_file = arg
+            i += 1
+        else:
+            i += 1
     
     # Check if file exists
     if not Path(json_file).exists():
