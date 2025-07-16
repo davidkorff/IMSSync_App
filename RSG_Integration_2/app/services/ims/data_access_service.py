@@ -11,7 +11,7 @@ class DataAccessService(BaseIMSService):
     """Service for IMS DataAccess operations (stored procedures)"""
     
     def __init__(self, auth_service: AuthService):
-        super().__init__("dataaccess")
+        super().__init__("data_access")
         self.auth_service = auth_service
     
     def execute_command(self, procedure_name: str, parameters: Dict[str, Any]) -> Any:
