@@ -29,8 +29,8 @@ class DataAccessService(BaseIMSService):
             # Only add parameters if dictionary is not empty
             if parameters:
                 for key, value in parameters.items():
-                    # Ensure parameter name starts with @
-                    param_name = key if key.startswith('@') else f'@{key}'
+                    # Do NOT add @ symbol - just use the parameter name as is
+                    param_name = key.lstrip('@')  # Remove @ if present
                     params.append(param_name)
                     params.append(str(value) if value is not None else "")
             
@@ -59,8 +59,8 @@ class DataAccessService(BaseIMSService):
             # Only add parameters if dictionary is not empty
             if parameters:
                 for key, value in parameters.items():
-                    # Ensure parameter name starts with @
-                    param_name = key if key.startswith('@') else f'@{key}'
+                    # Do NOT add @ symbol - just use the parameter name as is
+                    param_name = key.lstrip('@')  # Remove @ if present
                     params.append(param_name)
                     params.append(str(value) if value is not None else "")
             

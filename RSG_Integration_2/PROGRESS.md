@@ -64,14 +64,16 @@ Building a service that processes insurance transactions from Triton and transfo
      - IMS configuration issue - may require policy number rule setup
      - CompanyLine configuration missing installment billing setup
      - Database configuration issue with installment billing tables
-   - Next steps to investigate:
-     - Check if a specific BillingTypeID is needed (currently using 1 = Direct Bill - Company)
-     - Verify if GetAvailableInstallmentOptions returns any options
-     - May need IMS administrator to configure installment billing or policy number rules
-   - Alternative approach:
-     - Use DataAccess service to directly query quote options and get the integer ID
-     - Try using the Bind method (not BindQuote) with the quote option ID
-     - This should automatically bill as single pay per documentation
+   - Alternative approach attempted:
+     - Implemented DataAccess service to query quote options and get the integer ID
+     - Created stored procedures and Bind method with quote option ID
+     - DataAccess failing with "Parameters must be specified in Key/Value pairs" error
+     - Issue appears to be with how Zeep passes array parameters to SOAP service
+   - Current status:
+     - ✅ FIXED: DataAccess parameter format issue - removed @ symbol from parameter names
+     - Parameters should be sent as ['QuoteGuid', 'value'] not ['@QuoteGuid', 'value']
+     - Ready to test Bind method with quote option ID approach
+     - This should bypass the installment billing requirement per documentation
 
 7. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
