@@ -377,6 +377,38 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
          WHERE QuoteGuid = @QuoteGuid
      END
      ```
+  5. Create quote options query stored procedure (CRITICAL for Bind method):
+     ```sql
+     CREATE PROCEDURE spGetQuoteOptions_WS
+         @QuoteGuid UNIQUEIDENTIFIER
+     AS
+     BEGIN
+         SET NOCOUNT ON;
+         
+         -- Get quote options with integer IDs needed for Bind method
+         SELECT 
+             qo.QuoteOptionID,          -- Integer ID needed for Bind method
+             qo.QuoteOptionGuid,         -- GUID returned by AddQuoteOption
+             qo.QuoteGuid,
+             qo.LineGuid,
+             qo.PremiumTotal,
+             qo.CompanyCommission,
+             qo.ProducerCommission,
+             l.LineName,
+             cl.CompanyLocationName,
+             -- Include any installment billing info if available
+             qo.InstallmentBillingQuoteOptionID,
+             CASE 
+                 WHEN qo.InstallmentBillingQuoteOptionID IS NULL THEN 'Single Pay'
+                 ELSE 'Installment'
+             END AS BillingType
+         FROM tblQuoteOptions qo
+         LEFT JOIN tblLines l ON qo.LineGuid = l.LineGuid
+         LEFT JOIN tblCompanyLocations cl ON qo.CompanyLocationGuid = cl.CompanyLocationGuid
+         WHERE qo.QuoteGuid = @QuoteGuid
+         ORDER BY qo.QuoteOptionID;
+     END
+     ```
 
 **Recommendation for Production:**
 - **Short-term**: Use AdditionalInformation (already working)
