@@ -189,10 +189,35 @@ class DataAccessService(BaseIMSService):
                     )
             
             logger.info(f"Executed dataset procedure: {procedure_name}")
+            logger.info(f"Raw response type: {type(response)}")
+            logger.info(f"Raw response: {response}")
             
-            # Parse the dataset response into a list of dictionaries
+            # Parse the dataset response
             results = []
-            if hasattr(response, 'Tables') and response.Tables:
+            
+            # The response might be a string containing escaped XML
+            if isinstance(response, str):
+                logger.info("Response is a string, parsing embedded XML")
+                try:
+                    # Parse the embedded XML
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response)
+                    
+                    # Look for Table elements
+                    for table in root.findall('.//Table'):
+                        result_dict = {}
+                        for child in table:
+                            result_dict[child.tag] = child.text
+                        results.append(result_dict)
+                    
+                    logger.info(f"Parsed {len(results)} results from embedded XML")
+                except Exception as xml_e:
+                    logger.error(f"Failed to parse embedded XML: {xml_e}")
+                    logger.debug(f"Response content: {response[:500]}")
+            
+            # Handle structured response (if Zeep parses it for us)
+            elif hasattr(response, 'Tables') and response.Tables:
+                logger.info("Response has Tables attribute")
                 table = response.Tables.DataTable[0]
                 if hasattr(table, 'Rows') and table.Rows:
                     for row in table.Rows.DataRow:
@@ -202,6 +227,10 @@ class DataAccessService(BaseIMSService):
                                 column_name = table.Columns.DataColumn[i].ColumnName
                                 result_dict[column_name] = value
                         results.append(result_dict)
+            
+            logger.info(f"Returning {len(results)} results")
+            if results:
+                logger.info(f"First result: {results[0]}")
             
             return results
             
@@ -279,25 +308,12 @@ class DataAccessService(BaseIMSService):
             raise
     
     def get_quote_option_id_from_option_guid(self, quote_option_guid: UUID) -> Optional[int]:
-        """Get the integer quote option ID from a Quote Option GUID using spGetQuoteOptions_WS"""
+        """Get the integer quote option ID from a Quote Option GUID using spGetQuoteOptionIDFromGuid_WS"""
         try:
             logger.info(f"Getting quote option ID for option GUID {quote_option_guid}")
             
-            # Call get_quote_option_details which will use spGetQuoteOptions_WS
-            results = self.get_quote_option_details(quote_option_guid)
-            
-            if results and len(results) > 0:
-                # The stored procedure should return QuoteOptionID
-                option_id = results[0].get('QuoteOptionID') or results[0].get('quoteoptionid')
-                if option_id:
-                    logger.info(f"Found quote option ID: {option_id}")
-                    return int(option_id)
-                else:
-                    logger.warning(f"No QuoteOptionID field in results: {results[0].keys()}")
-                    return None
-            else:
-                logger.warning("No results returned from spGetQuoteOptions_WS")
-                return None
+            # Use the dedicated stored procedure for getting ID from GUID
+            return self.get_quote_option_id_by_guid(quote_option_guid)
                 
         except Exception as e:
             logger.error(f"Error getting quote option ID from option GUID: {e}")
@@ -329,26 +345,31 @@ class DataAccessService(BaseIMSService):
             return None
     
     def get_quote_option_id_by_guid(self, quote_option_guid: UUID) -> Optional[int]:
-        """Get the integer quote option ID for a given QUOTE OPTION GUID using spGetTritonQuoteData_WS"""
+        """Get the integer quote option ID for a given QUOTE OPTION GUID using spGetQuoteOptionIDFromGuid_WS"""
         try:
-            logger.info(f"Getting quote option ID for quote option GUID {quote_option_guid} using spGetTritonQuoteData")
+            logger.info(f"Getting quote option ID for quote option GUID {quote_option_guid} using spGetQuoteOptionIDFromGuid")
             
-            # spGetTritonQuoteData_WS expects QuoteOptionGuid parameter
+            # spGetQuoteOptionIDFromGuid_WS expects QuoteOptionGuid parameter
             params = {
                 "QuoteOptionGuid": str(quote_option_guid)
             }
             
-            results = self.execute_dataset("spGetTritonQuoteData", params)
+            results = self.execute_dataset("spGetQuoteOptionIDFromGuid", params)
             
             if results and len(results) > 0:
-                option_id = results[0].get('quoteoptionid')  # Note: lowercase in response
-                logger.info(f"SUCCESS: Found quote option ID: {option_id}")
-                return int(option_id) if option_id is not None else None
+                # The stored procedure returns QuoteOptionID
+                option_id = results[0].get('QuoteOptionID') or results[0].get('quoteoptionid')
+                if option_id:
+                    logger.info(f"SUCCESS: Found quote option ID: {option_id}")
+                    return int(option_id)
+                else:
+                    logger.warning(f"No QuoteOptionID field in results: {results[0].keys()}")
+                    return None
             else:
-                logger.warning("No quote option ID found")
+                logger.warning("No results returned from spGetQuoteOptionIDFromGuid_WS")
                 return None
                 
         except Exception as e:
-            logger.error(f"Error getting quote option ID by quote GUID: {e}")
+            logger.error(f"Error getting quote option ID by quote option GUID: {e}")
             # Return None instead of raising to allow fallback to other methods
             return None
