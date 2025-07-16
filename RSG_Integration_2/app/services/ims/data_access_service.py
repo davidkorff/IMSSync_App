@@ -53,7 +53,7 @@ class DataAccessService(BaseIMSService):
             token = self.auth_service.get_token()
             
             # Convert parameters to array of strings format
-            # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
+            # Format: ['ParamName1', 'Value1', 'ParamName2', 'Value2', ...]
             params = []
             
             # Only add parameters if dictionary is not empty
@@ -246,14 +246,14 @@ class DataAccessService(BaseIMSService):
             # Return None instead of raising to allow fallback to other methods
             return None
     
-    def get_quote_option_id_by_guid(self, quote_option_guid: UUID) -> Optional[int]:
-        """Get the integer quote option ID for a given quote option GUID using spGetTritonQuoteData_WS"""
+    def get_quote_option_id_by_quote_guid(self, quote_guid: UUID) -> Optional[int]:
+        """Get the integer quote option ID for a given QUOTE GUID using spGetTritonQuoteData_WS"""
         try:
-            logger.info(f"Getting quote option ID for option GUID {quote_option_guid} using spGetTritonQuoteData")
+            logger.info(f"Getting quote option ID for quote GUID {quote_guid} using spGetTritonQuoteData")
             
-            # Use the new stored procedure that works!
+            # spGetTritonQuoteData_WS expects QuoteGuid, not QuoteOptionGuid!
             params = {
-                "QuoteOptionGuid": str(quote_option_guid)
+                "QuoteGuid": str(quote_guid)
             }
             
             results = self.execute_dataset("spGetTritonQuoteData", params)
@@ -267,6 +267,6 @@ class DataAccessService(BaseIMSService):
                 return None
                 
         except Exception as e:
-            logger.error(f"Error getting quote option ID by GUID: {e}")
+            logger.error(f"Error getting quote option ID by quote GUID: {e}")
             # Return None instead of raising to allow fallback to other methods
             return None

@@ -488,16 +488,21 @@ Parameters are passed as:
 
 ```sql
 CREATE PROCEDURE spGetTritonQuoteData_WS
-    @QuoteOptionGuid UNIQUEIDENTIFIER
+    @QuoteGuid UNIQUEIDENTIFIER
 AS
 BEGIN
-    SELECT TOP 1 QuoteOptionID 
+    SELECT TOP 1 QuoteOptionID as quoteoptionid
     FROM tblQuoteOptions
-    WHERE QuoteOptionGuid = @QuoteOptionGuid
+    WHERE QuoteGuid = @QuoteGuid
+    ORDER BY QuoteOptionID
 END
 ```
 
-This procedure successfully returns the integer QuoteOptionID needed for bind operations.
+This procedure takes a Quote GUID and returns the integer QuoteOptionID needed for bind operations.
+
+**Important distinction:**
+- `spGetTritonQuoteData_WS` expects `@QuoteGuid` parameter
+- `spGetQuoteOptions_WS` expects `@QuoteOptionGuid` parameter
 
 Example response:
 ```xml
