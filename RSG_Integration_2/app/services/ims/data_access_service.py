@@ -33,6 +33,19 @@ class DataAccessService(BaseIMSService):
         self.auth_service = auth_service
         # Add the logging plugin to capture SOAP XML
         self.client.plugins.append(LoggingPlugin())
+        
+        # Log available types in the WSDL for debugging
+        try:
+            logger.info("Available types in DataAccess WSDL:")
+            for service in self.client.wsdl.services.values():
+                for port in service.ports.values():
+                    for operation in port.binding._operations.values():
+                        logger.info(f"Operation: {operation.name}")
+                        if operation.name == 'ExecuteDataSet':
+                            logger.info(f"  Input: {operation.input}")
+                            logger.info(f"  Output: {operation.output}")
+        except Exception as e:
+            logger.debug(f"Could not inspect WSDL types: {e}")
     
     def execute_command(self, procedure_name: str, parameters: Dict[str, Any]) -> Any:
         """Execute a stored procedure that returns a single result
@@ -138,7 +151,9 @@ class DataAccessService(BaseIMSService):
             logger.info(soap_body)
             logger.info("=" * 50 + "\n")
             
-            # If no parameters, try passing None instead of empty array
+            # Try different approaches to fix the array serialization issue
+            # Zeep is only sending the first element of our array
+            
             if len(params) == 0:
                 logger.info("No parameters, passing None")
                 response = self.client.service.ExecuteDataSet(
@@ -147,11 +162,31 @@ class DataAccessService(BaseIMSService):
                     _soapheaders=self.get_header(token)
                 )
             else:
-                response = self.client.service.ExecuteDataSet(
-                    procedureName=procedure_name,
-                    parameters=params,
-                    _soapheaders=self.get_header(token)
-                )
+                # Try to get the ArrayOfString type from the WSDL
+                try:
+                    logger.info("Attempting to use ArrayOfString type from WSDL")
+                    # First, let's see what types are available
+                    array_type = self.client.get_type('{http://tempuri.org/IMSWebServices/DataAccess}ArrayOfString')
+                    params_array = array_type(params)
+                    logger.info(f"Created ArrayOfString with: {params_array}")
+                    
+                    response = self.client.service.ExecuteDataSet(
+                        procedureName=procedure_name,
+                        parameters=params_array,
+                        _soapheaders=self.get_header(token)
+                    )
+                except Exception as e:
+                    logger.warning(f"ArrayOfString approach failed: {e}")
+                    
+                    # Fallback: Try passing as dict
+                    logger.info("Trying dict approach with 'string' key")
+                    params_dict = {'string': params}
+                    
+                    response = self.client.service.ExecuteDataSet(
+                        procedureName=procedure_name,
+                        parameters=params_dict,
+                        _soapheaders=self.get_header(token)
+                    )
             
             logger.info(f"Executed dataset procedure: {procedure_name}")
             
