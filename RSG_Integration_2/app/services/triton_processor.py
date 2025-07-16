@@ -203,6 +203,7 @@ class TritonProcessor:
                 logger.info("ImportNetRateXml failed - consider using AdditionalInformation field instead")
             
             # Step 5: Add quote option to enable binding
+            option_guid = None
             try:
                 option_guid = self.quote_service.add_quote_option(quote_guid)
                 ims_responses.append({
@@ -213,6 +214,23 @@ class TritonProcessor:
             except Exception as e:
                 logger.error(f"Failed to add quote option: {e}")
                 raise
+            
+            # Step 5a: Get the integer quote option ID using the new stored procedure
+            actual_quote_option_id = None
+            if option_guid:
+                try:
+                    logger.info(f"Getting integer quote option ID for GUID {option_guid}")
+                    actual_quote_option_id = self.data_access_service.get_quote_option_id_by_guid(option_guid)
+                    if actual_quote_option_id:
+                        logger.info(f"SUCCESS: Got quote option ID {actual_quote_option_id} from GUID {option_guid}")
+                        ims_responses.append({
+                            "action": "get_quote_option_id",
+                            "result": {"quote_option_id": actual_quote_option_id}
+                        })
+                    else:
+                        logger.warning("Could not get quote option ID from stored procedure")
+                except Exception as e:
+                    logger.error(f"Error getting quote option ID: {e}")
             
             # Step 6: Get quote option ID and bind the quote
             bind_data = {
@@ -301,16 +319,21 @@ class TritonProcessor:
             # Initialize option_ids list
             option_ids = []
             
-            # Try to get the actual quote option ID using simplified stored procedure
-            actual_option_id = None
-            try:
-                logger.info("Attempting to get quote option ID via simplified stored procedure")
-                actual_option_id = self.data_access_service.get_quote_option_id(quote_guid)
-                if actual_option_id:
-                    logger.info(f"SUCCESS: Found actual quote option ID: {actual_option_id}")
-                    option_ids = [actual_option_id]
-            except Exception as e:
-                logger.warning(f"Could not get quote option ID: {str(e)[:100]}")
+            # We should already have the actual quote option ID from Step 5a
+            if actual_quote_option_id:
+                logger.info(f"Using quote option ID {actual_quote_option_id} obtained from spGetTritonQuoteData_WS")
+                option_ids = [actual_quote_option_id]
+            else:
+                # Fallback: Try to get the actual quote option ID using simplified stored procedure
+                actual_option_id = None
+                try:
+                    logger.info("Attempting to get quote option ID via simplified stored procedure")
+                    actual_option_id = self.data_access_service.get_quote_option_id(quote_guid)
+                    if actual_option_id:
+                        logger.info(f"SUCCESS: Found actual quote option ID: {actual_option_id}")
+                        option_ids = [actual_option_id]
+                except Exception as e:
+                    logger.warning(f"Could not get quote option ID: {str(e)[:100]}")
             
             # Try all 4 bind methods systematically
             logger.info("=== COMPREHENSIVE BIND TESTING ===")

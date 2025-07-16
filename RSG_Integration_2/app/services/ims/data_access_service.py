@@ -245,3 +245,28 @@ class DataAccessService(BaseIMSService):
             logger.error(f"Error getting quote option ID: {e}")
             # Return None instead of raising to allow fallback to other methods
             return None
+    
+    def get_quote_option_id_by_guid(self, quote_option_guid: UUID) -> Optional[int]:
+        """Get the integer quote option ID for a given quote option GUID using spGetTritonQuoteData_WS"""
+        try:
+            logger.info(f"Getting quote option ID for option GUID {quote_option_guid} using spGetTritonQuoteData")
+            
+            # Use the new stored procedure that works!
+            params = {
+                "QuoteOptionGuid": str(quote_option_guid)
+            }
+            
+            results = self.execute_dataset("spGetTritonQuoteData", params)
+            
+            if results and len(results) > 0:
+                option_id = results[0].get('quoteoptionid')  # Note: lowercase in response
+                logger.info(f"SUCCESS: Found quote option ID: {option_id}")
+                return int(option_id) if option_id is not None else None
+            else:
+                logger.warning("No quote option ID found")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting quote option ID by GUID: {e}")
+            # Return None instead of raising to allow fallback to other methods
+            return None
