@@ -274,30 +274,48 @@ class TritonProcessor:
             bind_successful = False
             
             # First, try to get quote option ID via DataAccess (if spGetQuoteOptions_WS exists)
-            try:
-                logger.info(f"Attempting to get quote option details via DataAccess")
-                quote_options = self.data_access_service.get_quote_option_details(quote_guid)
-                
-                if quote_options and len(quote_options) > 0:
-                    # Use the first quote option ID
-                    quote_option_id = quote_options[0].get("QuoteOptionID")
-                    logger.info(f"Found quote option ID via DataAccess: {quote_option_id}")
+            if option_guid:  # We need the option GUID from AddQuoteOption
+                try:
+                    logger.info(f"Attempting to get quote option details via DataAccess using option GUID {option_guid}")
+                    quote_options = self.data_access_service.get_quote_option_details(option_guid)
                     
-                    # Use the Bind method with the integer quote option ID
-                    bind_result = self.quote_service.bind_with_option_id(quote_option_id, bind_data)
-                    ims_responses.append({
-                        "action": "bind_quote_option",
-                        "result": bind_result
-                    })
-                    logger.info(f"Quote bound successfully with option ID {quote_option_id}")
-                    bind_successful = True
-                    
-            except Exception as e:
-                logger.warning(f"DataAccess approach failed: {e}")
-                if "could not find stored procedure" in str(e).lower():
-                    logger.info("spGetQuoteOptions_WS stored procedure doesn't exist yet")
-                elif "parameters must be specified" in str(e).lower():
-                    logger.warning("DataAccess parameter format issue persists")
+                    if quote_options and len(quote_options) > 0:
+                        # Use the first quote option ID
+                        quote_option_id = quote_options[0].get("QuoteOptionID")
+                        logger.info(f"Found quote option ID via DataAccess: {quote_option_id}")
+                        
+                        # Use the Bind method with the integer quote option ID
+                        bind_result = self.quote_service.bind_with_option_id(quote_option_id, bind_data)
+                        ims_responses.append({
+                            "action": "bind_quote_option",
+                            "result": bind_result
+                        })
+                        logger.info(f"Quote bound successfully with option ID {quote_option_id}")
+                        bind_successful = True
+                        
+                except Exception as e:
+                    logger.warning(f"DataAccess approach failed: {e}")
+                    if "could not find stored procedure" in str(e).lower():
+                        logger.info("spGetQuoteOptions_WS stored procedure doesn't exist yet")
+                    elif "parameters must be specified" in str(e).lower():
+                        logger.warning("DataAccess parameter format issue persists")
+            
+            # If DataAccess didn't work with get_quote_option_details, try the direct method
+            if not bind_successful and option_guid:
+                try:
+                    logger.info("Trying direct method to get quote option ID from option GUID")
+                    actual_id = self.data_access_service.get_quote_option_id_from_option_guid(option_guid)
+                    if actual_id:
+                        logger.info(f"Got quote option ID {actual_id} from option GUID")
+                        bind_result = self.quote_service.bind_with_option_id(actual_id, bind_data)
+                        ims_responses.append({
+                            "action": "bind_quote_option_direct",
+                            "result": bind_result
+                        })
+                        logger.info(f"Quote bound successfully with option ID {actual_id}")
+                        bind_successful = True
+                except Exception as e:
+                    logger.warning(f"Direct method failed: {e}")
             
             # If DataAccess didn't work, try default option IDs
             if not bind_successful:
@@ -324,6 +342,18 @@ class TritonProcessor:
             if actual_quote_option_id:
                 logger.info(f"Using quote option ID {actual_quote_option_id} obtained from spGetTritonQuoteData_WS")
                 option_ids = [actual_quote_option_id]
+                # Try to bind immediately with this ID
+                try:
+                    logger.info(f"Attempting immediate bind with quote option ID {actual_quote_option_id}")
+                    bind_result = self.quote_service.bind_with_option_id(actual_quote_option_id, bind_data)
+                    ims_responses.append({
+                        "action": "bind_with_triton_option_id",
+                        "result": bind_result
+                    })
+                    logger.info(f"SUCCESS: Quote bound using option ID from spGetTritonQuoteData_WS")
+                    bind_successful = True
+                except Exception as e:
+                    logger.warning(f"Bind with spGetTritonQuoteData_WS option ID failed: {e}")
             else:
                 # Fallback: Try to get the actual quote option ID using simplified stored procedure
                 actual_option_id = None
@@ -336,114 +366,118 @@ class TritonProcessor:
                 except Exception as e:
                     logger.warning(f"Could not get quote option ID: {str(e)[:100]}")
             
-            # Try all 4 bind methods systematically
-            logger.info("=== COMPREHENSIVE BIND TESTING ===")
-            
-            # Method 1: BindQuoteWithInstallment with -1 (documented single-pay approach)
-            if not bind_successful:
-                logger.info("Method 1: BindQuoteWithInstallment with companyInstallmentID=-1")
-                try:
-                    bind_result = self.quote_service.bind_single_pay(quote_guid, bind_data)
-                    ims_responses.append({
-                        "action": "bind_quote_with_installment_-1",
-                        "result": bind_result
-                    })
-                    logger.info(f"SUCCESS: Quote bound as single pay using BindQuoteWithInstallment(-1)")
-                    bind_successful = True
-                except Exception as e:
-                    logger.warning(f"Method 1 failed: {str(e)[:200]}")
-            
-            # Method 2: BindQuote (simple approach)
-            quote_id = None
-            if not bind_successful:
-                logger.info("Method 2: BindQuote with just quote GUID")
-                try:
-                    bind_result = self.quote_service.bind(quote_guid, bind_data)
-                    ims_responses.append({
-                        "action": "bind_quote_simple",
-                        "result": bind_result
-                    })
-                    logger.info(f"SUCCESS: Quote bound using simple BindQuote")
-                    bind_successful = True
-                except Exception as e:
-                    error_str = str(e)
-                    logger.warning(f"Method 2 failed: {error_str[:200]}")
-                    
-                    # Extract quote ID from error message
-                    import re
-                    match = re.search(r'quote ID (\d+)', error_str)
-                    if match:
-                        quote_id = int(match.group(1))
-                        logger.info(f"EXTRACTED QUOTE ID FROM ERROR: {quote_id}")
-            
-            # Method 3 & 4: Need integer quote option ID
-            # Try to extract from error messages or use common IDs
-            if not bind_successful:
-                # If we extracted a quote ID, try to use it to derive quote option IDs
-                if quote_id:
-                    logger.info(f"Using extracted quote ID {quote_id} to estimate quote option IDs")
-                    # In many IMS systems, quote option IDs are related to quote IDs
-                    # Try variations based on the quote ID
-                    test_option_ids = [
-                        quote_id,           # Sometimes same as quote ID
-                        quote_id * 100,     # Sometimes quote ID * 100
-                        quote_id * 100 + 1, # Sometimes quote ID * 100 + 1
-                        quote_id + 1,       # Sometimes sequential
-                    ]
-                    logger.info(f"Trying quote option IDs based on quote ID: {test_option_ids}")
-                else:
-                    # Use actual option ID if we found it, otherwise try common IDs
-                    test_option_ids = option_ids if option_ids else [1, 0, 100, 1000]  # Common IDs in IMS systems
+            # Skip comprehensive bind testing if already successful
+            if bind_successful:
+                logger.info("Bind already successful, skipping comprehensive testing")
+            else:
+                # Try all 4 bind methods systematically
+                logger.info("=== COMPREHENSIVE BIND TESTING ===")
                 
-                # Method 3: Bind with quote option ID
-                logger.info("Method 3: Bind with integer quote option ID")
-                for test_id in test_option_ids:
+                # Method 1: BindQuoteWithInstallment with -1 (documented single-pay approach)
+                if not bind_successful:
+                    logger.info("Method 1: BindQuoteWithInstallment with companyInstallmentID=-1")
                     try:
-                        logger.info(f"  Trying Bind with quoteOptionID={test_id}")
-                        bind_result = self.quote_service.bind_with_option_id(test_id, bind_data)
+                        bind_result = self.quote_service.bind_single_pay(quote_guid, bind_data)
                         ims_responses.append({
-                            "action": f"bind_option_id_{test_id}",
+                            "action": "bind_quote_with_installment_-1",
                             "result": bind_result
                         })
-                        logger.info(f"SUCCESS: Quote bound using Bind({test_id})")
+                        logger.info(f"SUCCESS: Quote bound as single pay using BindQuoteWithInstallment(-1)")
                         bind_successful = True
-                        break
                     except Exception as e:
-                        logger.warning(f"  Bind({test_id}) failed: {str(e)[:100]}")
+                        logger.warning(f"Method 1 failed: {str(e)[:200]}")
                 
-                # Method 4: BindWithInstallment with -1
+                # Method 2: BindQuote (simple approach)
+                quote_id = None
                 if not bind_successful:
-                    logger.info("Method 4: BindWithInstallment with quoteOptionID and -1")
+                    logger.info("Method 2: BindQuote with just quote GUID")
+                    try:
+                        bind_result = self.quote_service.bind(quote_guid, bind_data)
+                        ims_responses.append({
+                            "action": "bind_quote_simple",
+                            "result": bind_result
+                        })
+                        logger.info(f"SUCCESS: Quote bound using simple BindQuote")
+                        bind_successful = True
+                    except Exception as e:
+                        error_str = str(e)
+                        logger.warning(f"Method 2 failed: {error_str[:200]}")
+                        
+                        # Extract quote ID from error message
+                        import re
+                        match = re.search(r'quote ID (\d+)', error_str)
+                        if match:
+                            quote_id = int(match.group(1))
+                            logger.info(f"EXTRACTED QUOTE ID FROM ERROR: {quote_id}")
+                
+                # Method 3 & 4: Need integer quote option ID
+                # Try to extract from error messages or use common IDs
+                if not bind_successful:
+                    # If we extracted a quote ID, try to use it to derive quote option IDs
+                    if quote_id:
+                        logger.info(f"Using extracted quote ID {quote_id} to estimate quote option IDs")
+                        # In many IMS systems, quote option IDs are related to quote IDs
+                        # Try variations based on the quote ID
+                        test_option_ids = [
+                            quote_id,           # Sometimes same as quote ID
+                            quote_id * 100,     # Sometimes quote ID * 100
+                            quote_id * 100 + 1, # Sometimes quote ID * 100 + 1
+                            quote_id + 1,       # Sometimes sequential
+                        ]
+                        logger.info(f"Trying quote option IDs based on quote ID: {test_option_ids}")
+                    else:
+                        # Use actual option ID if we found it, otherwise try common IDs
+                        test_option_ids = option_ids if option_ids else [1, 0, 100, 1000]  # Common IDs in IMS systems
+                    
+                    # Method 3: Bind with quote option ID
+                    logger.info("Method 3: Bind with integer quote option ID")
                     for test_id in test_option_ids:
                         try:
-                            logger.info(f"  Trying BindWithInstallment({test_id}, -1)")
-                            bind_result = self.quote_service.bind_single_pay_with_option(test_id, bind_data)
+                            logger.info(f"  Trying Bind with quoteOptionID={test_id}")
+                            bind_result = self.quote_service.bind_with_option_id(test_id, bind_data)
                             ims_responses.append({
-                                "action": f"bind_with_installment_{test_id}_-1",
+                                "action": f"bind_option_id_{test_id}",
                                 "result": bind_result
                             })
-                            logger.info(f"SUCCESS: Quote bound using BindWithInstallment({test_id}, -1)")
+                            logger.info(f"SUCCESS: Quote bound using Bind({test_id})")
                             bind_successful = True
                             break
                         except Exception as e:
-                            logger.warning(f"  BindWithInstallment({test_id}, -1) failed: {str(e)[:100]}")
-            
-            # Final summary if all methods failed
-            if not bind_successful:
-                logger.error("=== ALL BIND METHODS FAILED ===")
-                logger.error("Summary of failures:")
-                logger.error("1. BindQuoteWithInstallment(-1): Installment billing not configured")
-                logger.error("2. BindQuote: Internally requires installment billing")
-                logger.error("3. Bind(optionID): Need valid integer quote option ID")
-                logger.error("4. BindWithInstallment(optionID, -1): Need valid integer quote option ID")
-                logger.error("")
-                logger.error("Root causes:")
-                logger.error("- IMS database lacks installment billing configuration")
-                logger.error("- AddQuoteOption returns GUID but Bind methods need integer ID")
-                logger.error("- spGetQuoteOptions_WS stored procedure missing to map GUID->ID")
+                            logger.warning(f"  Bind({test_id}) failed: {str(e)[:100]}")
+                    
+                    # Method 4: BindWithInstallment with -1
+                    if not bind_successful:
+                        logger.info("Method 4: BindWithInstallment with quoteOptionID and -1")
+                        for test_id in test_option_ids:
+                            try:
+                                logger.info(f"  Trying BindWithInstallment({test_id}, -1)")
+                                bind_result = self.quote_service.bind_single_pay_with_option(test_id, bind_data)
+                                ims_responses.append({
+                                    "action": f"bind_with_installment_{test_id}_-1",
+                                    "result": bind_result
+                                })
+                                logger.info(f"SUCCESS: Quote bound using BindWithInstallment({test_id}, -1)")
+                                bind_successful = True
+                                break
+                            except Exception as e:
+                                logger.warning(f"  BindWithInstallment({test_id}, -1) failed: {str(e)[:100]}")
                 
-                errors.append("All bind methods failed - see logs for detailed analysis")
-                raise Exception("Unable to bind quote - all 4 methods failed")
+                # Final summary if all methods failed
+                if not bind_successful:
+                    logger.error("=== ALL BIND METHODS FAILED ===")
+                    logger.error("Summary of failures:")
+                    logger.error("1. BindQuoteWithInstallment(-1): Installment billing not configured")
+                    logger.error("2. BindQuote: Internally requires installment billing")
+                    logger.error("3. Bind(optionID): Need valid integer quote option ID")
+                    logger.error("4. BindWithInstallment(optionID, -1): Need valid integer quote option ID")
+                    logger.error("")
+                    logger.error("Root causes:")
+                    logger.error("- IMS database lacks installment billing configuration")
+                    logger.error("- AddQuoteOption returns GUID but Bind methods need integer ID")
+                    logger.error("- spGetQuoteOptions_WS stored procedure missing to map GUID->ID")
+                    
+                    errors.append("All bind methods failed - see logs for detailed analysis")
+                    raise Exception("Unable to bind quote - all 4 methods failed")
             
             # Step 7: Get invoice details
             invoice_details = self.invoice_service.get_invoice(quote_guid)

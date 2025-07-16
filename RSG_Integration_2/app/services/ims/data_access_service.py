@@ -167,59 +167,48 @@ class DataAccessService(BaseIMSService):
             logger.error(f"Error retrieving Triton data: {e}")
             raise
     
-    def get_quote_option_details(self, quote_guid: UUID) -> List[Dict[str, Any]]:
-        """Get quote options with their IDs for a quote"""
+    def get_quote_option_details(self, quote_option_guid: UUID) -> List[Dict[str, Any]]:
+        """Get quote option details including the integer ID from a Quote Option GUID"""
         try:
-            # This would need a stored procedure like:
-            # CREATE PROCEDURE spGetQuoteOptions_WS
-            #     @QuoteGuid UNIQUEIDENTIFIER
-            # AS
-            # BEGIN
-            #     SELECT QuoteOptionID, QuoteOptionGuid, LineGuid, PremiumTotal
-            #     FROM tblQuoteOptions
-            #     WHERE QuoteGuid = @QuoteGuid
-            # END
+            # spGetQuoteOptions_WS expects @QuoteOptionGuid parameter
+            logger.info(f"Attempting to get quote option details for option GUID {quote_option_guid}")
             
-            # Try different parameter formats
-            logger.info(f"Attempting to get quote options for {quote_guid}")
+            # Send the correct parameter name that the stored procedure expects
+            params = {"QuoteOptionGuid": str(quote_option_guid)}
             
-            # First, let's check if the stored procedure exists by trying with empty params
-            try:
-                logger.info("Testing if stored procedure exists with empty parameters")
-                test_results = self.execute_dataset("spGetQuoteOptions", {})
-                logger.info(f"Stored procedure exists but returned {len(test_results)} results without parameters")
-            except Exception as test_error:
-                logger.warning(f"Stored procedure test failed: {test_error}")
-                # If it's a "procedure not found" error, the procedure doesn't exist
-                if "could not find stored procedure" in str(test_error).lower():
-                    logger.error("Stored procedure spGetQuoteOptions_WS does not exist")
-                    raise Exception("Stored procedure spGetQuoteOptions_WS not found")
-            
-            # Now try with parameters
-            # Let's try different parameter formats based on the documentation
-            logger.info("=== TRYING DIFFERENT PARAMETER FORMATS ===")
-            
-            # Format 1: Basic approach
-            logger.info("Format 1: Basic parameter name and value")
-            params = {"QuoteGuid": str(quote_guid)}
-            
-            # Format 2: Try with @ prefix
-            logger.info("Format 2: With @ prefix")
-            params2 = {"@QuoteGuid": str(quote_guid)}
-            
-            # Format 3: Try without any modification
-            logger.info("Format 3: Raw GUID")
-            params3 = {"QuoteGuid": quote_guid}
-            
-            # Try the basic format first
             results = self.execute_dataset("spGetQuoteOptions", params)
             
-            logger.info(f"Retrieved {len(results)} quote options for quote {quote_guid}")
+            logger.info(f"Retrieved {len(results)} quote option details for option {quote_option_guid}")
             return results
             
         except Exception as e:
             logger.error(f"Error getting quote options: {e}")
             raise
+    
+    def get_quote_option_id_from_option_guid(self, quote_option_guid: UUID) -> Optional[int]:
+        """Get the integer quote option ID from a Quote Option GUID using spGetQuoteOptions_WS"""
+        try:
+            logger.info(f"Getting quote option ID for option GUID {quote_option_guid}")
+            
+            # Call get_quote_option_details which will use spGetQuoteOptions_WS
+            results = self.get_quote_option_details(quote_option_guid)
+            
+            if results and len(results) > 0:
+                # The stored procedure should return QuoteOptionID
+                option_id = results[0].get('QuoteOptionID') or results[0].get('quoteoptionid')
+                if option_id:
+                    logger.info(f"Found quote option ID: {option_id}")
+                    return int(option_id)
+                else:
+                    logger.warning(f"No QuoteOptionID field in results: {results[0].keys()}")
+                    return None
+            else:
+                logger.warning("No results returned from spGetQuoteOptions_WS")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting quote option ID from option GUID: {e}")
+            return None
     
     def get_quote_option_id(self, quote_guid: UUID) -> Optional[int]:
         """Get the integer quote option ID for a given quote GUID using simplified stored procedure"""
