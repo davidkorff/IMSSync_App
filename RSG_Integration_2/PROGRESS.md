@@ -4,7 +4,7 @@ Last Updated: 2025-07-15
 ## Project Overview
 Building a service that processes insurance transactions from Triton and transforms them into IMS API calls. The service handles 5 transaction types: Bind, Unbind, Issue, Midterm Endorsement, and Cancellation.
 
-## Current Status: Blocked - Installment billing configuration required
+## Current Status: Testing - DataAccess stored procedures being implemented
 
 ### What We've Accomplished ✅
 
