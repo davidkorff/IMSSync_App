@@ -26,7 +26,9 @@ class DataAccessService(BaseIMSService):
             # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
             params = []
             for key, value in parameters.items():
-                params.append(key)
+                # Ensure parameter name starts with @
+                param_name = key if key.startswith('@') else f'@{key}'
+                params.append(param_name)
                 params.append(str(value) if value is not None else "")
             
             response = self.client.service.ExecuteCommand(
@@ -51,7 +53,9 @@ class DataAccessService(BaseIMSService):
             # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
             params = []
             for key, value in parameters.items():
-                params.append(key)
+                # Ensure parameter name starts with @
+                param_name = key if key.startswith('@') else f'@{key}'
+                params.append(param_name)
                 params.append(str(value) if value is not None else "")
             
             response = self.client.service.ExecuteDataSet(
