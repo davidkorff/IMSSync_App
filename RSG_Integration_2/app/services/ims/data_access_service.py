@@ -22,14 +22,16 @@ class DataAccessService(BaseIMSService):
         try:
             token = self.auth_service.get_token()
             
-            # Convert parameters to the format IMS expects
-            named_params = []
+            # Convert parameters to array of strings format
+            # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
+            params = []
             for key, value in parameters.items():
-                named_params.append({"Name": key, "Value": str(value) if value is not None else ""})
+                params.append(key)
+                params.append(str(value) if value is not None else "")
             
             response = self.client.service.ExecuteCommand(
                 procedureName=procedure_name,
-                namedParameters=named_params,
+                parameters=params,  # Changed from namedParameters
                 _soapheaders=self.get_header(token)
             )
             
@@ -45,14 +47,16 @@ class DataAccessService(BaseIMSService):
         try:
             token = self.auth_service.get_token()
             
-            # Convert parameters to the format IMS expects
-            named_params = []
+            # Convert parameters to array of strings format
+            # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
+            params = []
             for key, value in parameters.items():
-                named_params.append({"Name": key, "Value": str(value) if value is not None else ""})
+                params.append(key)
+                params.append(str(value) if value is not None else "")
             
             response = self.client.service.ExecuteDataSet(
                 procedureName=procedure_name,
-                namedParameters=named_params,
+                parameters=params,  # Changed from namedParameters
                 _soapheaders=self.get_header(token)
             )
             
