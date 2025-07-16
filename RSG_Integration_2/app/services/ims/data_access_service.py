@@ -194,3 +194,28 @@ class DataAccessService(BaseIMSService):
         except Exception as e:
             logger.error(f"Error getting quote options: {e}")
             raise
+    
+    def get_quote_option_id(self, quote_guid: UUID) -> Optional[int]:
+        """Get the integer quote option ID for a given quote GUID using simplified stored procedure"""
+        try:
+            logger.info(f"Getting quote option ID for {quote_guid} using spGetQuoteOptionID")
+            
+            # Try the simplified stored procedure that just returns the ID
+            params = {
+                "QuoteGuid": str(quote_guid)
+            }
+            
+            results = self.execute_dataset("spGetQuoteOptionID", params)
+            
+            if results and len(results) > 0:
+                option_id = results[0].get('QuoteOptionID')
+                logger.info(f"Found quote option ID: {option_id}")
+                return int(option_id) if option_id is not None else None
+            else:
+                logger.warning("No quote option ID found")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error getting quote option ID: {e}")
+            # Return None instead of raising to allow fallback to other methods
+            return None

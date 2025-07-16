@@ -301,6 +301,17 @@ class TritonProcessor:
             # Initialize option_ids list
             option_ids = []
             
+            # Try to get the actual quote option ID using simplified stored procedure
+            actual_option_id = None
+            try:
+                logger.info("Attempting to get quote option ID via simplified stored procedure")
+                actual_option_id = self.data_access_service.get_quote_option_id(quote_guid)
+                if actual_option_id:
+                    logger.info(f"SUCCESS: Found actual quote option ID: {actual_option_id}")
+                    option_ids = [actual_option_id]
+            except Exception as e:
+                logger.warning(f"Could not get quote option ID: {str(e)[:100]}")
+            
             # Try all 4 bind methods systematically
             logger.info("=== COMPREHENSIVE BIND TESTING ===")
             
@@ -335,8 +346,8 @@ class TritonProcessor:
             # Method 3 & 4: Need integer quote option ID
             # Try to extract from error messages or use common IDs
             if not bind_successful:
-                # Common quote option IDs to try
-                test_option_ids = [1, 0, 100, 1000]  # Common IDs in IMS systems
+                # Use actual option ID if we found it, otherwise try common IDs
+                test_option_ids = option_ids if option_ids else [1, 0, 100, 1000]  # Common IDs in IMS systems
                 
                 # Method 3: Bind with quote option ID
                 logger.info("Method 3: Bind with integer quote option ID")
