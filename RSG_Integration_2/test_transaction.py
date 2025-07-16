@@ -7,6 +7,7 @@ Default: TEST.json
 
 import sys
 import json
+import os
 import requests
 from datetime import datetime
 from pathlib import Path
@@ -159,23 +160,42 @@ def test_additional_endpoints(base_url="http://localhost:8000"):
         print(f"   Error: {e}")
 
 if __name__ == "__main__":
-    # Get JSON file from command line or use default
-    json_file = sys.argv[1] if len(sys.argv) > 1 else "TEST.json"
+    # Parse command line arguments
+    json_file = "TEST.json"
+    port = 8000
+    
+    # Simple argument parsing
+    args = sys.argv[1:]
+    for i, arg in enumerate(args):
+        if arg == "--port" and i + 1 < len(args):
+            port = int(args[i + 1])
+        elif not arg.startswith("--"):
+            json_file = arg
     
     # Check if file exists
     if not Path(json_file).exists():
         print(f"Error: File '{json_file}' not found")
+        print(f"\nUsage: python test_transaction.py [json_file] [--port PORT]")
+        print(f"  json_file: JSON file with test data (default: TEST.json)")
+        print(f"  --port: Service port (default: 8000)")
+        print(f"\nExamples:")
+        print(f"  python test_transaction.py")
+        print(f"  python test_transaction.py TEST.json")
+        print(f"  python test_transaction.py --port 8001")
+        print(f"  python test_transaction.py TEST.json --port 8001")
         sys.exit(1)
     
     # Run tests
     print(f"RSG Integration Service Test")
     print(f"{'='*60}")
     print(f"Starting test at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Using port: {port}")
     
     # Test with local service
-    test_transaction("http://localhost:8000", json_file)
+    base_url = f"http://localhost:{port}"
+    test_transaction(base_url, json_file)
     
     # Optionally test additional endpoints
-    # test_additional_endpoints("http://localhost:8000")
+    # test_additional_endpoints(base_url)
     
     print_section("Test Complete")
