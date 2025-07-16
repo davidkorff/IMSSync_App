@@ -330,6 +330,7 @@ class TritonProcessor:
                     logger.warning(f"Method 1 failed: {str(e)[:200]}")
             
             # Method 2: BindQuote (simple approach)
+            quote_id = None
             if not bind_successful:
                 logger.info("Method 2: BindQuote with just quote GUID")
                 try:
@@ -341,13 +342,34 @@ class TritonProcessor:
                     logger.info(f"SUCCESS: Quote bound using simple BindQuote")
                     bind_successful = True
                 except Exception as e:
-                    logger.warning(f"Method 2 failed: {str(e)[:200]}")
+                    error_str = str(e)
+                    logger.warning(f"Method 2 failed: {error_str[:200]}")
+                    
+                    # Extract quote ID from error message
+                    import re
+                    match = re.search(r'quote ID (\d+)', error_str)
+                    if match:
+                        quote_id = int(match.group(1))
+                        logger.info(f"EXTRACTED QUOTE ID FROM ERROR: {quote_id}")
             
             # Method 3 & 4: Need integer quote option ID
             # Try to extract from error messages or use common IDs
             if not bind_successful:
-                # Use actual option ID if we found it, otherwise try common IDs
-                test_option_ids = option_ids if option_ids else [1, 0, 100, 1000]  # Common IDs in IMS systems
+                # If we extracted a quote ID, try to use it to derive quote option IDs
+                if quote_id:
+                    logger.info(f"Using extracted quote ID {quote_id} to estimate quote option IDs")
+                    # In many IMS systems, quote option IDs are related to quote IDs
+                    # Try variations based on the quote ID
+                    test_option_ids = [
+                        quote_id,           # Sometimes same as quote ID
+                        quote_id * 100,     # Sometimes quote ID * 100
+                        quote_id * 100 + 1, # Sometimes quote ID * 100 + 1
+                        quote_id + 1,       # Sometimes sequential
+                    ]
+                    logger.info(f"Trying quote option IDs based on quote ID: {test_option_ids}")
+                else:
+                    # Use actual option ID if we found it, otherwise try common IDs
+                    test_option_ids = option_ids if option_ids else [1, 0, 100, 1000]  # Common IDs in IMS systems
                 
                 # Method 3: Bind with quote option ID
                 logger.info("Method 3: Bind with integer quote option ID")

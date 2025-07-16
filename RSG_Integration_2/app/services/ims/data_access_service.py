@@ -69,6 +69,17 @@ class DataAccessService(BaseIMSService):
             logger.info(f"Parameters array: {params}")
             logger.info(f"Parameters array length: {len(params)}")
             
+            # Log the exact SOAP request that will be sent
+            logger.info("=== SOAP REQUEST DEBUG ===")
+            logger.info(f"Procedure name that will be sent: {procedure_name}")
+            logger.info(f"Procedure name with _WS suffix: {procedure_name}_WS")
+            logger.info("Parameter array that will be sent:")
+            for i in range(0, len(params), 2):
+                if i + 1 < len(params):
+                    logger.info(f"  Param[{i}]: '{params[i]}' (name)")
+                    logger.info(f"  Param[{i+1}]: '{params[i+1]}' (value)")
+            logger.info("=== END SOAP DEBUG ===")
+            
             # If no parameters, try passing None instead of empty array
             if len(params) == 0:
                 logger.info("No parameters, passing None")
@@ -185,7 +196,22 @@ class DataAccessService(BaseIMSService):
                     raise Exception("Stored procedure spGetQuoteOptions_WS not found")
             
             # Now try with parameters
+            # Let's try different parameter formats based on the documentation
+            logger.info("=== TRYING DIFFERENT PARAMETER FORMATS ===")
+            
+            # Format 1: Basic approach
+            logger.info("Format 1: Basic parameter name and value")
             params = {"QuoteGuid": str(quote_guid)}
+            
+            # Format 2: Try with @ prefix
+            logger.info("Format 2: With @ prefix")
+            params2 = {"@QuoteGuid": str(quote_guid)}
+            
+            # Format 3: Try without any modification
+            logger.info("Format 3: Raw GUID")
+            params3 = {"QuoteGuid": quote_guid}
+            
+            # Try the basic format first
             results = self.execute_dataset("spGetQuoteOptions", params)
             
             logger.info(f"Retrieved {len(results)} quote options for quote {quote_guid}")
