@@ -215,7 +215,26 @@ class TritonProcessor:
                 logger.error(f"Failed to add quote option: {e}")
                 raise
             
-            # Step 5a: Get the integer quote option ID using the new stored procedure
+            # Step 5a: Add premium to the quote option
+            if option_guid and payload.gross_premium:
+                try:
+                    logger.info(f"Adding premium {payload.gross_premium} to quote option {option_guid}")
+                    self.quote_service.add_premium(
+                        quote_option_guid=option_guid,
+                        premium=float(payload.gross_premium),
+                        office_id=1,  # Default office ID
+                        charge_code=1  # Default charge code
+                    )
+                    ims_responses.append({
+                        "action": "add_premium",
+                        "result": {"premium": float(payload.gross_premium), "option_guid": str(option_guid)}
+                    })
+                    logger.info(f"Successfully added premium to quote option")
+                except Exception as e:
+                    logger.error(f"Failed to add premium: {e}")
+                    # Continue anyway - maybe it will bind without premium
+            
+            # Step 5b: Get the integer quote option ID using the new stored procedure
             actual_quote_option_id = None
             if option_guid:
                 try:

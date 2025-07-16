@@ -550,6 +550,37 @@ class QuoteService(BaseIMSService):
             logger.error(f"Error adding quote option: {e}")
             raise
     
+    def add_premium(self, quote_option_guid: UUID, premium: float, office_id: int = 1, charge_code: int = 1) -> Dict[str, Any]:
+        """Add premium to a quote option
+        
+        Args:
+            quote_option_guid: The GUID of the quote option to add premium to
+            premium: The premium amount
+            office_id: The office ID (default: 1)
+            charge_code: The charge code (default: 1)
+        
+        Returns:
+            Dict with success status
+        """
+        try:
+            token = self.auth_service.get_token()
+            
+            # AddPremium doesn't return anything on success
+            self.client.service.AddPremium(
+                quoteOptionGuid=str(quote_option_guid),
+                premium=premium,
+                officeID=office_id,
+                chargeCode=charge_code,
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Added premium {premium} to quote option {quote_option_guid}")
+            return {"success": True}
+            
+        except Exception as e:
+            logger.error(f"Error adding premium: {e}")
+            raise
+    
     def _build_additional_info(self, data: Dict[str, Any]) -> List[str]:
         """Build additional information array for storing Triton data"""
         additional_info = []

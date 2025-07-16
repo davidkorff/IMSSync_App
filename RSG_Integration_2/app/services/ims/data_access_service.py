@@ -56,7 +56,7 @@ class DataAccessService(BaseIMSService):
             token = self.auth_service.get_token()
             
             # Convert parameters to array of strings format
-            # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
+            # Format: ['ParamName1', 'Value1', 'ParamName2', 'Value2', ...]
             params = []
             
             # Only add parameters if dictionary is not empty
@@ -67,13 +67,41 @@ class DataAccessService(BaseIMSService):
                     params.append(param_name)
                     params.append(str(value) if value is not None else "")
             
-            response = self.client.service.ExecuteCommand(
-                procedureName=procedure_name,
-                parameters=params,  # Changed from namedParameters
-                _soapheaders=self.get_header(token)
-            )
+            # Log the parameters being sent
+            logger.info(f"Calling ExecuteCommand with procedure: {procedure_name}")
+            logger.info(f"Parameters array: {params}")
+            
+            if len(params) == 0:
+                logger.info("No parameters, passing None")
+                response = self.client.service.ExecuteCommand(
+                    procedureName=procedure_name,
+                    parameters=None,
+                    _soapheaders=self.get_header(token)
+                )
+            else:
+                # Use ArrayOfString type from WSDL (same fix as ExecuteDataSet)
+                try:
+                    logger.info("Using ArrayOfString type from WSDL")
+                    array_type = self.client.get_type('{http://tempuri.org/IMSWebServices/DataAccess}ArrayOfString')
+                    params_array = array_type(params)
+                    logger.info(f"Created ArrayOfString with: {params_array}")
+                    
+                    response = self.client.service.ExecuteCommand(
+                        procedureName=procedure_name,
+                        parameters=params_array,
+                        _soapheaders=self.get_header(token)
+                    )
+                except Exception as e:
+                    logger.warning(f"ArrayOfString approach failed: {e}")
+                    # Fallback to raw array
+                    response = self.client.service.ExecuteCommand(
+                        procedureName=procedure_name,
+                        parameters=params,
+                        _soapheaders=self.get_header(token)
+                    )
             
             logger.info(f"Executed stored procedure: {procedure_name}")
+            logger.info(f"Response: {response}")
             return response
             
         except Exception as e:
