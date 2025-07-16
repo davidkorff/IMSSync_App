@@ -25,11 +25,14 @@ class DataAccessService(BaseIMSService):
             # Convert parameters to array of strings format
             # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
             params = []
-            for key, value in parameters.items():
-                # Ensure parameter name starts with @
-                param_name = key if key.startswith('@') else f'@{key}'
-                params.append(param_name)
-                params.append(str(value) if value is not None else "")
+            
+            # Only add parameters if dictionary is not empty
+            if parameters:
+                for key, value in parameters.items():
+                    # Ensure parameter name starts with @
+                    param_name = key if key.startswith('@') else f'@{key}'
+                    params.append(param_name)
+                    params.append(str(value) if value is not None else "")
             
             response = self.client.service.ExecuteCommand(
                 procedureName=procedure_name,
@@ -52,11 +55,19 @@ class DataAccessService(BaseIMSService):
             # Convert parameters to array of strings format
             # Format: ['@ParamName1', 'Value1', '@ParamName2', 'Value2', ...]
             params = []
-            for key, value in parameters.items():
-                # Ensure parameter name starts with @
-                param_name = key if key.startswith('@') else f'@{key}'
-                params.append(param_name)
-                params.append(str(value) if value is not None else "")
+            
+            # Only add parameters if dictionary is not empty
+            if parameters:
+                for key, value in parameters.items():
+                    # Ensure parameter name starts with @
+                    param_name = key if key.startswith('@') else f'@{key}'
+                    params.append(param_name)
+                    params.append(str(value) if value is not None else "")
+            
+            # Log the parameters being sent
+            logger.info(f"Calling ExecuteDataSet with procedure: {procedure_name}")
+            logger.info(f"Parameters array: {params}")
+            logger.info(f"Parameters array length: {len(params)}")
             
             response = self.client.service.ExecuteDataSet(
                 procedureName=procedure_name,
