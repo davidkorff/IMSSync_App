@@ -220,40 +220,59 @@ class TritonProcessor:
                 "policy_number": payload.policy_number
             }
             
+            # Try different approaches to bind the quote
+            bind_successful = False
+            
+            # Approach 1: Try using Bind method with a default quote option ID
+            # The Bind method documentation says if the QuoteOptionID doesn't reference
+            # an InstallmentBillingQuoteOptionID, it will bill as single pay
             try:
-                # Try to get the quote option details to find the integer ID
-                logger.info(f"Attempting to get quote option details for quote {quote_guid}")
-                quote_options = self.data_access_service.get_quote_option_details(quote_guid)
+                logger.info(f"Attempting to bind quote using Bind method with default option ID")
                 
-                if quote_options and len(quote_options) > 0:
-                    # Use the first quote option ID
-                    quote_option_id = quote_options[0].get("QuoteOptionID")
-                    logger.info(f"Found quote option ID: {quote_option_id} for quote {quote_guid}")
-                    
-                    # Use the Bind method with the integer quote option ID
-                    bind_result = self.quote_service.bind_with_option_id(quote_option_id, bind_data)
-                    ims_responses.append({
-                        "action": "bind_quote_option",
-                        "result": bind_result
-                    })
-                else:
-                    # Fallback to original BindQuote method if no options found
-                    logger.warning("No quote options found via DataAccess, falling back to BindQuote")
+                # Try common default IDs: 1, 0, -1
+                for option_id in [1, 0, -1]:
+                    try:
+                        logger.info(f"Trying Bind with quoteOptionID={option_id}")
+                        bind_result = self.quote_service.bind_with_option_id(option_id, bind_data)
+                        ims_responses.append({
+                            "action": "bind_quote_option",
+                            "result": bind_result
+                        })
+                        logger.info(f"Quote bound successfully with option ID {option_id}: {bind_result}")
+                        bind_successful = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Bind with option ID {option_id} failed: {e}")
+                        continue
+                        
+            except Exception as e:
+                logger.warning(f"Bind method approach failed: {e}")
+            
+            # Approach 2: Fall back to BindQuote if Bind didn't work
+            if not bind_successful:
+                logger.info(f"Falling back to BindQuote method (expected to fail with installment billing error)")
+                try:
                     bind_result = self.quote_service.bind(quote_guid, bind_data)
                     ims_responses.append({
                         "action": "bind_quote",
                         "result": bind_result
                     })
+                    logger.info(f"Quote bound successfully: {bind_result}")
+                    bind_successful = True
                     
-            except Exception as e:
-                logger.warning(f"Failed to get quote option ID via DataAccess: {e}")
-                # Fallback to original BindQuote method
-                logger.info("Falling back to BindQuote method")
-                bind_result = self.quote_service.bind(quote_guid, bind_data)
-                ims_responses.append({
-                    "action": "bind_quote",
-                    "result": bind_result
-                })
+                except Exception as e:
+                    if "installment billing" in str(e).lower():
+                        logger.error(f"Expected installment billing error: {e}")
+                        logger.error("Solutions:")
+                        logger.error("1. Create stored procedure spGetQuoteOptions_WS to get correct option ID")
+                        logger.error("2. Configure installment billing in IMS")
+                        logger.error("3. Use DataAccess to query quote option IDs")
+                        errors.append(f"Bind failed - installment billing not configured: {str(e)}")
+                        raise
+                    else:
+                        logger.error(f"Unexpected error binding quote: {e}")
+                        errors.append(f"Bind failed: {str(e)}")
+                        raise
             
             # Step 7: Get invoice details
             invoice_details = self.invoice_service.get_invoice(quote_guid)

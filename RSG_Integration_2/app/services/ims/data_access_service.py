@@ -69,11 +69,20 @@ class DataAccessService(BaseIMSService):
             logger.info(f"Parameters array: {params}")
             logger.info(f"Parameters array length: {len(params)}")
             
-            response = self.client.service.ExecuteDataSet(
-                procedureName=procedure_name,
-                parameters=params,  # Changed from namedParameters
-                _soapheaders=self.get_header(token)
-            )
+            # If no parameters, try passing None instead of empty array
+            if len(params) == 0:
+                logger.info("No parameters, passing None")
+                response = self.client.service.ExecuteDataSet(
+                    procedureName=procedure_name,
+                    parameters=None,
+                    _soapheaders=self.get_header(token)
+                )
+            else:
+                response = self.client.service.ExecuteDataSet(
+                    procedureName=procedure_name,
+                    parameters=params,
+                    _soapheaders=self.get_header(token)
+                )
             
             logger.info(f"Executed dataset procedure: {procedure_name}")
             
@@ -160,6 +169,22 @@ class DataAccessService(BaseIMSService):
             #     WHERE QuoteGuid = @QuoteGuid
             # END
             
+            # Try different parameter formats
+            logger.info(f"Attempting to get quote options for {quote_guid}")
+            
+            # First, let's check if the stored procedure exists by trying with empty params
+            try:
+                logger.info("Testing if stored procedure exists with empty parameters")
+                test_results = self.execute_dataset("spGetQuoteOptions", {})
+                logger.info(f"Stored procedure exists but returned {len(test_results)} results without parameters")
+            except Exception as test_error:
+                logger.warning(f"Stored procedure test failed: {test_error}")
+                # If it's a "procedure not found" error, the procedure doesn't exist
+                if "could not find stored procedure" in str(test_error).lower():
+                    logger.error("Stored procedure spGetQuoteOptions_WS does not exist")
+                    raise Exception("Stored procedure spGetQuoteOptions_WS not found")
+            
+            # Now try with parameters
             params = {"QuoteGuid": str(quote_guid)}
             results = self.execute_dataset("spGetQuoteOptions", params)
             
