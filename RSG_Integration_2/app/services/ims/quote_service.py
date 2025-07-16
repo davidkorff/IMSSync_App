@@ -295,17 +295,41 @@ class QuoteService(BaseIMSService):
         """Bind a quote to create a policy"""
         try:
             token = self.auth_service.get_token()
-            response = self.client.service.BindQuoteWithInstallment(
+            
+            # Try the simple BindQuote method first
+            response = self.client.service.BindQuote(
                 quoteGuid=str(quote_guid),
-                companyInstallmentID=-1,  # Use -1 to bill as single pay
                 _soapheaders=self.get_header(token)
             )
             
-            logger.info(f"Bound quote {quote_guid} with single pay billing")
+            logger.info(f"Bound quote {quote_guid}")
             return {"success": True, "policy_guid": str(response)}
             
         except Exception as e:
             logger.error(f"Error binding quote: {e}")
+            raise
+    
+    def bind_with_option_id(self, quote_option_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Bind a quote using the quote option ID (integer)
+        
+        This uses the Bind method which takes an integer quote option ID.
+        Per documentation: If the QuoteOptionID does not reference an 
+        InstallmentBillingQuoteOptionID, then will be billed as single pay.
+        """
+        try:
+            token = self.auth_service.get_token()
+            
+            # Use the Bind method with quote option ID
+            response = self.client.service.Bind(
+                quoteOptionID=quote_option_id,
+                _soapheaders=self.get_header(token)
+            )
+            
+            logger.info(f"Bound quote option {quote_option_id}")
+            return {"success": True, "policy_guid": str(response)}
+            
+        except Exception as e:
+            logger.error(f"Error binding quote option: {e}")
             raise
     
     def unbind(self, policy_guid: UUID) -> Dict[str, Any]:

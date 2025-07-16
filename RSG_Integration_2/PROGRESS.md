@@ -54,10 +54,24 @@ Building a service that processes insurance transactions from Triton and transfo
    - Implemented AddQuoteOption method to create options before binding
    - Using the line GUID from environment
 
-6. ~~**Installment billing information not found**~~ ✅ FIXED
-   - BindQuote internally calls BindQuoteWithInstallment expecting installment data
-   - Changed to use BindQuoteWithInstallment with companyInstallmentID=-1 for single pay
-   - This should resolve the binding error
+6. **Installment billing information not found** ❌ BLOCKING
+   - Error persists with both BindQuote and BindQuoteWithInstallment (with -1)
+   - Tried multiple approaches:
+     - BindQuote (original) - fails with "Installment billing information not found"
+     - BindQuoteWithInstallment with companyInstallmentID=-1 - same error
+     - Both methods internally expect installment billing configuration
+   - Possible causes:
+     - IMS configuration issue - may require policy number rule setup
+     - CompanyLine configuration missing installment billing setup
+     - Database configuration issue with installment billing tables
+   - Next steps to investigate:
+     - Check if a specific BillingTypeID is needed (currently using 1 = Direct Bill - Company)
+     - Verify if GetAvailableInstallmentOptions returns any options
+     - May need IMS administrator to configure installment billing or policy number rules
+   - Alternative approach:
+     - Use DataAccess service to directly query quote options and get the integer ID
+     - Try using the Bind method (not BindQuote) with the quote option ID
+     - This should automatically bill as single pay per documentation
 
 7. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
@@ -79,11 +93,11 @@ Bind Transaction (CURRENT FLOW):
 1. ✅ Authenticate with IMS
 2. ✅ Search for existing insured 
 3. ✅ Create insured if not found
-4. ✅ Create submission and quote with AddQuote
+4. ✅ Create submission and quote with AddQuote (AdditionalInformation working)
 5. ⚠️ Update external quote ID (UpdateExternalQuoteId) - Fails but continues (non-blocking)
 6. ⚠️ Store additional data (ImportNetRateXml) - Fails but continues (non-blocking)
 7. ✅ Add quote option (AddQuoteOption)
-8. ✅ Bind quote (BindQuoteWithInstallment)
+8. ❌ Bind quote - "Installment billing information not found" (blocking)
 9. ⏸️ Get invoice details
 10. ⏸️ Store policy mapping
 
@@ -139,11 +153,12 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
    - Triton data now stored during quote creation in AdditionalInformation field
    - Each data point stored as "TRITON:key=value" format
 
-6. **Fixed BindQuote Installment Billing Error**
-   - Changed from BindQuote to BindQuoteWithInstallment method
-   - Using companyInstallmentID=-1 for single pay billing
-   - Resolves "Installment billing information not found" error
-   - Bind transaction should now complete successfully
+6. **Attempted to Fix BindQuote Installment Billing Error**
+   - Tried multiple approaches:
+     - Changed from BindQuote to BindQuoteWithInstallment with companyInstallmentID=-1
+     - Reverted back to simple BindQuote method
+   - Error persists: "Installment billing information not found"
+   - Appears to be an IMS configuration issue requiring administrator intervention
 
 7. **Added DataAccess Stored Procedure Approach**
    - Documented as Option 7 for data storage
@@ -278,7 +293,7 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
          InvoiceDate DATE,
          CreatedDate DATETIME DEFAULT GETDATE(),
          CONSTRAINT FK_TritonQuoteData_Quote FOREIGN KEY (QuoteGuid) 
-             REFERENCES tblQuote(QuoteGuid)
+             REFERENCES tblQuotes(QuoteGuid)
      )
      ```
   2. Create stored procedure with _WS suffix:
@@ -409,7 +424,7 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
 - ⚠️ UpdateExternalQuoteId failed (missing stored procedure) - Non-blocking
 - ⚠️ ImportNetRateXml failed (wrong format expected) - Non-blocking
 - ✅ AddQuoteOption successful
-- ❌ BindQuote failed with "Installment billing information not found" (now fixed with BindQuoteWithInstallment)
+- ❌ BindQuote failed with "Installment billing information not found" - tried both BindQuote and BindQuoteWithInstallment
 
 **New Field Added:**
 - `prior_transaction_id` added to TEST.json to track policy changes/renewals

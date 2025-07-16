@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.models.triton_models import TritonPayload, ProcessingResult
 from app.services.ims import AuthService, InsuredService, QuoteService, InvoiceService
+from app.services.ims.data_access_service import DataAccessService
 from app.utils.policy_store import policy_store
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ class TritonProcessor:
         self.insured_service = InsuredService(self.auth_service)
         self.quote_service = QuoteService(self.auth_service)
         self.invoice_service = InvoiceService(self.auth_service)
+        self.data_access_service = DataAccessService(self.auth_service)
     
     async def process_transaction(self, payload: TritonPayload) -> ProcessingResult:
         """Main entry point for processing Triton transactions"""
@@ -212,16 +214,46 @@ class TritonProcessor:
                 logger.error(f"Failed to add quote option: {e}")
                 raise
             
-            # Step 6: Bind the quote
+            # Step 6: Get quote option ID and bind the quote
             bind_data = {
                 "bound_date": bound_date,  # Use converted date
                 "policy_number": payload.policy_number
             }
-            bind_result = self.quote_service.bind(quote_guid, bind_data)
-            ims_responses.append({
-                "action": "bind_quote",
-                "result": bind_result
-            })
+            
+            try:
+                # Try to get the quote option details to find the integer ID
+                logger.info(f"Attempting to get quote option details for quote {quote_guid}")
+                quote_options = self.data_access_service.get_quote_option_details(quote_guid)
+                
+                if quote_options and len(quote_options) > 0:
+                    # Use the first quote option ID
+                    quote_option_id = quote_options[0].get("QuoteOptionID")
+                    logger.info(f"Found quote option ID: {quote_option_id} for quote {quote_guid}")
+                    
+                    # Use the Bind method with the integer quote option ID
+                    bind_result = self.quote_service.bind_with_option_id(quote_option_id, bind_data)
+                    ims_responses.append({
+                        "action": "bind_quote_option",
+                        "result": bind_result
+                    })
+                else:
+                    # Fallback to original BindQuote method if no options found
+                    logger.warning("No quote options found via DataAccess, falling back to BindQuote")
+                    bind_result = self.quote_service.bind(quote_guid, bind_data)
+                    ims_responses.append({
+                        "action": "bind_quote",
+                        "result": bind_result
+                    })
+                    
+            except Exception as e:
+                logger.warning(f"Failed to get quote option ID via DataAccess: {e}")
+                # Fallback to original BindQuote method
+                logger.info("Falling back to BindQuote method")
+                bind_result = self.quote_service.bind(quote_guid, bind_data)
+                ims_responses.append({
+                    "action": "bind_quote",
+                    "result": bind_result
+                })
             
             # Step 7: Get invoice details
             invoice_details = self.invoice_service.get_invoice(quote_guid)
