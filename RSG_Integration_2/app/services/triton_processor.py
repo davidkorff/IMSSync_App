@@ -219,11 +219,11 @@ class TritonProcessor:
             actual_quote_option_id = None
             if option_guid:
                 try:
-                    logger.info(f"Getting integer quote option ID using quote GUID {quote_guid}")
-                    # spGetTritonQuoteData_WS expects the QUOTE GUID, not the option GUID!
-                    actual_quote_option_id = self.data_access_service.get_quote_option_id_by_quote_guid(quote_guid)
+                    logger.info(f"Getting integer quote option ID using quote option GUID {option_guid}")
+                    # spGetTritonQuoteData_WS expects the Quote Option GUID
+                    actual_quote_option_id = self.data_access_service.get_quote_option_id_by_guid(option_guid)
                     if actual_quote_option_id:
-                        logger.info(f"SUCCESS: Got quote option ID {actual_quote_option_id} for quote {quote_guid}")
+                        logger.info(f"SUCCESS: Got quote option ID {actual_quote_option_id} for quote option {option_guid}")
                         ims_responses.append({
                             "action": "get_quote_option_id",
                             "result": {"quote_option_id": actual_quote_option_id}

@@ -246,14 +246,14 @@ class DataAccessService(BaseIMSService):
             # Return None instead of raising to allow fallback to other methods
             return None
     
-    def get_quote_option_id_by_quote_guid(self, quote_guid: UUID) -> Optional[int]:
-        """Get the integer quote option ID for a given QUOTE GUID using spGetTritonQuoteData_WS"""
+    def get_quote_option_id_by_guid(self, quote_option_guid: UUID) -> Optional[int]:
+        """Get the integer quote option ID for a given QUOTE OPTION GUID using spGetTritonQuoteData_WS"""
         try:
-            logger.info(f"Getting quote option ID for quote GUID {quote_guid} using spGetTritonQuoteData")
+            logger.info(f"Getting quote option ID for quote option GUID {quote_option_guid} using spGetTritonQuoteData")
             
-            # spGetTritonQuoteData_WS expects QuoteGuid, not QuoteOptionGuid!
+            # spGetTritonQuoteData_WS expects QuoteOptionGuid parameter
             params = {
-                "QuoteGuid": str(quote_guid)
+                "QuoteOptionGuid": str(quote_option_guid)
             }
             
             results = self.execute_dataset("spGetTritonQuoteData", params)
