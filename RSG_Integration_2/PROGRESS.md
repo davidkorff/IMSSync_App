@@ -54,12 +54,17 @@ Building a service that processes insurance transactions from Triton and transfo
    - Implemented AddQuoteOption method to create options before binding
    - Using the line GUID from environment
 
-6. **Method Availability**
+6. ~~**Installment billing information not found**~~ ✅ FIXED
+   - BindQuote internally calls BindQuoteWithInstallment expecting installment data
+   - Changed to use BindQuoteWithInstallment with companyInstallmentID=-1 for single pay
+   - This should resolve the binding error
+
+7. **Method Availability**
    - `AddQuoteWithSubmission` doesn't exist in this IMS instance
    - `AddQuoteWithInsured` also not available in this instance
    - Using fallback approach with separate API calls
 
-7. **Data Storage Issues (Non-Blocking)**
+8. **Data Storage Issues (Non-Blocking)**
    - UpdateExternalQuoteId: Missing stored procedure 'dbo.spAddExternalQuoteLink'
      - Error is caught and logged as warning
      - Transaction continues without storing external ID
@@ -78,7 +83,7 @@ Bind Transaction (CURRENT FLOW):
 5. ⚠️ Update external quote ID (UpdateExternalQuoteId) - Fails but continues (non-blocking)
 6. ⚠️ Store additional data (ImportNetRateXml) - Fails but continues (non-blocking)
 7. ✅ Add quote option (AddQuoteOption)
-8. 🔄 Bind quote
+8. ✅ Bind quote (BindQuoteWithInstallment)
 9. ⏸️ Get invoice details
 10. ⏸️ Store policy mapping
 
@@ -133,6 +138,18 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
    - Added `_build_additional_info` helper method
    - Triton data now stored during quote creation in AdditionalInformation field
    - Each data point stored as "TRITON:key=value" format
+
+6. **Fixed BindQuote Installment Billing Error**
+   - Changed from BindQuote to BindQuoteWithInstallment method
+   - Using companyInstallmentID=-1 for single pay billing
+   - Resolves "Installment billing information not found" error
+   - Bind transaction should now complete successfully
+
+7. **Added DataAccess Stored Procedure Approach**
+   - Documented as Option 7 for data storage
+   - Provides most flexible and scalable solution
+   - Includes SQL scripts for table and stored procedure creation
+   - Recommended for long-term production use
 
 ### Data Storage Options for Extra Policy Details
 
@@ -226,35 +243,143 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
 2. **Secondary**: Continue attempting UpdateExternalQuoteId and ImportNetRateXml
 3. **Future**: Consider ImportExcelRater or custom table if more robust solution needed
 
+**Option 7: DataAccess Stored Procedure (RECOMMENDED LONG-TERM)**
+- **Method**: Use IMS DataAccess service to execute custom stored procedures
+- **Pros**: 
+  - Most flexible and scalable solution
+  - Direct database access with full control
+  - Can store complex relationships and data structures
+  - Highly queryable with SQL
+  - Can retrieve data in multiple formats
+  - Standard IMS approach for custom data
+- **Cons**: 
+  - Requires database modifications
+  - Requires stored procedure development
+  - More complex initial setup
+- **Implementation Steps**:
+  1. Create custom database table:
+     ```sql
+     CREATE TABLE tblTritonQuoteData (
+         QuoteGuid UNIQUEIDENTIFIER NOT NULL,
+         TransactionID VARCHAR(50),
+         PriorTransactionID VARCHAR(50),
+         OpportunityID VARCHAR(50),
+         OpportunityType VARCHAR(50),
+         PolicyFee DECIMAL(10,2),
+         SurplusLinesTax DECIMAL(10,2),
+         StampingFee DECIMAL(10,2),
+         OtherFee DECIMAL(10,2),
+         CommissionPercent DECIMAL(5,2),
+         CommissionAmount DECIMAL(10,2),
+         NetPremium DECIMAL(10,2),
+         BasePremium DECIMAL(10,2),
+         Status VARCHAR(50),
+         LimitPrior VARCHAR(50),
+         InvoiceDate DATE,
+         CreatedDate DATETIME DEFAULT GETDATE(),
+         CONSTRAINT FK_TritonQuoteData_Quote FOREIGN KEY (QuoteGuid) 
+             REFERENCES tblQuote(QuoteGuid)
+     )
+     ```
+  2. Create stored procedure with _WS suffix:
+     ```sql
+     CREATE PROCEDURE spAddTritonQuoteData_WS
+         @QuoteGuid UNIQUEIDENTIFIER,
+         @TransactionID VARCHAR(50),
+         @PriorTransactionID VARCHAR(50) = NULL,
+         @OpportunityID VARCHAR(50) = NULL,
+         @OpportunityType VARCHAR(50) = NULL,
+         @PolicyFee DECIMAL(10,2) = NULL,
+         @SurplusLinesTax DECIMAL(10,2) = NULL,
+         @StampingFee DECIMAL(10,2) = NULL,
+         @OtherFee DECIMAL(10,2) = NULL,
+         @CommissionPercent DECIMAL(5,2) = NULL,
+         @CommissionAmount DECIMAL(10,2) = NULL,
+         @NetPremium DECIMAL(10,2) = NULL,
+         @BasePremium DECIMAL(10,2) = NULL,
+         @Status VARCHAR(50) = NULL,
+         @LimitPrior VARCHAR(50) = NULL,
+         @InvoiceDate DATE = NULL
+     AS
+     BEGIN
+         INSERT INTO tblTritonQuoteData (
+             QuoteGuid, TransactionID, PriorTransactionID, OpportunityID,
+             OpportunityType, PolicyFee, SurplusLinesTax, StampingFee,
+             OtherFee, CommissionPercent, CommissionAmount, NetPremium,
+             BasePremium, Status, LimitPrior, InvoiceDate
+         )
+         VALUES (
+             @QuoteGuid, @TransactionID, @PriorTransactionID, @OpportunityID,
+             @OpportunityType, @PolicyFee, @SurplusLinesTax, @StampingFee,
+             @OtherFee, @CommissionPercent, @CommissionAmount, @NetPremium,
+             @BasePremium, @Status, @LimitPrior, @InvoiceDate
+         )
+         
+         SELECT 'Success' as Result
+     END
+     ```
+  3. Call from code using DataAccess service:
+     ```python
+     # In data_access_service.py
+     def store_triton_data(self, quote_guid: UUID, data: Dict[str, Any]):
+         params = {
+             "QuoteGuid": str(quote_guid),
+             "TransactionID": data.get("transaction_id"),
+             "PriorTransactionID": data.get("prior_transaction_id"),
+             # ... other parameters
+         }
+         
+         # Note: _WS suffix is added automatically by ExecuteCommand
+         response = self.client.service.ExecuteCommand(
+             procedureName="spAddTritonQuoteData",
+             namedParameters=params,
+             _soapheaders=self.get_header(token)
+         )
+     ```
+  4. Create retrieval stored procedure:
+     ```sql
+     CREATE PROCEDURE spGetTritonQuoteData_WS
+         @QuoteGuid UNIQUEIDENTIFIER
+     AS
+     BEGIN
+         SELECT * FROM tblTritonQuoteData
+         WHERE QuoteGuid = @QuoteGuid
+     END
+     ```
+
 **Recommendation for Production:**
 - **Short-term**: Use AdditionalInformation (already working)
 - **Medium-term**: Fix UpdateExternalQuoteId stored procedure for cleaner integration
-- **Long-term**: Implement custom table solution for full queryability and scalability
+- **Long-term**: Implement DataAccess stored procedure (Option 7) for full queryability and scalability
 - **Alternative**: If Excel-based workflows exist, consider ImportExcelRater
 
 ### Next Steps
 
 1. **Test Current Implementation**
-   - Run bind transaction with RaterID fix
-   - Verify UpdateExternalQuoteId works
-   - Monitor ImportNetRateXml behavior and response
-   - Check for any unwanted side effects
+   - Run bind transaction with BindQuoteWithInstallment fix
+   - Verify bind completes successfully
+   - Check that AdditionalInformation data is stored correctly
+   - Monitor for any new errors
 
 2. **Complete Bind Flow**
    - ✅ Create insured/quote 
-   - ✅ Update external ID
-   - 🔄 Store additional data (testing approach)
-   - ⏸️ Bind the quote
+   - ✅ Update external ID (non-blocking failure)
+   - ✅ Store additional data (AdditionalInformation working)
+   - ✅ Add quote option
+   - ✅ Bind the quote (fixed with BindQuoteWithInstallment)
    - ⏸️ Get invoice details
    - ⏸️ Store policy mappings
 
-3. **Implement Fallback if Needed**
-   - If ImportNetRateXml causes issues, switch to AdditionalInformation
-   - Update quote creation to include additional data
+3. **Implement DataAccess Solution (Future)**
+   - Create data_access_service.py
+   - Implement store_triton_data method
+   - Create SQL scripts for database setup
+   - Test stored procedure integration
 
 4. **Update Other Transactions**
-   - Apply same data storage pattern to other transaction types
-   - Ensure consistent approach across all flows
+   - Apply same bind method fix to other transaction types
+   - Ensure consistent data storage approach across all flows
+   - Test all 5 transaction types
 
 ### Technical Debt
 
@@ -280,22 +405,21 @@ Legend: ✅ Working | ⚠️ Failing (non-blocking) | ❌ Failing (blocking) | �
 
 **Latest Test Results:**
 - ✅ Insured created successfully
-- ✅ Quote created successfully
+- ✅ Quote created successfully with AdditionalInformation data
 - ⚠️ UpdateExternalQuoteId failed (missing stored procedure) - Non-blocking
 - ⚠️ ImportNetRateXml failed (wrong format expected) - Non-blocking
-- ❌ BindQuote failed with "Invalid OptionID" (now fixed with AddQuoteOption)
+- ✅ AddQuoteOption successful
+- ❌ BindQuote failed with "Installment billing information not found" (now fixed with BindQuoteWithInstallment)
 
 **New Field Added:**
 - `prior_transaction_id` added to TEST.json to track policy changes/renewals
 
 **Next Steps:**
-1. Test bind flow with all fixes:
-   - AddQuoteOption implementation
-   - NetRate XML format update
-   - AdditionalInformation data storage
-2. Expect bind to succeed now
+1. Test bind flow with BindQuoteWithInstallment fix
+2. Expect bind to succeed now that installment billing error is resolved
 3. Complete invoice retrieval after successful bind
-4. Test other transaction types
+4. Implement remaining transaction flows
+5. Begin DataAccess stored procedure implementation for production
 
 ## File Structure
 ```

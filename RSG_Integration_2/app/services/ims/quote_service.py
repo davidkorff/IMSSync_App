@@ -295,12 +295,13 @@ class QuoteService(BaseIMSService):
         """Bind a quote to create a policy"""
         try:
             token = self.auth_service.get_token()
-            response = self.client.service.BindQuote(
+            response = self.client.service.BindQuoteWithInstallment(
                 quoteGuid=str(quote_guid),
+                companyInstallmentID=-1,  # Use -1 to bill as single pay
                 _soapheaders=self.get_header(token)
             )
             
-            logger.info(f"Bound quote {quote_guid}")
+            logger.info(f"Bound quote {quote_guid} with single pay billing")
             return {"success": True, "policy_guid": str(response)}
             
         except Exception as e:
