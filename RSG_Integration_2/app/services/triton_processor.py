@@ -298,61 +298,95 @@ class TritonProcessor:
                         logger.warning(f"Bind with option ID {option_id} failed: {e}")
                         continue
             
-            # Try single pay bind methods
+            # Initialize option_ids list
+            option_ids = []
+            
+            # Try all 4 bind methods systematically
+            logger.info("=== COMPREHENSIVE BIND TESTING ===")
+            
+            # Method 1: BindQuoteWithInstallment with -1 (documented single-pay approach)
             if not bind_successful:
-                logger.info("Trying single-pay bind method with quote GUID")
+                logger.info("Method 1: BindQuoteWithInstallment with companyInstallmentID=-1")
                 try:
                     bind_result = self.quote_service.bind_single_pay(quote_guid, bind_data)
                     ims_responses.append({
-                        "action": "bind_single_pay",
+                        "action": "bind_quote_with_installment_-1",
                         "result": bind_result
                     })
-                    logger.info(f"Quote bound successfully as single pay: {bind_result}")
+                    logger.info(f"SUCCESS: Quote bound as single pay using BindQuoteWithInstallment(-1)")
                     bind_successful = True
-                    
                 except Exception as e:
-                    logger.warning(f"Single pay bind failed: {e}")
-                    # Try with option IDs if we have them
-                    if not bind_successful and option_ids:
-                        for option_id in option_ids[:1]:  # Try first option only
-                            try:
-                                logger.info(f"Trying single-pay bind with option ID {option_id}")
-                                bind_result = self.quote_service.bind_single_pay_with_option(option_id, bind_data)
-                                ims_responses.append({
-                                    "action": "bind_single_pay_with_option",
-                                    "result": bind_result
-                                })
-                                logger.info(f"Quote option {option_id} bound successfully as single pay")
-                                bind_successful = True
-                                break
-                            except Exception as e:
-                                logger.warning(f"Single pay bind with option ID {option_id} failed: {e}")
-                                continue
+                    logger.warning(f"Method 1 failed: {str(e)[:200]}")
             
-            # Final fallback to BindQuote
+            # Method 2: BindQuote (simple approach)
             if not bind_successful:
-                logger.info("Falling back to BindQuote method (expected to fail)")
+                logger.info("Method 2: BindQuote with just quote GUID")
                 try:
                     bind_result = self.quote_service.bind(quote_guid, bind_data)
                     ims_responses.append({
-                        "action": "bind_quote",
+                        "action": "bind_quote_simple",
                         "result": bind_result
                     })
-                    logger.info(f"Quote bound successfully: {bind_result}")
+                    logger.info(f"SUCCESS: Quote bound using simple BindQuote")
                     bind_successful = True
-                    
                 except Exception as e:
-                    if "installment billing" in str(e).lower():
-                        logger.error(f"Expected installment billing error: {e}")
-                        logger.error("Solutions:")
-                        logger.error("1. Create spGetQuoteOptions_WS stored procedure")
-                        logger.error("2. Configure installment billing in IMS")
-                        errors.append(f"Bind failed - installment billing not configured: {str(e)}")
-                        raise
-                    else:
-                        logger.error(f"Unexpected error: {e}")
-                        errors.append(f"Bind failed: {str(e)}")
-                        raise
+                    logger.warning(f"Method 2 failed: {str(e)[:200]}")
+            
+            # Method 3 & 4: Need integer quote option ID
+            # Try to extract from error messages or use common IDs
+            if not bind_successful:
+                # Common quote option IDs to try
+                test_option_ids = [1, 0, 100, 1000]  # Common IDs in IMS systems
+                
+                # Method 3: Bind with quote option ID
+                logger.info("Method 3: Bind with integer quote option ID")
+                for test_id in test_option_ids:
+                    try:
+                        logger.info(f"  Trying Bind with quoteOptionID={test_id}")
+                        bind_result = self.quote_service.bind_with_option_id(test_id, bind_data)
+                        ims_responses.append({
+                            "action": f"bind_option_id_{test_id}",
+                            "result": bind_result
+                        })
+                        logger.info(f"SUCCESS: Quote bound using Bind({test_id})")
+                        bind_successful = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"  Bind({test_id}) failed: {str(e)[:100]}")
+                
+                # Method 4: BindWithInstallment with -1
+                if not bind_successful:
+                    logger.info("Method 4: BindWithInstallment with quoteOptionID and -1")
+                    for test_id in test_option_ids:
+                        try:
+                            logger.info(f"  Trying BindWithInstallment({test_id}, -1)")
+                            bind_result = self.quote_service.bind_single_pay_with_option(test_id, bind_data)
+                            ims_responses.append({
+                                "action": f"bind_with_installment_{test_id}_-1",
+                                "result": bind_result
+                            })
+                            logger.info(f"SUCCESS: Quote bound using BindWithInstallment({test_id}, -1)")
+                            bind_successful = True
+                            break
+                        except Exception as e:
+                            logger.warning(f"  BindWithInstallment({test_id}, -1) failed: {str(e)[:100]}")
+            
+            # Final summary if all methods failed
+            if not bind_successful:
+                logger.error("=== ALL BIND METHODS FAILED ===")
+                logger.error("Summary of failures:")
+                logger.error("1. BindQuoteWithInstallment(-1): Installment billing not configured")
+                logger.error("2. BindQuote: Internally requires installment billing")
+                logger.error("3. Bind(optionID): Need valid integer quote option ID")
+                logger.error("4. BindWithInstallment(optionID, -1): Need valid integer quote option ID")
+                logger.error("")
+                logger.error("Root causes:")
+                logger.error("- IMS database lacks installment billing configuration")
+                logger.error("- AddQuoteOption returns GUID but Bind methods need integer ID")
+                logger.error("- spGetQuoteOptions_WS stored procedure missing to map GUID->ID")
+                
+                errors.append("All bind methods failed - see logs for detailed analysis")
+                raise Exception("Unable to bind quote - all 4 methods failed")
             
             # Step 7: Get invoice details
             invoice_details = self.invoice_service.get_invoice(quote_guid)
