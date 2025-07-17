@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  rsg-integration:
+    build: .
+    container_name: rsg-integration-service
+    ports:
+      - "8000:8000"
+    environment:
+      - IMS_BASE_URL=${IMS_BASE_URL:-http://10.64.32.234/ims_one}
+      - IMS_PROGRAM_CODE=${IMS_PROGRAM_CODE:-TRTON}
+      - IMS_CONTACT_TYPE=${IMS_CONTACT_TYPE:-External}
+      - IMS_EMAIL=${IMS_EMAIL}
+      - IMS_PASSWORD=${IMS_PASSWORD}
+      - IMS_PROJECT_NAME=${IMS_PROJECT_NAME:-RSG_Integration}
+      - TRITON_API_KEY=${TRITON_API_KEY}
+      - TRITON_WEBHOOK_SECRET=${TRITON_WEBHOOK_SECRET}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
