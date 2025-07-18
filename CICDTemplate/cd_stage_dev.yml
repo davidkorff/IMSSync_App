@@ -11,7 +11,7 @@ stages:
         displayName: 'Download Build Artifacts'
         inputs:
           artifactName: 'drop'
-          targetPath: '$(System.DefaultWorkingDirectory)\drop'
+          targetPath: '$(System.DefaultWorkingDirectory)/drop'
 
       - task: AzureFunctionApp@2
         condition: true
