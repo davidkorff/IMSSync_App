@@ -31,7 +31,13 @@ stages:
                     source venv/bin/activate
                     pip install --no-cache-dir -r requirements.txt
             displayName: 'Install dependencies' # Display name for the task
-
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                    command -v zip || echo "zip not found"
+                    sudo apt-get install zip
+            displayName: 'Install zip' # Display name for the task
           # Step 5: Archive files in a folder
           - task: ArchiveFiles@2
             inputs:
