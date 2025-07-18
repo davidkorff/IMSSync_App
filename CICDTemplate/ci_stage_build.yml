@@ -23,14 +23,13 @@ stages:
             inputs:
               targetType: 'inline'
               script: 'get-childitem -path $(Build.SourcesDirectory) -recurse'
-          - task: PowerShell@2
+          - task: Bash@3
             inputs:
               targetType: 'inline'
               script: |
-                python3.11 -m venv .venv
-                cd .\.venv\Scripts\
-                Activate.ps1
-                pip install --target="./.python_packages/lib/site-packages" -r ./requirements.txt
+                    python3.11 -m venv venv
+                    source venv/bin/activate
+                    pip install --no-cache-dir -r requirements.txt
             displayName: 'Install dependencies' # Display name for the task
 
           # Step 5: Archive files in a folder
