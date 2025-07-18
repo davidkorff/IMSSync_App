@@ -25,7 +25,8 @@ stages:
               targetType: 'inline'
               script: |
                 python3.11 -m venv .venv
-                .\.venv\Scripts\Activate.ps1
+                cd \.venv\Scripts\
+                Activate.ps1
                 pip install --target="./.python_packages/lib/site-packages" -r ./requirements.txt
             displayName: 'Install dependencies' # Display name for the task
 
