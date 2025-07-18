@@ -46,7 +46,7 @@ stages:
             inputs:
               connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
               appType: 'functionAppLinux'
-              appName: 'fa-corp-triton-qa-eus2-002'
+              appName: 'fa-corp-triton-qa-eus2-001'
               package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
               appSettings: '-AZURE_WEB_FEATURES enable_v2 -keyvaulturl "https://kvcorpautoquoteqaeus201.vault.azure.net/"'
               deploymentMethod: 'zipDeploy'
@@ -75,7 +75,7 @@ stages:
             inputs:
               connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
               appType: 'functionAppLinux'
-              appName: 'fa-corp-triton-pprd-eus2-002'
+              appName: 'fa-corp-triton-pprd-eus2-001'
               package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
               appSettings: '-AZURE_WEB_FEATURES enable_v2 -keyvaulturl "https://kvcorpautoquotpprdeus201.vault.azure.net/"'
               deploymentMethod: 'zipDeploy'
@@ -109,7 +109,7 @@ stages:
              inputs:
               connectedServiceNameARM: 'sc-greenhill-corp-prd-ado-01'
               appType: 'functionAppLinux'
-              appName: 'fa-corp-triton-prd-eus2-002'
+              appName: 'fa-corp-triton-prd-eus2-001'
               package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
               deploymentMethod: 'zipDeploy'
            - template: CICDTemplate/utils/promote_artifact.yaml

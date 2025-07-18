@@ -19,7 +19,7 @@ stages:
         inputs:
           connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
           appType: 'functionAppLinux'
-          appName: 'fa-corp-triton-dev-eus2-002'
+          appName: 'fa-corp-triton-dev-eus2-001'
           package: '$(System.DefaultWorkingDirectory)/drop/$(Build.BuildId).zip'
           deploymentMethod: 'zipDeploy'
       - task: UniversalPackages@0
@@ -29,7 +29,7 @@ stages:
           publishDirectory: '$(System.DefaultWorkingDirectory)/drop/'
           feedsToUsePublish: 'internal'
           vstsFeedPublish: 'a9badce7-4611-427b-a4f8-84ab9bf6521f/1e82eedb-a949-4367-a58d-ebaf19cd0df4'
-          vstsFeedPackagePublish: 'loc_checks_app'
+          vstsFeedPackagePublish: 'triton_ims_integration_api'
           versionOption: 'custom'
           versionPublish: '$(majorVersion).$(minorVersion).$(Build.BuildId)'
-          packagePublishDescription: 'LocChecksApp_WKFC Artifcat'
+          packagePublishDescription: 'triton_ims_integration_api Artifcat'
