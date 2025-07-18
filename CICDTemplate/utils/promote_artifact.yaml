@@ -15,8 +15,8 @@ steps:
         $organization = "$(System.TeamFoundationCollectionUri)".Replace("https://dev.azure.com/", "").Split('/')[0]
         $project = "$(System.TeamProject)".Replace(" ", "%20")
         $feedId = '312a6069-d50f-4bbe-9b2d-3404afa082b5/57a7d646-01a2-40d4-a4e4-752cef2e0dae'.Replace("/", "%2F")
-        $feedname =  'wkfc-data-engineering'
-        $packageName = 'loc_checks_app'
+        $feedname =  'greenhill-triton'
+        $packageName = 'triton_ims_integration_api'
         $packageVersion = '$(majorVersion).$(minorVersion).$(Build.BuildId)' 
         $viewName = "Release"
 
