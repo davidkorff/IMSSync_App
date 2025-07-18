@@ -12,7 +12,6 @@ stages:
             inputs:
               versionSpec: '3.11'
               addToPath: true
-              architecture: 'x64'
             displayName: 'Use Python' # Display name for the task
 
           - task: PowerShell@2
