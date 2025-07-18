@@ -1,0 +1,32 @@
+steps:
+- task: PowerShell@2
+  displayName: 'Promote Package to Release View'
+  inputs:
+    targetType: 'inline'
+    script: |
+        $body = @{
+            views = @{
+                op    = "add"
+                path  = "/views/-"
+                value = "Release"
+            }
+        } | ConvertTo-Json
+
+        $organization = "$(System.TeamFoundationCollectionUri)".Replace("https://dev.azure.com/", "").Split('/')[0]
+        $project = "$(System.TeamProject)".Replace(" ", "%20")
+        $feedId = '312a6069-d50f-4bbe-9b2d-3404afa082b5/57a7d646-01a2-40d4-a4e4-752cef2e0dae'.Replace("/", "%2F")
+        $feedname =  'wkfc-data-engineering'
+        $packageName = 'loc_checks_app'
+        $packageVersion = '$(majorVersion).$(minorVersion).$(Build.BuildId)' 
+        $viewName = "Release"
+
+        $url = "https://pkgs.dev.azure.com/$organization/$project/_apis/packaging/feeds/$feedname/upack/packages/$packageName/versions/$packageVersion`?api-version=7.1-preview.1"
+        # (reference) https://pkgs.dev.azure.com/{organization}/{project}/_apis/packaging/feeds/{feedId}/upack/packages/{packageName}/versions/{packageVersion}?api-version=7.1-preview.1
+                    
+        Write-Host "URL :$url"
+        Invoke-RestMethod -Uri $url -Headers @{
+          Authorization = "Bearer $(System.AccessToken)"
+         "Content-Type" = "application/json"
+        } -Method Patch  -Body $body
+                  
+        Write-Host "Successfully promoted $packageName@$packageVersion to $viewName view"

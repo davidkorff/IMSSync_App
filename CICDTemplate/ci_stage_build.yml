@@ -1,0 +1,45 @@
+stages:
+  # CI Stage: Continuous Integration stage
+  - stage: CI_Build_stage
+    displayName: 'Build stage'
+    dependsOn: []
+    jobs:
+      - job: Build
+        displayName: 'Build job'
+        steps:
+          # Step 1: Install python version 3.12.2
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12.2'
+              addToPath: true
+              architecture: 'x64'
+            displayName: 'Use Python' # Display name for the task
+
+          - task: PowerShell@2
+            inputs:
+              targetType: 'inline'
+              script: |
+                python -m venv .venv
+                .\.venv\Scripts\Activate.ps1
+                pip install --target="./.python_packages/lib/site-packages" -r ./requirements.txt
+            displayName: 'Install dependencies' # Display name for the task
+
+          # Step 5: Archive files in a folder
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(System.DefaultWorkingDirectory)/' # Define root folder where files are to be archived
+              includeRootFolder: false
+              archiveType: 'zip' # Define the archive type
+              archiveFile: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip' # Give the name of archive file
+              replaceExistingArchive: true # Replace existing archive files
+            displayName: 'Archive files' # Display name for the task
+
+          # Step 6: Publish build artifacts to the pipeline artifacts
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
+              artifactName: 'drop'
+            displayName: 'Publish Artifact' # Display name for the task
+
+
+
