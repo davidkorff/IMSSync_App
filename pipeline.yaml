@@ -10,7 +10,7 @@ pr:
 
 pool:
   # Define the VM pool to be used for the pipeline jobs
-  name: 'App Platform Windows VMSS'
+  name: 'Application Build EUS2 Pipelines'
 
 variables:
   majorVersion: '1'
