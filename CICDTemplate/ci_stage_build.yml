@@ -10,7 +10,7 @@ stages:
           # Step 1: Install python version 3.12.2
           - task: UsePythonVersion@0
             inputs:
-              versionSpec: '3.12.2'
+              versionSpec: '3.11'
               addToPath: true
               architecture: 'x64'
             displayName: 'Use Python' # Display name for the task
