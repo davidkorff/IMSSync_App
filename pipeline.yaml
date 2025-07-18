@@ -1,0 +1,115 @@
+trigger:
+ branches:
+   include:
+     - '*'
+pr:
+  branches:
+    include:
+      - main
+      - release
+
+pool:
+  # Define the VM pool to be used for the pipeline jobs
+  name: 'Application Build EUS2 Pipelines'
+
+variables:
+  majorVersion: '1'
+  minorVersion: '0'
+stages:
+
+
+  # CI Stage: Continuous Integration stage
+  - template: CICDTemplate/ci_stage_build.yml
+  - template: CICDTemplate/cd_stage_dev.yml
+
+  - stage: CD_Deploy_Stage_QA
+    displayName: Deploy to QA
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'release'))
+    dependsOn:
+      - Deploy_Dev
+    jobs:
+      - job: Deploy
+        displayName: Deploy to QA
+        steps:
+          - task: UniversalPackages@0
+            displayName: 'Download Universal Package'
+            inputs:
+              command: 'download'
+              downloadDirectory: '$(System.DefaultWorkingDirectory)'
+              feedsToUse: 'internal'
+              vstsFeed: 'a9badce7-4611-427b-a4f8-84ab9bf6521f/1e82eedb-a949-4367-a58d-ebaf19cd0df4'
+              vstsFeedPackage: 'triton_ims_integration_api'
+              vstsPackageVersion: '$(majorVersion).$(minorVersion).$(Build.BuildId)'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Azure Function App Deploy to QA'
+            inputs:
+              connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
+              appType: 'functionAppLinux'
+              appName: 'fa-corp-triton-qa-eus2-002'
+              package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
+              appSettings: '-AZURE_WEB_FEATURES enable_v2 -keyvaulturl "https://kvcorpautoquoteqaeus201.vault.azure.net/"'
+              deploymentMethod: 'zipDeploy'
+
+  - stage: CD_Deploy_Stage_PreProd
+    displayName: Deploy to PreProd
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'release'))
+    dependsOn:
+      - CD_Deploy_Stage_QA
+    jobs:
+      - job: Deploy
+        displayName: Deploy to PreProd
+        steps:
+          - task: UniversalPackages@0
+            displayName: 'Download Universal Package'
+            inputs:
+              command: 'download'
+              downloadDirectory: '$(System.DefaultWorkingDirectory)'
+              feedsToUse: 'internal'
+              vstsFeed: 'a9badce7-4611-427b-a4f8-84ab9bf6521f/1e82eedb-a949-4367-a58d-ebaf19cd0df4'
+              vstsFeedPackage: 'triton_ims_integration_api'
+              vstsPackageVersion: '$(majorVersion).$(minorVersion).$(Build.BuildId)'
+
+          - task: AzureFunctionApp@2
+            displayName: 'Azure Function App Deploy to Pre-Prod'
+            inputs:
+              connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
+              appType: 'functionAppLinux'
+              appName: 'fa-corp-triton-pprd-eus2-002'
+              package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
+              appSettings: '-AZURE_WEB_FEATURES enable_v2 -keyvaulturl "https://kvcorpautoquotpprdeus201.vault.azure.net/"'
+              deploymentMethod: 'zipDeploy'
+
+  - stage: CD_Deploy_Stage_Prod
+    condition: and(succeeded('CD_Deploy_Stage_PreProd'), eq(variables['Build.SourceBranchName'], 'release'))
+    displayName: Deploy to Prod
+    dependsOn:
+      - CD_Deploy_Stage_PreProd
+    jobs:
+    - deployment: Deploy_to_Prod
+      displayName: Deploy to Prod
+      environment: 
+       name: Prod
+      strategy:
+       runOnce:
+         deploy:
+           steps:
+           - task: UniversalPackages@0
+             displayName: 'Download Universal Package'
+             inputs:
+               command: 'download'
+               downloadDirectory: '$(System.DefaultWorkingDirectory)'
+               feedsToUse: 'internal'
+               vstsFeed: 'a9badce7-4611-427b-a4f8-84ab9bf6521f/1e82eedb-a949-4367-a58d-ebaf19cd0df4'
+               vstsFeedPackage: 'triton_ims_integration_api'
+               vstsPackageVersion: '$(majorVersion).$(minorVersion).$(Build.BuildId)'
+
+           - task: AzureFunctionApp@2
+             displayName: 'Azure Function App Deploy to PROD'
+             inputs:
+              connectedServiceNameARM: 'sc-greenhill-corp-prd-ado-01'
+              appType: 'functionAppLinux'
+              appName: 'fa-corp-triton-prd-eus2-002'
+              package: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
+              deploymentMethod: 'zipDeploy'
+           - template: CICDTemplate/utils/promote_artifact.yaml
