@@ -50,49 +50,70 @@ def test_issue_policy():
         return False
     
     # Authenticate first
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print("✓ Authenticated successfully")
-    
     # Issue the policy
-    print(f"\nIssuing policy for quote: {quote_guid}")
     issue_service = get_issue_service()
+    
+    # Capture request data
+    request_data = {
+        "function": "IssuePolicy",
+        "quote_guid": quote_guid
+    }
+    
     success, issue_date, message = issue_service.issue_policy(quote_guid)
     
     if success:
-        print(f"\n✓ Policy issued successfully!")
-        print(f"  Issue Date: {issue_date}")
-        print(f"  Message: {message}")
-        return True
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Quote GUID: {quote_guid}")
+        print(f"Issue Date: {issue_date}")
+        print(f"Status: ISSUED")
     else:
+        # Failure - show full request and response
         print(f"\n✗ Failed to issue policy")
-        print(f"  Message: {message}")
-        return False
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
+    
+    return success
 
 
-def test_workflow_with_issue():
-    """Explain the complete workflow with issue."""
+def test_issue_with_payload():
+    """Test issuing using TEST.json data."""
     print("\n" + "="*60)
-    print("Complete Workflow with Issue")
+    print("Testing Issue with Payload")
     print("="*60)
     
-    print("\nFor transaction_type = 'issue', the system will:")
-    print("1. Create/find insured")
-    print("2. Find producer and underwriter")
-    print("3. Create quote")
-    print("4. Add quote options")
-    print("5. Process payload (store data, update policy number, register premium)")
-    print("6. BIND the quote first to get policy number")
-    print("7. ISSUE the policy to get issue date")
+    # Load test payload
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
+        return False
     
-    print("\nNote: 'issue' transaction type performs BOTH bind and issue operations.")
-    print("This ensures the quote is bound before being issued.")
+    # Only proceed if transaction type is 'issue'
+    if payload.get('transaction_type', '').lower() != 'issue':
+        print(f"\nSkipping - transaction type is '{payload.get('transaction_type')}', not 'issue'")
+        return True
+    
+    print(f"\nPayload Information:")
+    print(f"  Transaction Type: {payload.get('transaction_type')}")
+    print(f"  Policy Number: {payload.get('policy_number')}")
+    print(f"  Insured Name: {payload.get('insured_name')}")
+    
+    print("\nNote: For 'issue' transaction type, the system will:")
+    print("  1. BIND the quote first to get policy number")
+    print("  2. ISSUE the policy to get issue date")
     
     return True
 
@@ -123,7 +144,7 @@ def main():
     # Run tests
     tests = [
         ("Issue Policy", test_issue_policy),
-        ("Workflow Info", test_workflow_with_issue)
+        ("Issue with Payload", test_issue_with_payload)
     ]
     
     results = []

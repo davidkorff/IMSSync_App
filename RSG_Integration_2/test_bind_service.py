@@ -50,50 +50,69 @@ def test_bind_quote():
         return False
     
     # Authenticate first
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print("✓ Authenticated successfully")
-    
     # Bind the quote
-    print(f"\nBinding quote: {quote_guid}")
     bind_service = get_bind_service()
+    
+    # Capture request data
+    request_data = {
+        "function": "BindQuote",
+        "quote_guid": quote_guid
+    }
+    
     success, policy_number, message = bind_service.bind_quote(quote_guid)
     
     if success:
-        print(f"\n✓ Quote bound successfully!")
-        print(f"  Policy Number: {policy_number}")
-        print(f"  Message: {message}")
-        return True
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Quote GUID: {quote_guid}")
+        print(f"Policy Number: {policy_number}")
+        print(f"Status: BOUND")
     else:
+        # Failure - show full request and response
         print(f"\n✗ Failed to bind quote")
-        print(f"  Message: {message}")
-        return False
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
+    
+    return success
 
 
-def test_complete_workflow_with_bind():
-    """Test complete workflow including binding."""
+def test_bind_with_payload():
+    """Test binding using TEST.json data."""
     print("\n" + "="*60)
-    print("Testing Complete Workflow with Bind")
+    print("Testing Bind with Payload")
     print("="*60)
     
-    # This would be similar to test_complete_payload_processing
-    # but would add binding as the final step
-    print("\nThis test would:")
-    print("1. Create insured")
-    print("2. Find producer and underwriter")
-    print("3. Create quote")
-    print("4. Add quote options")
-    print("5. Process payload (store data, update policy number, register premium)")
-    print("6. Bind the quote to get final policy number")
+    # Load test payload
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
+        return False
     
-    print("\nTo run the complete workflow, use test_payload_processing.py")
-    print("and then run this script to bind the resulting quote.")
+    # Only proceed if transaction type is 'bind'
+    if payload.get('transaction_type', '').lower() != 'bind':
+        print(f"\nSkipping - transaction type is '{payload.get('transaction_type')}', not 'bind'")
+        return True
+    
+    print(f"\nPayload Information:")
+    print(f"  Transaction Type: {payload.get('transaction_type')}")
+    print(f"  Policy Number: {payload.get('policy_number')}")
+    print(f"  Insured Name: {payload.get('insured_name')}")
+    
+    print("\nNote: This test requires a quote to already exist.")
+    print("Run test_payload_processing.py first to create the quote.")
     
     return True
 
@@ -124,7 +143,7 @@ def main():
     # Run tests
     tests = [
         ("Bind Quote", test_bind_quote),
-        ("Complete Workflow Info", test_complete_workflow_with_bind)
+        ("Bind with Payload", test_bind_with_payload)
     ]
     
     results = []

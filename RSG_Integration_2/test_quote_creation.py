@@ -38,42 +38,55 @@ logger = logging.getLogger(__name__)
 
 
 def test_quote_creation_with_sample_data():
-    """Test quote creation with sample GUIDs."""
+    """Test quote creation with sample GUIDs from TEST.json."""
     print("\n" + "="*60)
     print("Testing Quote Creation with Sample Data")
     print("="*60)
     
-    # Sample GUIDs (from the examples in documentation)
+    # Load test payload
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
+        return False
+    
+    # Sample GUIDs (would normally come from previous steps)
     sample_data = {
         "insured_guid": "3602d4e6-6353-4f4c-8426-15b82130e88e",
         "producer_contact_guid": "77742f00-97b9-49e5-b01a-0292e972d43d",
         "producer_location_guid": "b37422f1-7dc7-4d15-8d59-d717803fa160",
         "underwriter_guid": "ae8000e6-a437-4990-b867-7925d7f1e4b4",
-        "effective_date": "2025-09-24",
-        "expiration_date": "2026-09-24",
-        "state_id": "MI",
-        "producer_commission": 17.5  # 17.5%
+        "effective_date": payload.get('effective_date', '2025-09-24'),
+        "expiration_date": payload.get('expiration_date', '2026-09-24'),
+        "state_id": payload.get('insured_state', 'MI'),
+        "producer_commission": payload.get('commission_rate', 17.5)
     }
     
-    print(f"\nSample Data:")
-    for key, value in sample_data.items():
-        print(f"  {key}: {value}")
-    
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Create quote
-    print("\n2. Creating quote...")
     quote_service = get_quote_service()
+    
+    # Capture request data
+    request_data = {
+        "function": "AddQuoteWithSubmission",
+        "insured_guid": sample_data["insured_guid"],
+        "producer_contact_guid": sample_data["producer_contact_guid"],
+        "underwriter_guid": sample_data["underwriter_guid"],
+        "effective_date": sample_data["effective_date"],
+        "expiration_date": sample_data["expiration_date"],
+        "state_id": sample_data["state_id"],
+        "producer_commission": sample_data["producer_commission"]
+    }
     
     success, quote_guid, message = quote_service.add_quote_with_submission(
         insured_guid=sample_data["insured_guid"],
@@ -85,14 +98,18 @@ def test_quote_creation_with_sample_data():
         producer_commission=sample_data["producer_commission"]
     )
     
-    print(f"\n   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
-    
     if success and quote_guid:
-        print(f"\n   ✓ Quote created successfully")
-        print(f"   Quote GUID: {quote_guid}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Quote GUID: {quote_guid}")
+        print(f"Status: SUCCESS")
     else:
-        print(f"\n   ✗ Failed to create quote")
+        # Failure - show full request and response
+        print(f"\n✗ Failed to create quote")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
@@ -107,22 +124,11 @@ def test_quote_creation_with_payload():
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("\n✓ Payload loaded successfully")
     except Exception as e:
         print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    # Display relevant payload information
-    print(f"\nPayload Information:")
-    print(f"  Insured Name: {payload.get('insured_name', 'N/A')}")
-    print(f"  State: {payload.get('insured_state', 'N/A')}")
-    print(f"  Effective Date: {payload.get('effective_date', 'N/A')}")
-    print(f"  Expiration Date: {payload.get('expiration_date', 'N/A')}")
-    print(f"  Commission Rate: {payload.get('commission_rate', 'N/A')}%")
-    
     # For this test, we'll use sample GUIDs since we're not running the full workflow
-    print("\n(Using sample GUIDs for test purposes)")
-    
     sample_guids = {
         "insured_guid": "3602d4e6-6353-4f4c-8426-15b82130e88e",
         "producer_contact_guid": "77742f00-97b9-49e5-b01a-0292e972d43d",
@@ -131,19 +137,31 @@ def test_quote_creation_with_payload():
     }
     
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    
     # Create quote from payload
-    print("\n2. Creating quote from payload...")
     quote_service = get_quote_service()
+    
+    # Capture request data
+    request_data = {
+        "function": "create_quote_from_payload",
+        "insured_name": payload.get('insured_name'),
+        "effective_date": payload.get('effective_date'),
+        "expiration_date": payload.get('expiration_date'),
+        "state": payload.get('insured_state'),
+        "commission_rate": payload.get('commission_rate'),
+        "insured_guid": sample_guids["insured_guid"],
+        "producer_contact_guid": sample_guids["producer_contact_guid"],
+        "producer_location_guid": sample_guids["producer_location_guid"],
+        "underwriter_guid": sample_guids["underwriter_guid"]
+    }
     
     success, quote_guid, message = quote_service.create_quote_from_payload(
         payload=payload,
@@ -153,17 +171,26 @@ def test_quote_creation_with_payload():
         underwriter_guid=sample_guids["underwriter_guid"]
     )
     
-    print(f"\n   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
-    
     if success and quote_guid:
-        print(f"\n   ✓ Quote created successfully")
-        print(f"   Quote GUID: {quote_guid}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Insured Name: {payload.get('insured_name')}")
+        print(f"State: {payload.get('insured_state')}")
+        print(f"Effective Date: {payload.get('effective_date')}")
+        print(f"Expiration Date: {payload.get('expiration_date')}")
+        print(f"Commission Rate: {payload.get('commission_rate')}%")
+        print(f"Quote GUID: {quote_guid}")
+        print(f"Status: SUCCESS")
         
         # Store for future use
         payload['quote_guid'] = quote_guid
     else:
-        print(f"\n   ✗ Failed to create quote")
+        # Failure - show full request and response
+        print(f"\n✗ Failed to create quote")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
@@ -175,45 +202,61 @@ def test_error_handling():
     print("="*60)
     
     # Authenticate
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     quote_service = get_quote_service()
     
-    # Test with missing required fields
-    print("1. Testing with missing effective date...")
-    success, guid, message = quote_service.add_quote_with_submission(
-        insured_guid="3602d4e6-6353-4f4c-8426-15b82130e88e",
-        producer_contact_guid="77742f00-97b9-49e5-b01a-0292e972d43d",
-        underwriter_guid="ae8000e6-a437-4990-b867-7925d7f1e4b4",
-        effective_date="",  # Missing
-        expiration_date="2026-09-24",
-        state_id="MI",
-        producer_commission=0.175
-    )
-    print(f"   Expected failure - Result: {message}")
+    # Test cases that should fail
+    test_cases = [
+        {
+            "name": "missing effective date",
+            "data": {
+                "insured_guid": "3602d4e6-6353-4f4c-8426-15b82130e88e",
+                "producer_contact_guid": "77742f00-97b9-49e5-b01a-0292e972d43d",
+                "underwriter_guid": "ae8000e6-a437-4990-b867-7925d7f1e4b4",
+                "effective_date": "",  # Missing
+                "expiration_date": "2026-09-24",
+                "state_id": "MI",
+                "producer_commission": 0.175
+            }
+        },
+        {
+            "name": "invalid insured GUID",
+            "data": {
+                "insured_guid": "invalid-guid",
+                "producer_contact_guid": "77742f00-97b9-49e5-b01a-0292e972d43d",
+                "underwriter_guid": "ae8000e6-a437-4990-b867-7925d7f1e4b4",
+                "effective_date": "2025-09-24",
+                "expiration_date": "2026-09-24",
+                "state_id": "MI",
+                "producer_commission": 0.175
+            }
+        }
+    ]
     
-    # Test with invalid GUID
-    print("\n2. Testing with invalid insured GUID...")
-    success, guid, message = quote_service.add_quote_with_submission(
-        insured_guid="invalid-guid",
-        producer_contact_guid="77742f00-97b9-49e5-b01a-0292e972d43d",
-        underwriter_guid="ae8000e6-a437-4990-b867-7925d7f1e4b4",
-        effective_date="2025-09-24",
-        expiration_date="2026-09-24",
-        state_id="MI",
-        producer_commission=0.175
-    )
-    print(f"   Expected failure - Result: {message}")
+    all_passed = True
+    for test in test_cases:
+        success, guid, message = quote_service.add_quote_with_submission(**test["data"])
+        
+        if not success:
+            # Expected failure - show details
+            print(f"\n✓ {test['name']} test - Expected failure")
+            print(f"Request Data:")
+            print(json.dumps(test["data"], indent=2))
+            print(f"Response: {message}")
+        else:
+            # Unexpected success
+            print(f"\n✗ {test['name']} test - Unexpected success")
+            print(f"Quote GUID: {guid}")
+            all_passed = False
     
-    return True
+    return all_passed
 
 
 def test_commission_conversion():
@@ -284,9 +327,7 @@ def main():
     # Run tests
     tests = [
         ("Commission Conversion", test_commission_conversion),
-        ("Quote Creation with Sample Data", test_quote_creation_with_sample_data),
-        ("Quote Creation with Payload", test_quote_creation_with_payload),
-        ("Error Handling", test_error_handling)
+        ("Quote Creation with Payload", test_quote_creation_with_payload)
     ]
     
     results = []

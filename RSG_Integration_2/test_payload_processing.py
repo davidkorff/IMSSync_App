@@ -55,76 +55,83 @@ def test_complete_payload_processing(json_file):
     try:
         with open(json_file, 'r') as f:
             payload = json.load(f)
-        print(f"\n✓ Loaded {json_file} payload")
     except Exception as e:
         print(f"\n✗ Failed to load {json_file}: {e}")
         return False
-    
-    # Display transaction information
-    print(f"\nTransaction Information:")
-    print(f"  Transaction ID: {payload.get('transaction_id', 'N/A')}")
-    print(f"  Transaction Type: {payload.get('transaction_type', 'N/A')}")
-    print(f"  Policy Number: {payload.get('policy_number', 'N/A')}")
-    print(f"  Net Premium: ${payload.get('net_premium', 0):,.2f}")
     
     # Store results throughout the workflow
     results = {}
     
     # 1. Authenticate
-    print("\n" + "-"*60)
-    print("Step 1: Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    
     # 2. Find/Create Insured
-    print("\n" + "-"*60)
-    print("Step 2: Finding/Creating Insured...")
     insured_service = get_insured_service()
     success, insured_guid, message = insured_service.find_or_create_insured(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find/create insured")
+        request_data = {
+            "function": "find_or_create_insured",
+            "insured_name": payload.get('insured_name'),
+            "address": payload.get('address_1'),
+            "city": payload.get('city'),
+            "state": payload.get('state'),
+            "zip": payload.get('zip')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Insured GUID: {insured_guid}")
     results['insured_guid'] = insured_guid
     
     # 3. Find Producer
-    print("\n" + "-"*60)
-    print("Step 3: Finding Producer...")
     data_service = get_data_access_service()
     success, producer_info, message = data_service.process_producer_from_payload(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find producer")
+        request_data = {
+            "function": "process_producer_from_payload",
+            "producer_name": payload.get('producer_name')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Producer Contact GUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
     results['producer_contact_guid'] = producer_info.get('ProducerContactGUID')
     results['producer_location_guid'] = producer_info.get('ProducerLocationGUID')
     
     # 4. Find Underwriter
-    print("\n" + "-"*60)
-    print("Step 4: Finding Underwriter...")
     underwriter_service = get_underwriter_service()
     success, underwriter_guid, message = underwriter_service.process_underwriter_from_payload(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find underwriter")
+        request_data = {
+            "function": "process_underwriter_from_payload",
+            "underwriter_name": payload.get('underwriter_name')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Underwriter GUID: {underwriter_guid}")
     results['underwriter_guid'] = underwriter_guid
     
     # 5. Create Quote
-    print("\n" + "-"*60)
-    print("Step 5: Creating Quote...")
     quote_service = get_quote_service()
     success, quote_guid, message = quote_service.create_quote_from_payload(
         payload=payload,
@@ -135,38 +142,51 @@ def test_complete_payload_processing(json_file):
     )
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to create quote")
+        request_data = {
+            "function": "create_quote_from_payload",
+            "insured_guid": results['insured_guid'],
+            "producer_contact_guid": results['producer_contact_guid'],
+            "producer_location_guid": results['producer_location_guid'],
+            "underwriter_guid": results['underwriter_guid'],
+            "effective_date": payload.get('effective_date'),
+            "expiration_date": payload.get('expiration_date'),
+            "state": payload.get('insured_state')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Quote GUID: {quote_guid}")
     results['quote_guid'] = quote_guid
     
     # 6. Add Quote Options
-    print("\n" + "-"*60)
-    print("Step 6: Adding Quote Options...")
     quote_options_service = get_quote_options_service()
     success, option_info, message = quote_options_service.auto_add_quote_options(quote_guid)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to add quote options")
+        request_data = {
+            "function": "auto_add_quote_options",
+            "quote_guid": quote_guid
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Quote Option GUID: {option_info.get('QuoteOptionGuid', 'N/A')}")
     results['quote_option_guid'] = option_info.get('QuoteOptionGuid')
     
     # 7. Process Payload (Store data, update policy number, register premium)
-    print("\n" + "-"*60)
-    print("Step 7: Processing Payload Data...")
-    print(f"   - Storing transaction data in tblTritonQuoteData")
-    print(f"   - Updating policy number: {payload.get('policy_number', 'N/A')}")
-    print(f"   - Registering premium: ${payload.get('net_premium', 0):,.2f}")
-    
     payload_processor = get_payload_processor_service()
     
     # Validate payload first
     is_valid, validation_error = payload_processor.validate_payload(payload)
     if not is_valid:
-        print(f"   ✗ Payload validation failed: {validation_error}")
+        print(f"\n✗ Payload validation failed")
+        print(f"Validation Error: {validation_error}")
         return False
     
     # Process the payload
@@ -177,77 +197,102 @@ def test_complete_payload_processing(json_file):
     )
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to process payload")
+        request_data = {
+            "function": "process_payload",
+            "quote_guid": results['quote_guid'],
+            "quote_option_guid": results['quote_option_guid'],
+            "policy_number": payload.get('policy_number'),
+            "net_premium": payload.get('net_premium')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         if result_data:
-            print(f"   Error details: {result_data}")
+            print(f"Error details: {result_data}")
         return False
-    
-    print(f"   ✓ Payload processed successfully")
-    if result_data:
-        print(f"   Status: {result_data.get('Status', 'N/A')}")
-        print(f"   Message: {result_data.get('Message', 'N/A')}")
     
     # 8. Bind the quote if transaction type is "bind"
     if payload.get('transaction_type', '').lower() == 'bind':
-        print("\n" + "-"*60)
-        print("Step 8: Binding Quote (transaction_type = bind)...")
         bind_service = get_bind_service()
         success, policy_number, message = bind_service.bind_quote(results['quote_guid'])
         
-        if success:
-            print(f"   ✓ Quote bound successfully!")
-            print(f"   Bound Policy Number: {policy_number}")
-            results['bound_policy_number'] = policy_number
-        else:
-            print(f"   ✗ Failed to bind quote: {message}")
+        if not success:
+            print(f"\n✗ Failed to bind quote")
+            request_data = {
+                "function": "bind_quote",
+                "quote_guid": results['quote_guid']
+            }
+            print(f"\nRequest Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
             return False
+        
+        results['bound_policy_number'] = policy_number
     
     # 8b. Bind and Issue if transaction type is "issue"
     elif payload.get('transaction_type', '').lower() == 'issue':
-        print("\n" + "-"*60)
-        print("Step 8: Binding and Issuing (transaction_type = issue)...")
-        
         # First bind
         bind_service = get_bind_service()
         success, policy_number, message = bind_service.bind_quote(results['quote_guid'])
         
         if not success:
-            print(f"   ✗ Failed to bind quote: {message}")
+            print(f"\n✗ Failed to bind quote")
+            request_data = {
+                "function": "bind_quote",
+                "quote_guid": results['quote_guid']
+            }
+            print(f"\nRequest Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
             return False
         
-        print(f"   ✓ Quote bound successfully! Policy Number: {policy_number}")
         results['bound_policy_number'] = policy_number
         
         # Then issue
         issue_service = get_issue_service()
         success, issue_date, message = issue_service.issue_policy(results['quote_guid'])
         
-        if success:
-            print(f"   ✓ Policy issued successfully! Issue Date: {issue_date}")
-            results['issue_date'] = issue_date
-        else:
-            print(f"   ✗ Failed to issue policy: {message}")
+        if not success:
+            print(f"\n✗ Failed to issue policy")
+            request_data = {
+                "function": "issue_policy",
+                "quote_guid": results['quote_guid']
+            }
+            print(f"\nRequest Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
             return False
+        
+        results['issue_date'] = issue_date
     
-    # Summary
+    # Summary - show only extracted values on success
     print("\n" + "="*60)
     print("Workflow Complete!")
     print("="*60)
-    print(f"\nProcessing Summary:")
-    print(f"  Transaction: {payload.get('transaction_type', 'N/A')} ({payload.get('transaction_id', 'N/A')})")
-    print(f"  Policy Number: {payload.get('policy_number', 'N/A')}")
-    print(f"  Insured: {payload.get('insured_name', 'N/A')}")
-    print(f"  Quote GUID: {results.get('quote_guid', 'N/A')}")
-    print(f"  Quote Option GUID: {results.get('quote_option_guid', 'N/A')}")
-    print(f"  Premium Registered: ${payload.get('net_premium', 0):,.2f}")
+    print(f"\nTransaction ID: {payload.get('transaction_id')}")
+    print(f"Transaction Type: {payload.get('transaction_type')}")
+    print(f"Policy Number: {payload.get('policy_number')}")
+    print(f"Insured Name: {payload.get('insured_name')}")
+    print(f"Insured GUID: {results.get('insured_guid')}")
+    print(f"Producer Contact GUID: {results.get('producer_contact_guid')}")
+    print(f"Producer Location GUID: {results.get('producer_location_guid')}")
+    print(f"Underwriter GUID: {results.get('underwriter_guid')}")
+    print(f"Quote GUID: {results.get('quote_guid')}")
+    print(f"Quote Option GUID: {results.get('quote_option_guid')}")
+    print(f"Premium Registered: ${payload.get('net_premium', 0):,.2f}")
     
     # Show transaction-specific results
     if results.get('bound_policy_number'):
-        print(f"  Bound Policy Number: {results.get('bound_policy_number')}")
+        print(f"Bound Policy Number: {results.get('bound_policy_number')}")
     if results.get('issue_date'):
-        print(f"  Issue Date: {results.get('issue_date')}")
+        print(f"Issue Date: {results.get('issue_date')}")
     
-    print(f"\nThis simulates what happens when Triton sends this payload to /api/triton/transaction/new")
+    print(f"\nStatus: SUCCESS")
     
     return True
 

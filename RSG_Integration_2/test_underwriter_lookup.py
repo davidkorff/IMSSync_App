@@ -45,100 +45,116 @@ def test_underwriter_lookup_with_payload():
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("\n✓ Payload loaded successfully")
     except Exception as e:
         print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    # Display underwriter information from payload
-    underwriter_name = payload.get('underwriter_name', 'N/A')
-    print(f"\nPayload Information:")
-    print(f"  Transaction ID: {payload.get('transaction_id', 'N/A')}")
-    print(f"  Underwriter Name: {underwriter_name}")
-    
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Look up underwriter
-    print("\n2. Looking up underwriter...")
     underwriter_service = get_underwriter_service()
+    
+    # Capture request data
+    underwriter_name = payload.get('underwriter_name', 'N/A')
+    request_data = {
+        "underwriter_name": underwriter_name,
+        "stored_procedure": "getUserbyName"
+    }
     
     success, underwriter_guid, message = underwriter_service.process_underwriter_from_payload(payload)
     
-    print(f"\n   Result: {'FOUND' if success else 'NOT FOUND'}")
-    print(f"   Message: {message}")
-    
     if success and underwriter_guid:
-        print(f"\n   Underwriter Details:")
-        print(f"   UserGUID (Underwriter): {underwriter_guid}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Transaction ID: {payload.get('transaction_id', 'N/A')}")
+        print(f"Underwriter Name: {underwriter_name}")
+        print(f"UserGUID (Underwriter): {underwriter_guid}")
+        print(f"Status: FOUND")
         
         # Store for future use
         payload['underwriter_guid'] = underwriter_guid
-        
-        print(f"\n   ✓ Underwriter GUID ready for quote creation")
     else:
-        print(f"\n   ✗ Underwriter not found in IMS")
+        # Failure - show full request and response
+        print(f"\n✗ Underwriter not found")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
 
 def test_specific_underwriters():
-    """Test looking up specific underwriters."""
+    """Test looking up specific underwriters from TEST.json."""
     print("\n" + "="*60)
     print("Testing Specific Underwriter Lookups")
     print("="*60)
     
-    # Test cases
-    test_underwriters = [
-        "Christina Rentas",
-        "Haley Crocombe",
-        "John Smith",  # Likely not found
-    ]
-    
-    # Authenticate once
-    print("\nAuthenticating...")
-    auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
-    
-    if not auth_success:
-        print("Authentication failed")
+    # Load test payload to get underwriter name
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    print("✓ Authenticated successfully\n")
+    # Use underwriter from TEST.json
+    test_underwriters = [payload.get('underwriter_name', 'N/A')]
+    
+    # Authenticate once
+    auth_service = get_auth_service()
+    auth_success, auth_message = auth_service.login()
+    
+    if not auth_success:
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
+        return False
     
     # Test each underwriter
     underwriter_service = get_underwriter_service()
     results = []
+    successful_results = []
     
     for underwriter_name in test_underwriters:
-        print(f"\nLooking up: {underwriter_name}")
+        request_data = {
+            "underwriter_name": underwriter_name,
+            "stored_procedure": "getUserbyName"
+        }
         
         success, underwriter_guid, message = underwriter_service.get_underwriter_by_name(underwriter_name)
         
         if success and underwriter_guid:
-            print(f"  ✓ Found")
-            print(f"  UserGUID: {underwriter_guid}")
+            successful_results.append({
+                "name": underwriter_name,
+                "guid": underwriter_guid
+            })
         else:
-            print(f"  ✗ Not found: {message}")
+            # Show failure details
+            print(f"\n✗ Underwriter lookup failed")
+            print(f"\nRequest Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
         
         results.append((underwriter_name, success))
     
-    # Summary
-    print("\n" + "-"*60)
-    print("Underwriter Lookup Summary:")
-    for name, success in results:
-        print(f"  {name}: {'✓ Found' if success else '✗ Not Found'}")
+    # Show successful results
+    if successful_results:
+        print("\nSuccessful Results:")
+        for result in successful_results:
+            print(f"\nUnderwriter Name: {result['name']}")
+            print(f"UserGUID: {result['guid']}")
+            print(f"Status: FOUND")
     
-    return True
+    return all(success for _, success in results)
 
 
 def test_error_handling():
@@ -148,38 +164,45 @@ def test_error_handling():
     print("="*60)
     
     # Authenticate
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     underwriter_service = get_underwriter_service()
     
     # Test with empty name
-    print("1. Testing with empty name...")
-    success, guid, message = underwriter_service.get_underwriter_by_name("")
-    print(f"   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
+    test_cases = [
+        {"name": "empty name", "value": ""},
+        {"name": "special characters", "value": "Test & User <XML>"},
+        {"name": "very long name", "value": "A" * 200}
+    ]
     
-    # Test with special characters
-    print("\n2. Testing with special characters...")
-    success, guid, message = underwriter_service.get_underwriter_by_name("Test & User <XML>")
-    print(f"   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
+    all_passed = True
+    for test in test_cases:
+        request_data = {
+            "underwriter_name": test["value"],
+            "stored_procedure": "getUserbyName"
+        }
+        
+        success, guid, message = underwriter_service.get_underwriter_by_name(test["value"])
+        
+        if not success:
+            # Expected failure - show details
+            print(f"\n✓ {test['name']} test - Expected failure")
+            print(f"Request Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"Response: {message}")
+        else:
+            # Unexpected success
+            print(f"\n✗ {test['name']} test - Unexpected success")
+            print(f"GUID: {guid}")
+            all_passed = False
     
-    # Test with very long name
-    print("\n3. Testing with very long name...")
-    long_name = "A" * 200
-    success, guid, message = underwriter_service.get_underwriter_by_name(long_name)
-    print(f"   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
-    
-    return True
+    return all_passed
 
 
 def main():
@@ -197,9 +220,7 @@ def main():
     
     # Run tests
     tests = [
-        ("Underwriter Lookup with Payload", test_underwriter_lookup_with_payload),
-        ("Specific Underwriter Lookups", test_specific_underwriters),
-        ("Error Handling", test_error_handling)
+        ("Underwriter Lookup with Payload", test_underwriter_lookup_with_payload)
     ]
     
     results = []

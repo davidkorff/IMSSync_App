@@ -51,91 +51,79 @@ def test_complete_workflow():
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("\n✓ Payload loaded successfully")
     except Exception as e:
         print(f"\n✗ Failed to load payload: {e}")
         return False
-    
-    # Display workflow overview
-    print(f"\nWorkflow Overview:")
-    print(f"  1. Authenticate with IMS")
-    print(f"  2. Find/Create Insured")
-    print(f"  3. Find Producer")
-    print(f"  4. Find Underwriter")
-    print(f"  5. Create Quote")
-    print(f"  6. Add Quote Options")
     
     # Store results
     results = {}
     
     # 1. Authenticate
-    print("\n" + "-"*60)
-    print("Step 1: Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # 2. Find/Create Insured
-    print("\n" + "-"*60)
-    print("Step 2: Finding/Creating Insured...")
-    print(f"   Insured Name: {payload.get('insured_name', 'N/A')}")
-    
     insured_service = get_insured_service()
     success, insured_guid, message = insured_service.find_or_create_insured(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find/create insured")
+        request_data = {
+            "function": "find_or_create_insured",
+            "insured_name": payload.get('insured_name')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Insured GUID: {insured_guid}")
     results['insured_guid'] = insured_guid
     
     # 3. Find Producer
-    print("\n" + "-"*60)
-    print("Step 3: Finding Producer...")
-    print(f"   Producer Name: {payload.get('producer_name', 'N/A')}")
-    
     data_service = get_data_access_service()
     success, producer_info, message = data_service.process_producer_from_payload(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find producer")
+        request_data = {
+            "function": "process_producer_from_payload",
+            "producer_name": payload.get('producer_name')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Producer Contact GUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
-    print(f"   ✓ Producer Location GUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
     results['producer_contact_guid'] = producer_info.get('ProducerContactGUID')
     results['producer_location_guid'] = producer_info.get('ProducerLocationGUID')
     
     # 4. Find Underwriter
-    print("\n" + "-"*60)
-    print("Step 4: Finding Underwriter...")
-    print(f"   Underwriter Name: {payload.get('underwriter_name', 'N/A')}")
-    
     underwriter_service = get_underwriter_service()
     success, underwriter_guid, message = underwriter_service.process_underwriter_from_payload(payload)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to find underwriter")
+        request_data = {
+            "function": "process_underwriter_from_payload",
+            "underwriter_name": payload.get('underwriter_name')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Underwriter GUID: {underwriter_guid}")
     results['underwriter_guid'] = underwriter_guid
     
     # 5. Create Quote
-    print("\n" + "-"*60)
-    print("Step 5: Creating Quote...")
-    print(f"   Effective Date: {payload.get('effective_date', 'N/A')}")
-    print(f"   Expiration Date: {payload.get('expiration_date', 'N/A')}")
-    print(f"   State: {payload.get('insured_state', 'N/A')}")
-    print(f"   Commission Rate: {payload.get('commission_rate', 'N/A')}%")
-    
     quote_service = get_quote_service()
     success, quote_guid, message = quote_service.create_quote_from_payload(
         payload=payload,
@@ -146,38 +134,57 @@ def test_complete_workflow():
     )
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to create quote")
+        request_data = {
+            "function": "create_quote_from_payload",
+            "effective_date": payload.get('effective_date'),
+            "expiration_date": payload.get('expiration_date'),
+            "state": payload.get('insured_state'),
+            "commission_rate": payload.get('commission_rate')
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Quote GUID: {quote_guid}")
     results['quote_guid'] = quote_guid
     
     # 6. Add Quote Options
-    print("\n" + "-"*60)
-    print("Step 6: Adding Quote Options...")
-    
     quote_options_service = get_quote_options_service()
     success, option_info, message = quote_options_service.auto_add_quote_options(quote_guid)
     
     if not success:
-        print(f"   ✗ Failed: {message}")
+        print(f"\n✗ Failed to add quote options")
+        request_data = {
+            "function": "auto_add_quote_options",
+            "quote_guid": quote_guid
+        }
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
         return False
     
-    print(f"   ✓ Quote Option GUID: {option_info.get('QuoteOptionGuid', 'N/A')}")
-    print(f"   Line GUID: {option_info.get('LineGuid', 'N/A')}")
-    print(f"   Line Name: {option_info.get('LineName', 'N/A')}")
-    print(f"   Company Location: {option_info.get('CompanyLocation', 'N/A')}")
     results['quote_option_guid'] = option_info.get('QuoteOptionGuid')
     
-    # Summary
+    # Summary - show only extracted values on success
     print("\n" + "="*60)
     print("Workflow Complete!")
     print("="*60)
-    print(f"\nFinal Results:")
-    print(f"  Transaction ID: {payload.get('transaction_id', 'N/A')}")
-    print(f"  Insured GUID: {results.get('insured_guid', 'N/A')}")
-    print(f"  Quote GUID: {results.get('quote_guid', 'N/A')}")
-    print(f"  Quote Option GUID: {results.get('quote_option_guid', 'N/A')}")
+    print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+    print(f"Transaction ID: {payload.get('transaction_id')}")
+    print(f"Insured Name: {payload.get('insured_name')}")
+    print(f"Insured GUID: {results.get('insured_guid')}")
+    print(f"Producer Contact GUID: {results.get('producer_contact_guid')}")
+    print(f"Producer Location GUID: {results.get('producer_location_guid')}")
+    print(f"Underwriter GUID: {results.get('underwriter_guid')}")
+    print(f"Quote GUID: {results.get('quote_guid')}")
+    print(f"Quote Option GUID: {results.get('quote_option_guid')}")
+    print(f"Line GUID: {option_info.get('LineGuid')}")
+    print(f"Line Name: {option_info.get('LineName')}")
+    print(f"Company Location: {option_info.get('CompanyLocation')}")
+    print(f"Status: SUCCESS")
     
     return True
 
@@ -196,30 +203,41 @@ def test_quote_options_only():
         return True
     
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("   ✗ Authentication failed")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print("   ✓ Authentication successful")
-    
     # Add quote options
-    print("\n2. Adding quote options...")
     quote_options_service = get_quote_options_service()
+    
+    request_data = {
+        "function": "auto_add_quote_options",
+        "quote_guid": quote_guid
+    }
+    
     success, option_info, message = quote_options_service.auto_add_quote_options(quote_guid)
     
-    print(f"\n   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
-    
     if success and option_info:
-        print(f"\n   Quote Option Details:")
-        print(f"   Quote Option GUID: {option_info.get('QuoteOptionGuid', 'N/A')}")
-        print(f"   Line GUID: {option_info.get('LineGuid', 'N/A')}")
-        print(f"   Line Name: {option_info.get('LineName', 'N/A')}")
-        print(f"   Company Location: {option_info.get('CompanyLocation', 'N/A')}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Quote GUID: {quote_guid}")
+        print(f"Quote Option GUID: {option_info.get('QuoteOptionGuid')}")
+        print(f"Line GUID: {option_info.get('LineGuid')}")
+        print(f"Line Name: {option_info.get('LineName')}")
+        print(f"Company Location: {option_info.get('CompanyLocation')}")
+        print(f"Status: SUCCESS")
+    else:
+        # Failure - show full request and response
+        print(f"\n✗ Failed to add quote options")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
@@ -231,29 +249,44 @@ def test_error_handling():
     print("="*60)
     
     # Authenticate
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     quote_options_service = get_quote_options_service()
     
-    # Test with invalid GUID
-    print("1. Testing with invalid quote GUID...")
-    success, option_info, message = quote_options_service.auto_add_quote_options("invalid-guid")
-    print(f"   Expected failure - Result: {message}")
+    # Test cases that should fail
+    test_cases = [
+        {"name": "invalid quote GUID", "guid": "invalid-guid"},
+        {"name": "null quote GUID", "guid": "00000000-0000-0000-0000-000000000000"}
+    ]
     
-    # Test with null GUID
-    print("\n2. Testing with null quote GUID...")
-    success, option_info, message = quote_options_service.auto_add_quote_options("00000000-0000-0000-0000-000000000000")
-    print(f"   Expected failure - Result: {message}")
+    all_passed = True
+    for test in test_cases:
+        request_data = {
+            "function": "auto_add_quote_options",
+            "quote_guid": test["guid"]
+        }
+        
+        success, option_info, message = quote_options_service.auto_add_quote_options(test["guid"])
+        
+        if not success:
+            # Expected failure - show details
+            print(f"\n✓ {test['name']} test - Expected failure")
+            print(f"Request Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"Response: {message}")
+        else:
+            # Unexpected success
+            print(f"\n✗ {test['name']} test - Unexpected success")
+            print(f"Quote Option GUID: {option_info.get('QuoteOptionGuid')}")
+            all_passed = False
     
-    return True
+    return all_passed
 
 
 def main():
@@ -271,9 +304,7 @@ def main():
     
     # Run tests
     tests = [
-        ("Complete Workflow", test_complete_workflow),
-        ("Quote Options Only", test_quote_options_only),
-        ("Error Handling", test_error_handling)
+        ("Complete Workflow", test_complete_workflow)
     ]
     
     results = []

@@ -45,140 +45,172 @@ def test_producer_lookup_with_payload():
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("\n✓ Payload loaded successfully")
     except Exception as e:
         print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    # Display producer information from payload
-    producer_name = payload.get('producer_name', 'N/A')
-    print(f"\nPayload Information:")
-    print(f"  Producer Name: {producer_name}")
-    
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Look up producer
-    print("\n2. Looking up producer...")
     data_service = get_data_access_service()
+    
+    # Capture request data
+    producer_name = payload.get('producer_name', 'N/A')
+    request_data = {
+        "producer_name": producer_name,
+        "stored_procedure": "getProducerbyName"
+    }
     
     success, producer_info, message = data_service.process_producer_from_payload(payload)
     
-    print(f"\n   Result: {'FOUND' if success else 'NOT FOUND'}")
-    print(f"   Message: {message}")
-    
     if success and producer_info:
-        print(f"\n   Producer Details:")
-        print(f"   ProducerContactGUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
-        print(f"   ProducerLocationGUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Producer Name: {producer_name}")
+        print(f"ProducerContactGUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
+        print(f"ProducerLocationGUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
+        print(f"Status: FOUND")
         
         # Store for future use
         payload['producer_contact_guid'] = producer_info.get('ProducerContactGUID')
         payload['producer_location_guid'] = producer_info.get('ProducerLocationGUID')
-        
-        print(f"\n   ✓ Producer GUIDs ready for quote creation")
     else:
-        print(f"\n   ✗ Producer not found in IMS")
+        # Failure - show full request and response
+        print(f"\n✗ Producer not found")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
 
 def test_specific_producers():
-    """Test looking up specific producers."""
+    """Test looking up specific producers from TEST.json."""
     print("\n" + "="*60)
     print("Testing Specific Producer Lookups")
     print("="*60)
     
-    # Test cases
-    test_producers = [
-        "Mike Woodworth",
-        "Dan Mulligan",
-        "John Doe",  # Likely not found
-    ]
-    
-    # Authenticate once
-    print("\nAuthenticating...")
-    auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
-    
-    if not auth_success:
-        print("Authentication failed")
+    # Load test payload to get producer name
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    print("✓ Authenticated successfully\n")
+    # Use producer from TEST.json
+    test_producers = [payload.get('producer_name', 'N/A')]
+    
+    # Authenticate once
+    auth_service = get_auth_service()
+    auth_success, auth_message = auth_service.login()
+    
+    if not auth_success:
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
+        return False
     
     # Test each producer
     data_service = get_data_access_service()
     results = []
+    successful_results = []
     
     for producer_name in test_producers:
-        print(f"\nLooking up: {producer_name}")
+        request_data = {
+            "producer_name": producer_name,
+            "stored_procedure": "getProducerbyName"
+        }
         
         success, producer_info, message = data_service.get_producer_by_name(producer_name)
         
         if success and producer_info:
-            print(f"  ✓ Found")
-            print(f"  Contact GUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
-            print(f"  Location GUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
+            successful_results.append({
+                "name": producer_name,
+                "contact_guid": producer_info.get('ProducerContactGUID', 'N/A'),
+                "location_guid": producer_info.get('ProducerLocationGUID', 'N/A')
+            })
         else:
-            print(f"  ✗ Not found: {message}")
+            # Show failure details
+            print(f"\n✗ Producer lookup failed")
+            print(f"\nRequest Data:")
+            print(json.dumps(request_data, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
         
         results.append((producer_name, success))
     
-    # Summary
-    print("\n" + "-"*60)
-    print("Producer Lookup Summary:")
-    for name, success in results:
-        print(f"  {name}: {'✓ Found' if success else '✗ Not Found'}")
+    # Show successful results
+    if successful_results:
+        print("\nSuccessful Results:")
+        for result in successful_results:
+            print(f"\nProducer Name: {result['name']}")
+            print(f"Contact GUID: {result['contact_guid']}")
+            print(f"Location GUID: {result['location_guid']}")
+            print(f"Status: FOUND")
     
-    return True
+    return all(success for _, success in results)
 
 
 def test_execute_dataset_direct():
-    """Test ExecuteDataSet method directly."""
+    """Test ExecuteDataSet method directly using TEST.json data."""
     print("\n" + "="*60)
     print("Testing ExecuteDataSet Direct")
     print("="*60)
     
-    # Authenticate
-    print("\nAuthenticating...")
-    auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
-    
-    if not auth_success:
-        print("Authentication failed")
+    # Load test payload
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    print("✓ Authenticated successfully\n")
+    # Authenticate
+    auth_service = get_auth_service()
+    auth_success, auth_message = auth_service.login()
+    
+    if not auth_success:
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
+        return False
     
     # Execute stored procedure
     data_service = get_data_access_service()
+    producer_name = payload.get('producer_name', 'N/A')
     
-    print("Executing getProducerbyName stored procedure...")
-    print("  Parameters: fullname = 'Mike Woodworth'")
+    request_data = {
+        "stored_procedure": "getProducerbyName",
+        "parameters": ["fullname", producer_name]
+    }
     
     success, result_xml, message = data_service.execute_dataset(
         "getProducerbyName",
-        ["fullname", "Mike Woodworth"]
+        ["fullname", producer_name]
     )
     
-    print(f"\nResult: {'SUCCESS' if success else 'FAILED'}")
-    print(f"Message: {message}")
-    
     if success and result_xml:
-        print(f"\nRaw XML Result:")
-        print("-" * 40)
-        print(result_xml)
-        print("-" * 40)
+        # Success - show only key info
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Stored Procedure: getProducerbyName")
+        print(f"Producer Name: {producer_name}")
+        print(f"Status: SUCCESS")
+        print(f"Result Length: {len(result_xml)} characters")
+    else:
+        # Failure - show full request and response
+        print(f"\n✗ ExecuteDataSet failed")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
@@ -198,9 +230,7 @@ def main():
     
     # Run tests
     tests = [
-        ("Producer Lookup with Payload", test_producer_lookup_with_payload),
-        ("Specific Producer Lookups", test_specific_producers),
-        ("ExecuteDataSet Direct", test_execute_dataset_direct)
+        ("Producer Lookup with Payload", test_producer_lookup_with_payload)
     ]
     
     results = []
