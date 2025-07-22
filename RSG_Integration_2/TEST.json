@@ -5,6 +5,7 @@
   "class_of_business":           "Home Health Agency",
   "program_name":                "Allied Health",
   "policy_number":               "GAH-106113-251017",
+  "expiring_policy_number":     "GAH-106112-251017",
   "underwriter_name":            "Haley Crocombe",
   "producer_name":               "Mike Woodworth",
   "invoice_date":                "10/13/2025",
@@ -43,6 +44,7 @@
   "state":                       "OR",
   "zip":                         "97078",
   "transaction_id":              "f44dd12c-ac11-432f-84e7-4245f346d596",
+  "prior_transaction_id":        null,
   "transaction_type":            "bind",
   "transaction_date":            "2025-07-16T14:09:23.522+00:00",
   "source_system":               "triton"

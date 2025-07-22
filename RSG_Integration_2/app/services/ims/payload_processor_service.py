@@ -111,6 +111,7 @@ class IMSPayloadProcessorService:
             ("class_of_business", "class_of_business"),
             ("program_name", "program_name"),
             ("policy_number", "policy_number"),
+            ("expiring_policy_number", "expiring_policy_number"),
             ("underwriter_name", "underwriter_name"),
             ("producer_name", "producer_name"),
             ("invoice_date", "invoice_date"),
@@ -148,6 +149,7 @@ class IMSPayloadProcessorService:
             ("state", "state"),
             ("zip", "zip"),
             ("transaction_id", "transaction_id"),
+            ("prior_transaction_id", "prior_transaction_id"),
             ("transaction_type", "transaction_type"),
             ("transaction_date", "transaction_date"),
             ("source_system", "source_system")

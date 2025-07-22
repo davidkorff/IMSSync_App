@@ -39,6 +39,9 @@ IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQ
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'policy_number')
     ALTER TABLE tblTritonQuoteData ADD policy_number NVARCHAR(50);
 
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'expiring_policy_number')
+    ALTER TABLE tblTritonQuoteData ADD expiring_policy_number NVARCHAR(50) NULL;
+
 -- Personnel
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'underwriter_name')
     ALTER TABLE tblTritonQuoteData ADD underwriter_name NVARCHAR(200);
@@ -161,6 +164,9 @@ IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQ
 -- Transaction information
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'transaction_id')
     ALTER TABLE tblTritonQuoteData ADD transaction_id NVARCHAR(100);
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'prior_transaction_id')
+    ALTER TABLE tblTritonQuoteData ADD prior_transaction_id NVARCHAR(100) NULL;
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tblTritonQuoteData') AND name = 'transaction_type')
     ALTER TABLE tblTritonQuoteData ADD transaction_type NVARCHAR(100);
