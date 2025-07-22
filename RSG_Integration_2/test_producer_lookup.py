@@ -64,10 +64,6 @@ def test_producer_lookup_with_payload():
     
     # Capture request data
     producer_name = payload.get('producer_name', 'N/A')
-    request_data = {
-        "producer_name": producer_name,
-        "stored_procedure": "getProducerbyName"
-    }
     
     success, producer_info, message = data_service.process_producer_from_payload(payload)
     
@@ -85,9 +81,10 @@ def test_producer_lookup_with_payload():
     else:
         # Failure - show full request and response
         print(f"\n✗ Producer not found")
-        print(f"\nRequest Data:")
-        print(json.dumps(request_data, indent=2))
-        print(f"\nFull Response:")
+        print(f"\nFunction: ExecuteDataSet")
+        print(f"Stored Procedure: getProducerbyName")
+        print(f"Parameters: fullname = '{producer_name}'")
+        print(f"\nError Message:")
         print(f"{message}")
     
     return success

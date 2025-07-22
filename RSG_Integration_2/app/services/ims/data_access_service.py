@@ -15,9 +15,13 @@ class IMSDataAccessService:
     
     def __init__(self):
         self.base_url = IMS_CONFIG["base_url"]
+        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
         self.endpoint = IMS_CONFIG["endpoints"]["data_access"]
         self.timeout = IMS_CONFIG["timeout"]
         self.auth_service = get_auth_service()
+        self._last_soap_request = None
+        self._last_soap_response = None
+        self._last_url = None
         
     def execute_dataset(self, procedure_name: str, parameters: List[str]) -> Tuple[bool, Optional[str], str]:
         """
@@ -69,8 +73,14 @@ class IMSDataAccessService:
             }
             
             # Make request
-            url = f"{self.base_url}{self.endpoint}"
+            url = f"{self.base_url}{self.services_env}{self.endpoint}"
             logger.info(f"Executing stored procedure: {procedure_name}")
+            logger.debug(f"SOAP Request URL: {url}")
+            logger.debug(f"SOAP Request:\n{soap_request}")
+            
+            # Store request details for error reporting
+            self._last_url = url
+            self._last_soap_request = soap_request
             
             response = requests.post(
                 url,
@@ -79,8 +89,14 @@ class IMSDataAccessService:
                 timeout=self.timeout
             )
             
+            # Store response for error reporting
+            self._last_soap_response = response.text
+            
             # Check HTTP status
             response.raise_for_status()
+            
+            logger.debug(f"SOAP Response Status: {response.status_code}")
+            logger.debug(f"SOAP Response:\n{response.text}")
             
             # Parse response
             return self._parse_dataset_response(response.text, procedure_name)
@@ -214,7 +230,20 @@ class IMSDataAccessService:
         if not producer_name:
             return False, None, "No producer name found in payload"
         
-        return self.get_producer_by_name(producer_name)
+        success, info, message = self.get_producer_by_name(producer_name)
+        
+        # If failed and we have debugging info, create detailed error message
+        if not success:
+            detailed_message = f"{message}"
+            if self._last_url:
+                detailed_message += f"\n\nRequest URL: {self._last_url}"
+            if self._last_soap_request:
+                detailed_message += f"\n\nSOAP Request Sent:\n{self._last_soap_request}"
+            if self._last_soap_response:
+                detailed_message += f"\n\nSOAP Response Received:\n{self._last_soap_response}"
+            return success, info, detailed_message
+        
+        return success, info, message
     
     
     def _escape_xml(self, value: str) -> str:
