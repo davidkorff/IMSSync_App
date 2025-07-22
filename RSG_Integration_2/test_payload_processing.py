@@ -213,62 +213,10 @@ def test_complete_payload_processing(json_file):
             print(f"Error details: {result_data}")
         return False
     
-    # 8. Bind the quote if transaction type is "bind"
-    if payload.get('transaction_type', '').lower() == 'bind':
-        bind_service = get_bind_service()
-        success, policy_number, message = bind_service.bind_quote(results['quote_guid'])
-        
-        if not success:
-            print(f"\n✗ Failed to bind quote")
-            request_data = {
-                "function": "bind_quote",
-                "quote_guid": results['quote_guid']
-            }
-            print(f"\nRequest Data:")
-            print(json.dumps(request_data, indent=2))
-            print(f"\nFull Response:")
-            print(f"{message}")
-            return False
-        
-        results['bound_policy_number'] = policy_number
-    
-    # 8b. Bind and Issue if transaction type is "issue"
-    elif payload.get('transaction_type', '').lower() == 'issue':
-        # First bind
-        bind_service = get_bind_service()
-        success, policy_number, message = bind_service.bind_quote(results['quote_guid'])
-        
-        if not success:
-            print(f"\n✗ Failed to bind quote")
-            request_data = {
-                "function": "bind_quote",
-                "quote_guid": results['quote_guid']
-            }
-            print(f"\nRequest Data:")
-            print(json.dumps(request_data, indent=2))
-            print(f"\nFull Response:")
-            print(f"{message}")
-            return False
-        
-        results['bound_policy_number'] = policy_number
-        
-        # Then issue
-        issue_service = get_issue_service()
-        success, issue_date, message = issue_service.issue_policy(results['quote_guid'])
-        
-        if not success:
-            print(f"\n✗ Failed to issue policy")
-            request_data = {
-                "function": "issue_policy",
-                "quote_guid": results['quote_guid']
-            }
-            print(f"\nRequest Data:")
-            print(json.dumps(request_data, indent=2))
-            print(f"\nFull Response:")
-            print(f"{message}")
-            return False
-        
-        results['issue_date'] = issue_date
+    # 8. NOTE: Not binding/issuing - just storing data
+    print(f"\nNOTE: Transaction type is '{payload.get('transaction_type')}' but NOT executing bind/issue")
+    print("      This test only stores data and assigns policy number to quote")
+    print("      Use test_bind_service.py to test binding")
     
     # Summary - show only extracted values on success
     print("\n" + "="*60)
@@ -286,12 +234,8 @@ def test_complete_payload_processing(json_file):
     print(f"Quote Option GUID: {results.get('quote_option_guid')}")
     print(f"Premium Registered: ${payload.get('net_premium', 0):,.2f}")
     
-    # Show transaction-specific results
-    if results.get('bound_policy_number'):
-        print(f"Bound Policy Number: {results.get('bound_policy_number')}")
-    if results.get('issue_date'):
-        print(f"Issue Date: {results.get('issue_date')}")
-    
+    print(f"\nPolicy Number Assigned to Quote: {payload.get('policy_number')}")
+    print(f"Quote Status: Quote (NOT Bound)")
     print(f"\nStatus: SUCCESS")
     
     return True
