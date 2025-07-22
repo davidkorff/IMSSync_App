@@ -15,7 +15,7 @@ class IMSInsuredService:
     
     def __init__(self):
         self.base_url = IMS_CONFIG["base_url"]
-        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_origintest")
+        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
         self.login_env = IMS_CONFIG.get("environments", {}).get("login", "/ims_one")
         self.endpoint = IMS_CONFIG["endpoints"]["insured_functions"]
         self.timeout = IMS_CONFIG["timeout"]
@@ -68,7 +68,7 @@ class IMSInsuredService:
                 'SOAPAction': 'http://tempuri.org/IMSWebServices/InsuredFunctions/FindInsuredByName'
             }
             
-            # Make request - FindInsuredByName uses /ims_origintest
+            # Make request - FindInsuredByName uses /ims_one
             url = f"{self.base_url}{self.services_env}{self.endpoint}"
             logger.info(f"Searching for insured: {insured_name} in {city}, {state} {zip_code}")
             

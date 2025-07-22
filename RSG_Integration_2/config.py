@@ -11,7 +11,7 @@ IMS_CONFIG = {
     "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one").rsplit('/', 1)[0],  # Without environment
     "environments": {
         "login": os.getenv("IMS_LOGIN_ENV", "/ims_one"),
-        "services": os.getenv("IMS_SERVICES_ENV", "/ims_origintest")
+        "services": os.getenv("IMS_SERVICES_ENV", "/ims_one")
     },
     "endpoints": {
         "logon": "/logon.asmx",

@@ -15,7 +15,7 @@ except ImportError:
         "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one").rsplit('/', 1)[0],  # Without environment
         "environments": {
             "login": "/ims_one",
-            "services": "/ims_origintest"
+            "services": "/ims_one"
         },
         "endpoints": {
             "logon": "/logon.asmx",
