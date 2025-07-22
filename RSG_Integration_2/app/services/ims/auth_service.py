@@ -11,7 +11,8 @@ try:
 except ImportError:
     # Fallback configuration if config.py can't be loaded
     IMS_CONFIG = {
-        "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234"),
+        "BASE_URL": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one"),  # Already includes environment
+        "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one").rsplit('/', 1)[0],  # Without environment
         "environments": {
             "login": "/ims_one",
             "services": "/ims_origintest"

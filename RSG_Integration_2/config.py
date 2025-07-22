@@ -7,8 +7,8 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 
 IMS_CONFIG = {
-    "BASE_URL": os.getenv("IMS_BASE_URL", "http://10.64.32.234") + os.getenv("IMS_LOGIN_ENV", "/ims_one"),
-    "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234"),
+    "BASE_URL": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one"),  # Already includes environment
+    "base_url": os.getenv("IMS_BASE_URL", "http://10.64.32.234/ims_one").rsplit('/', 1)[0],  # Without environment
     "environments": {
         "login": os.getenv("IMS_LOGIN_ENV", "/ims_one"),
         "services": os.getenv("IMS_SERVICES_ENV", "/ims_origintest")
