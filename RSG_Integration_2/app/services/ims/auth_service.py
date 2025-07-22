@@ -146,9 +146,9 @@ class IMSAuthService:
             if result is None:
                 return False, "LoginIMSUserResult not found in response"
             
-            # Extract UserGuid and Token
-            user_guid_elem = result.find('.//UserGuid')
-            token_elem = result.find('.//Token')
+            # Extract UserGuid and Token (they don't have namespace)
+            user_guid_elem = result.find('UserGuid')
+            token_elem = result.find('Token')
             
             if user_guid_elem is None or token_elem is None:
                 return False, "UserGuid or Token not found in response"
