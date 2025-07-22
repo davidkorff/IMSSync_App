@@ -36,7 +36,7 @@ class IMSIssueService(BaseIMSService):
         try:
             # Get auth token
             auth_service = self._get_auth_service()
-            token = auth_service.get_current_token()
+            token = auth_service.token
             
             if not token:
                 return False, None, "Authentication required"
