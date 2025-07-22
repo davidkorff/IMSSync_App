@@ -131,30 +131,22 @@ class IMSAuthService:
             # Log raw response for debugging
             logger.debug(f"Raw response to parse:\n{response_xml}")
             
-            # Parse XML
-            root = ET.fromstring(response_xml)
+            # Parse XML - use a simpler approach
+            import re
             
-            # Define namespaces
-            namespaces = {
-                'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
-                'ims': 'http://tempuri.org/IMSWebServices/Logon'
-            }
+            # Extract UserGuid and Token using regex
+            user_guid_match = re.search(r'<UserGuid>([^<]+)</UserGuid>', response_xml)
+            token_match = re.search(r'<Token>([^<]+)</Token>', response_xml)
             
-            # Find LoginIMSUserResult
-            result = root.find('.//ims:LoginIMSUserResult', namespaces)
-            
-            if result is None:
-                return False, "LoginIMSUserResult not found in response"
-            
-            # Extract UserGuid and Token (they don't have namespace)
-            user_guid_elem = result.find('UserGuid')
-            token_elem = result.find('Token')
-            
-            if user_guid_elem is None or token_elem is None:
+            if not user_guid_match or not token_match:
                 return False, "UserGuid or Token not found in response"
             
-            user_guid = user_guid_elem.text
-            token = token_elem.text
+            user_guid = user_guid_match.group(1)
+            token = token_match.group(1)
+            
+            logger.debug(f"Extracted UserGuid: {user_guid}")
+            logger.debug(f"Extracted Token: {token}")
+            
             
             # Check for null GUIDs (login failure)
             if user_guid == "00000000-0000-0000-0000-000000000000" or \
