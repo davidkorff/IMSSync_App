@@ -48,41 +48,43 @@ def test_find_insured_with_payload():
         print("Failed to load TEST.json")
         return False
     
-    # Display payload information
-    print(f"\nPayload Information:")
-    print(f"  Transaction ID: {payload.get('transaction_id', 'N/A')}")
-    print(f"  Transaction Type: {payload.get('transaction_type', 'N/A')}")
-    print(f"  Insured Name: {payload.get('insured_name', 'N/A')}")
-    print(f"  City: {payload.get('city', 'N/A')}")
-    print(f"  State: {payload.get('state', 'N/A')}")
-    print(f"  ZIP: {payload.get('zip', 'N/A')}")
-    
     # Authenticate first
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Search for insured
-    print("\n2. Searching for insured...")
     insured_service = get_insured_service()
+    
+    # Capture request data
+    request_data = {
+        "insured_name": payload.get('insured_name'),
+        "city": payload.get('city'),
+        "state": payload.get('state'),
+        "zip": payload.get('zip')
+    }
     
     found, insured_guid, message = insured_service.process_triton_payload(payload)
     
-    print(f"\n   Result: {'FOUND' if found else 'NOT FOUND'}")
-    print(f"   Message: {message}")
-    
     if found:
-        print(f"   Insured GUID: {insured_guid}")
-        print("\n   ✓ Insured exists in IMS - no need to create")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Transaction ID: {payload.get('transaction_id')}")
+        print(f"Insured Name: {payload.get('insured_name')}")
+        print(f"Insured GUID: {insured_guid}")
+        print(f"Status: FOUND")
     else:
-        print("\n   → Insured not found - will need to create new insured")
+        # Not found - show full details
+        print(f"\nInsured not found")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return found
 
@@ -116,24 +118,20 @@ def test_find_insured_direct():
     ]
     
     # Authenticate
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print(f"\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     # Test each case
     insured_service = get_insured_service()
     results = []
+    successful_results = []
     
     for i, test_case in enumerate(test_cases, 1):
-        print(f"Test Case {i}: {test_case['name']}")
-        print(f"  Location: {test_case['city']}, {test_case['state']} {test_case['zip']}")
-        
         found, guid, message = insured_service.find_insured_by_name(
             test_case['name'],
             test_case['city'],
@@ -141,17 +139,31 @@ def test_find_insured_direct():
             test_case['zip']
         )
         
-        print(f"  Result: {'FOUND' if found else 'NOT FOUND'}")
         if found:
-            print(f"  GUID: {guid}")
-        print()
+            successful_results.append({
+                "case_num": i,
+                "name": test_case['name'],
+                "guid": guid,
+                "location": f"{test_case['city']}, {test_case['state']} {test_case['zip']}"
+            })
+        else:
+            # Show failure details
+            print(f"\n✗ Test Case {i} Failed")
+            print(f"\nRequest Data:")
+            print(json.dumps(test_case, indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
         
         results.append((test_case['name'], found))
     
-    # Summary
-    print("Summary:")
-    for name, found in results:
-        print(f"  {name}: {'✓ Found' if found else '✗ Not Found'}")
+    # Show successful results
+    if successful_results:
+        print("\nSuccessful Results:")
+        for result in successful_results:
+            print(f"\nTest Case {result['case_num']}:")
+            print(f"  Insured Name: {result['name']}")
+            print(f"  Location: {result['location']}")
+            print(f"  GUID: {result['guid']}")
     
     return True
 

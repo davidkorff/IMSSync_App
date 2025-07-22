@@ -47,49 +47,49 @@ def test_with_payload():
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("\n✓ Payload loaded successfully")
     except Exception as e:
         print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    # Display payload information
-    print(f"\nPayload Information:")
-    print(f"  Transaction ID: {payload.get('transaction_id', 'N/A')}")
-    print(f"  Transaction Type: {payload.get('transaction_type', 'N/A')}")
-    print(f"  Insured Name: {payload.get('insured_name', 'N/A')}")
-    print(f"  Address: {payload.get('address_1', 'N/A')}")
-    print(f"  City, State ZIP: {payload.get('city', 'N/A')}, {payload.get('state', 'N/A')} {payload.get('zip', 'N/A')}")
-    
     # Authenticate
-    print("\n1. Authenticating with IMS...")
     auth_service = get_auth_service()
     auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print(f"   ✗ Authentication failed: {auth_message}")
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return False
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Find or create insured
-    print("\n2. Processing insured (find or create)...")
     insured_service = get_insured_service()
+    
+    # Capture request details before making the call
+    request_data = {
+        "insured_name": payload.get('insured_name'),
+        "address_1": payload.get('address_1'),
+        "city": payload.get('city'),
+        "state": payload.get('state'),
+        "zip": payload.get('zip')
+    }
     
     success, insured_guid, message = insured_service.find_or_create_insured(payload)
     
-    print(f"\n   Result: {'SUCCESS' if success else 'FAILED'}")
-    print(f"   Message: {message}")
-    
     if success:
-        print(f"   Insured GUID: {insured_guid}")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Insured GUID: {insured_guid}")
+        print(f"Status: SUCCESS")
         
         # Store the GUID for future use
         payload['insured_guid'] = insured_guid
-        print(f"\n   ✓ Insured ready for transaction processing")
-        print(f"   GUID has been added to payload for next steps")
     else:
-        print(f"\n   ✗ Failed to find or create insured")
+        # Failure - show full request and response
+        print(f"\n✗ Failed to find or create insured")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 
@@ -136,38 +136,45 @@ def test_specific_scenarios():
     ]
     
     # Authenticate once
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print("\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     # Test each scenario
     insured_service = get_insured_service()
     results = []
+    successful_results = []
     
     for test_case in test_cases:
-        print(f"\nScenario: {test_case['name']}")
-        print(f"  Insured: {test_case['payload'].get('insured_name', 'N/A')}")
-        
         success, guid, message = insured_service.find_or_create_insured(test_case['payload'])
         
-        print(f"  Result: {'SUCCESS' if success else 'FAILED'}")
-        print(f"  Message: {message}")
         if success:
-            print(f"  GUID: {guid}")
+            successful_results.append({
+                "name": test_case['name'],
+                "guid": guid,
+                "insured_name": test_case['payload'].get('insured_name')
+            })
+        else:
+            # Show failure details
+            print(f"\n✗ {test_case['name']} FAILED")
+            print(f"\nRequest Data:")
+            print(json.dumps(test_case['payload'], indent=2))
+            print(f"\nFull Response:")
+            print(f"{message}")
         
         results.append((test_case['name'], success))
     
-    # Summary
-    print("\n" + "-"*60)
-    print("Scenario Summary:")
-    for name, success in results:
-        print(f"  {name}: {'✓ Success' if success else '✗ Failed'}")
+    # Show successful results
+    if successful_results:
+        print("\nSuccessful Results:")
+        for result in successful_results:
+            print(f"\n{result['name']}:")
+            print(f"  Insured Name: {result['insured_name']}")
+            print(f"  GUID: {result['guid']}")
     
     return all(success for _, success in results[:2])  # First two should succeed
 
@@ -179,21 +186,27 @@ def test_direct_create():
     print("="*60)
     
     # Authenticate
-    print("\nAuthenticating...")
     auth_service = get_auth_service()
-    auth_success, _ = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
     if not auth_success:
-        print("Authentication failed")
+        print("\n✗ Authentication failed")
+        print(f"Response: {auth_message}")
         return False
-    
-    print("✓ Authenticated successfully\n")
     
     # Create test insured
     insured_service = get_insured_service()
     test_name = f"Direct Test Company {datetime.now().strftime('%Y%m%d%H%M%S')}"
     
-    print(f"Creating insured: {test_name}")
+    # Request data for potential failure logging
+    request_data = {
+        "insured_name": test_name,
+        "address1": "456 Direct Street",
+        "city": "DirectCity",
+        "state": "TX",
+        "zip_code": "75001",
+        "address2": "Floor 2"
+    }
     
     success, guid, message = insured_service.add_insured_with_location(
         insured_name=test_name,
@@ -204,10 +217,18 @@ def test_direct_create():
         address2="Floor 2"
     )
     
-    print(f"\nResult: {'SUCCESS' if success else 'FAILED'}")
-    print(f"Message: {message}")
     if success:
+        # Success - show only extracted values
+        print(f"\nInsured Name: {test_name}")
         print(f"GUID: {guid}")
+        print(f"Status: SUCCESS")
+    else:
+        # Failure - show full request and response
+        print(f"\n✗ Direct creation failed")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
     return success
 

@@ -40,62 +40,76 @@ def main():
         return 1
     
     # Load test payload
-    print("\n1. Loading TEST.json payload...")
     try:
         with open('TEST.json', 'r') as f:
             payload = json.load(f)
-        print("   ✓ Payload loaded successfully")
     except Exception as e:
-        print(f"   ✗ Failed to load payload: {e}")
+        print(f"\n✗ Failed to load payload: {e}")
         return 1
-    
-    # Display payload info
-    print(f"\n   Insured Name: {payload.get('insured_name', 'N/A')}")
-    print(f"   City: {payload.get('city', 'N/A')}")
-    print(f"   State: {payload.get('state', 'N/A')}")
-    print(f"   ZIP: {payload.get('zip', 'N/A')}")
     
     # Authenticate
-    print("\n2. Authenticating with IMS...")
     auth_service = get_auth_service()
-    success, message = auth_service.login()
+    auth_success, auth_message = auth_service.login()
     
-    if not success:
-        print(f"   ✗ Authentication failed: {message}")
+    if not auth_success:
+        print(f"\n✗ Authentication failed")
+        print(f"Request: LoginIMSUser")
+        print(f"Response: {auth_message}")
         return 1
     
-    print(f"   ✓ Authentication successful")
-    print(f"   Token: {auth_service.token[:20]}...")
-    
     # Search for insured
-    print("\n3. Searching for insured...")
     insured_service = get_insured_service()
+    
+    # Capture request data
+    request_data = {
+        "insured_name": payload.get('insured_name'),
+        "city": payload.get('city'),
+        "state": payload.get('state'),
+        "zip": payload.get('zip')
+    }
     
     found, insured_guid, message = insured_service.process_triton_payload(payload)
     
-    print(f"\n   Result: {'FOUND' if found else 'NOT FOUND'}")
-    print(f"   Message: {message}")
-    
     if found:
-        print(f"\n   ✓ SUCCESS: Insured exists in IMS")
-        print(f"   Insured GUID: {insured_guid}")
-        print("\n   Next step: Use this GUID for further operations")
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Insured Name: {payload.get('insured_name')}")
+        print(f"Insured GUID: {insured_guid}")
+        print(f"Status: FOUND")
     else:
-        print(f"\n   → INFO: Insured not found in IMS")
-        print("   Next step: Create new insured record")
+        # Not found - show request/response for debugging
+        print(f"\nInsured not found")
+        print(f"\nRequest Data:")
+        print(json.dumps(request_data, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
     
-    # Test direct search as well
-    print("\n4. Testing direct search (without payload)...")
+    # Test direct search
+    test_request = {
+        "insured_name": "BLC Industries, LLC",
+        "city": "Kalamazoo",
+        "state": "MI",
+        "zip": "49048"
+    }
+    
     test_found, test_guid, test_message = insured_service.find_insured_by_name(
-        "BLC Industries, LLC",
-        "Kalamazoo",
-        "MI",
-        "49048"
+        test_request["insured_name"],
+        test_request["city"],
+        test_request["state"],
+        test_request["zip"]
     )
     
-    print(f"   Test search result: {'FOUND' if test_found else 'NOT FOUND'}")
     if test_found:
-        print(f"   Test GUID: {test_guid}")
+        print(f"\nDirect Search Test:")
+        print(f"  Insured Name: {test_request['insured_name']}")
+        print(f"  GUID: {test_guid}")
+        print(f"  Status: FOUND")
+    else:
+        print(f"\n✗ Direct search test failed")
+        print(f"\nRequest Data:")
+        print(json.dumps(test_request, indent=2))
+        print(f"\nFull Response:")
+        print(f"{test_message}")
     
     return 0
 
