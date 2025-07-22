@@ -232,6 +232,31 @@ class IMSQuoteService:
         state_id = payload.get("insured_state", "")
         commission_rate = payload.get("commission_rate", 0)
         
+        # Convert dates from MM/DD/YYYY to YYYY-MM-DD format
+        if effective_date:
+            try:
+                # Parse MM/DD/YYYY and convert to YYYY-MM-DD
+                dt = datetime.strptime(effective_date, "%m/%d/%Y")
+                effective_date = dt.strftime("%Y-%m-%d")
+            except ValueError:
+                # Try to parse as YYYY-MM-DD if already in that format
+                try:
+                    datetime.strptime(effective_date, "%Y-%m-%d")
+                except ValueError:
+                    return False, None, f"Invalid effective date format: {effective_date}. Expected MM/DD/YYYY or YYYY-MM-DD"
+        
+        if expiration_date:
+            try:
+                # Parse MM/DD/YYYY and convert to YYYY-MM-DD
+                dt = datetime.strptime(expiration_date, "%m/%d/%Y")
+                expiration_date = dt.strftime("%Y-%m-%d")
+            except ValueError:
+                # Try to parse as YYYY-MM-DD if already in that format
+                try:
+                    datetime.strptime(expiration_date, "%Y-%m-%d")
+                except ValueError:
+                    return False, None, f"Invalid expiration date format: {expiration_date}. Expected MM/DD/YYYY or YYYY-MM-DD"
+        
         # Validate required fields
         if not all([effective_date, expiration_date, state_id]):
             missing = []
