@@ -37,7 +37,7 @@ env/
 .pydevproject
 
 # Environment variables
-.env
+# .env - commented out to allow test credentials
 .env.local
 .env.*.local
 
