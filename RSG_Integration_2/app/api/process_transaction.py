@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, Any
-from flask import jsonify
 
 from app.services.transaction_handler import get_transaction_handler
 
