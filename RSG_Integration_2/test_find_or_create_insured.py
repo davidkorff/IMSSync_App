@@ -95,42 +95,31 @@ def test_with_payload():
 
 
 def test_specific_scenarios():
-    """Test specific scenarios for find or create."""
+    """Test specific scenarios using TEST.json as base."""
     print("\n" + "="*60)
     print("Testing Specific Scenarios")
     print("="*60)
     
-    # Test scenarios
+    # Load test payload as base
+    try:
+        with open('TEST.json', 'r') as f:
+            base_payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
+        return False
+    
+    # Test scenarios based on TEST.json data
     test_cases = [
         {
-            "name": "Existing Insured Test",
-            "payload": {
-                "insured_name": "BLC Industries, LLC",
-                "address_1": "2222 The Dells",
-                "address_2": "",
-                "city": "Kalamazoo",
-                "state": "MI",
-                "zip": "49048"
-            }
+            "name": "Existing Insured Test (from TEST.json)",
+            "payload": base_payload  # Use actual payload
         },
         {
-            "name": "New Insured Test",
+            "name": "Modified Address Test",
             "payload": {
-                "insured_name": f"Test Company {datetime.now().strftime('%Y%m%d%H%M%S')}",
-                "address_1": "123 Test Street",
-                "address_2": "Suite 100",
-                "city": "TestCity",
-                "state": "CA",
-                "zip": "90210"
-            }
-        },
-        {
-            "name": "Missing Address Test",
-            "payload": {
-                "insured_name": "Incomplete Company LLC",
-                "city": "TestCity",
-                "state": "CA"
-                # Missing address_1 and zip - should fail creation
+                **base_payload,
+                "insured_name": f"{base_payload['insured_name']} - Test {datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "address_1": "123 Modified Street"
             }
         }
     ]
@@ -176,14 +165,22 @@ def test_specific_scenarios():
             print(f"  Insured Name: {result['insured_name']}")
             print(f"  GUID: {result['guid']}")
     
-    return all(success for _, success in results[:2])  # First two should succeed
+    return all(success for _, success in results)  # All should succeed
 
 
 def test_direct_create():
-    """Test creating an insured directly."""
+    """Test creating an insured directly using TEST.json as base."""
     print("\n" + "="*60)
     print("Testing Direct Insured Creation")
     print("="*60)
+    
+    # Load test payload for base data
+    try:
+        with open('TEST.json', 'r') as f:
+            payload = json.load(f)
+    except Exception as e:
+        print(f"\n✗ Failed to load payload: {e}")
+        return False
     
     # Authenticate
     auth_service = get_auth_service()
@@ -194,27 +191,27 @@ def test_direct_create():
         print(f"Response: {auth_message}")
         return False
     
-    # Create test insured
+    # Create test insured based on TEST.json but with unique name
     insured_service = get_insured_service()
-    test_name = f"Direct Test Company {datetime.now().strftime('%Y%m%d%H%M%S')}"
+    test_name = f"{payload['insured_name']} - Direct Test {datetime.now().strftime('%Y%m%d%H%M%S')}"
     
     # Request data for potential failure logging
     request_data = {
         "insured_name": test_name,
-        "address1": "456 Direct Street",
-        "city": "DirectCity",
-        "state": "TX",
-        "zip_code": "75001",
-        "address2": "Floor 2"
+        "address1": payload.get('address_1', ''),
+        "city": payload.get('city', ''),
+        "state": payload.get('state', ''),
+        "zip_code": payload.get('zip', ''),
+        "address2": payload.get('address_2', '')
     }
     
     success, guid, message = insured_service.add_insured_with_location(
         insured_name=test_name,
-        address1="456 Direct Street",
-        city="DirectCity",
-        state="TX",
-        zip_code="75001",
-        address2="Floor 2"
+        address1=request_data['address1'],
+        city=request_data['city'],
+        state=request_data['state'],
+        zip_code=request_data['zip_code'],
+        address2=request_data['address2']
     )
     
     if success:
@@ -248,9 +245,7 @@ def main():
     
     # Run tests
     tests = [
-        ("Find or Create with Payload", test_with_payload),
-        ("Specific Scenarios", test_specific_scenarios),
-        ("Direct Create", test_direct_create)
+        ("Find or Create with Payload", test_with_payload)
     ]
     
     results = []

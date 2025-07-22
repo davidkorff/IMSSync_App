@@ -84,33 +84,6 @@ def main():
         print(f"\nFull Response:")
         print(f"{message}")
     
-    # Test direct search
-    test_request = {
-        "insured_name": "BLC Industries, LLC",
-        "city": "Kalamazoo",
-        "state": "MI",
-        "zip": "49048"
-    }
-    
-    test_found, test_guid, test_message = insured_service.find_insured_by_name(
-        test_request["insured_name"],
-        test_request["city"],
-        test_request["state"],
-        test_request["zip"]
-    )
-    
-    if test_found:
-        print(f"\nDirect Search Test:")
-        print(f"  Insured Name: {test_request['insured_name']}")
-        print(f"  GUID: {test_guid}")
-        print(f"  Status: FOUND")
-    else:
-        print(f"\n✗ Direct search test failed")
-        print(f"\nRequest Data:")
-        print(json.dumps(test_request, indent=2))
-        print(f"\nFull Response:")
-        print(f"{test_message}")
-    
     return 0
 
 

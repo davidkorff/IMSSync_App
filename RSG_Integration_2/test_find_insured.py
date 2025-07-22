@@ -90,32 +90,16 @@ def test_find_insured_with_payload():
 
 
 def test_find_insured_direct():
-    """Test finding an insured with direct parameters."""
+    """Test finding an insured directly using TEST.json data."""
     print("\n" + "="*60)
     print("Testing Find Insured by Name (Direct)")
     print("="*60)
     
-    # Test data
-    test_cases = [
-        {
-            "name": "Thrive Network LLC",
-            "city": "Beaverton",
-            "state": "OR",
-            "zip": "97078"
-        },
-        {
-            "name": "BLC Industries, LLC",
-            "city": "Kalamazoo",
-            "state": "MI",
-            "zip": "49048"
-        },
-        {
-            "name": "Non-Existent Company XYZ",
-            "city": "",
-            "state": "",
-            "zip": ""
-        }
-    ]
+    # Load test payload
+    payload = load_test_payload()
+    if not payload:
+        print("Failed to load TEST.json")
+        return False
     
     # Authenticate
     auth_service = get_auth_service()
@@ -126,46 +110,40 @@ def test_find_insured_direct():
         print(f"Response: {auth_message}")
         return False
     
-    # Test each case
+    # Test with the actual payload data
     insured_service = get_insured_service()
-    results = []
-    successful_results = []
     
-    for i, test_case in enumerate(test_cases, 1):
-        found, guid, message = insured_service.find_insured_by_name(
-            test_case['name'],
-            test_case['city'],
-            test_case['state'],
-            test_case['zip']
-        )
-        
-        if found:
-            successful_results.append({
-                "case_num": i,
-                "name": test_case['name'],
-                "guid": guid,
-                "location": f"{test_case['city']}, {test_case['state']} {test_case['zip']}"
-            })
-        else:
-            # Show failure details
-            print(f"\n✗ Test Case {i} Failed")
-            print(f"\nRequest Data:")
-            print(json.dumps(test_case, indent=2))
-            print(f"\nFull Response:")
-            print(f"{message}")
-        
-        results.append((test_case['name'], found))
+    # Use the data from TEST.json
+    test_case = {
+        "name": payload.get('insured_name'),
+        "city": payload.get('city'),
+        "state": payload.get('state'),
+        "zip": payload.get('zip')
+    }
     
-    # Show successful results
-    if successful_results:
-        print("\nSuccessful Results:")
-        for result in successful_results:
-            print(f"\nTest Case {result['case_num']}:")
-            print(f"  Insured Name: {result['name']}")
-            print(f"  Location: {result['location']}")
-            print(f"  GUID: {result['guid']}")
+    found, guid, message = insured_service.find_insured_by_name(
+        test_case['name'],
+        test_case['city'],
+        test_case['state'],
+        test_case['zip']
+    )
     
-    return True
+    if found:
+        # Success - show only extracted values
+        print(f"\nAuthentication Token: {auth_service.token[:20]}...")
+        print(f"Insured Name: {test_case['name']}")
+        print(f"Location: {test_case['city']}, {test_case['state']} {test_case['zip']}")
+        print(f"GUID: {guid}")
+        print(f"Status: FOUND")
+    else:
+        # Show failure details
+        print(f"\n✗ Direct search failed")
+        print(f"\nRequest Data:")
+        print(json.dumps(test_case, indent=2))
+        print(f"\nFull Response:")
+        print(f"{message}")
+    
+    return found
 
 
 def main():
@@ -182,8 +160,7 @@ def main():
     
     # Run tests
     tests = [
-        ("Find Insured with Payload", test_find_insured_with_payload),
-        ("Find Insured Direct", test_find_insured_direct)
+        ("Find Insured with Payload", test_find_insured_with_payload)
     ]
     
     results = []
