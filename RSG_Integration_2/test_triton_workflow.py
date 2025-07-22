@@ -12,12 +12,16 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Mock the dotenv module
-class MockDotenv:
-    def load_dotenv(self):
-        pass
-
-sys.modules['dotenv'] = MockDotenv()
+# Try to import dotenv, mock if not available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # Mock the dotenv module if not installed
+    class MockDotenv:
+        def load_dotenv(self):
+            pass
+    sys.modules['dotenv'] = MockDotenv()
 
 # Import the transaction handler
 from app.services.transaction_handler import get_transaction_handler

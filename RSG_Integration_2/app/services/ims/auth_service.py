@@ -33,8 +33,7 @@ class IMSAuthService:
     """Service for handling IMS authentication and token management."""
     
     def __init__(self):
-        self.base_url = IMS_CONFIG["base_url"]
-        self.login_env = IMS_CONFIG.get("environments", {}).get("login", "/ims_one")
+        self.base_url = IMS_CONFIG["BASE_URL"]  # This already includes /ims_one
         self.logon_endpoint = IMS_CONFIG["endpoints"]["logon"]
         self.username = IMS_CONFIG["credentials"]["username"]
         self.password = IMS_CONFIG["credentials"]["password"]
@@ -87,7 +86,7 @@ class IMSAuthService:
             }
             
             # Make request
-            url = f"{self.base_url}{self.login_env}{self.logon_endpoint}"
+            url = f"{self.base_url}{self.logon_endpoint}"
             logger.info(f"Attempting IMS login at: {url}")
             
             response = requests.post(
