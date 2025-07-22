@@ -104,7 +104,18 @@ class IMSDataAccessService:
         except requests.exceptions.RequestException as e:
             error_msg = f"HTTP request failed: {str(e)}"
             logger.error(error_msg)
-            return False, None, error_msg
+            # Build detailed error message with SOAP details
+            detailed_msg = error_msg
+            if self._last_url:
+                detailed_msg += f"\n\nRequest URL: {self._last_url}"
+            if self._last_soap_request:
+                detailed_msg += f"\n\nSOAP Request Sent:\n{self._last_soap_request}"
+            if hasattr(e, 'response') and e.response is not None:
+                detailed_msg += f"\n\nHTTP Response Status: {e.response.status_code}"
+                detailed_msg += f"\n\nHTTP Response Body:\n{e.response.text}"
+            elif self._last_soap_response:
+                detailed_msg += f"\n\nSOAP Response Received:\n{self._last_soap_response}"
+            return False, None, detailed_msg
         except Exception as e:
             error_msg = f"Unexpected error during dataset execution: {str(e)}"
             logger.error(error_msg)
