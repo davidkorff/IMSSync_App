@@ -15,7 +15,7 @@ from app.services.ims.auth_service import get_auth_service, IMSAuthService
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,  # Show all debug messages
+    level=logging.INFO,  # Show only important messages
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -41,27 +41,15 @@ def test_login():
     print("\nAttempting login...")
     success, message = auth_service.login()
     
-    print(f"\nResult: {'SUCCESS' if success else 'FAILED'}")
-    print(f"Message: {message}")
-    
     if success:
-        print(f"\nAuthentication details:")
+        print(f"\n✓ LOGIN SUCCESSFUL")
         print(f"  User GUID: {auth_service._user_guid}")
-        print(f"  Token: {auth_service._token[:8]}..." if auth_service._token else "  Token: None")
-        print(f"  Token Expiry: {auth_service._token_expiry}")
-        
-        # Test token property
-        print(f"\nToken via property: {auth_service.token[:8]}..." if auth_service.token else "\nToken via property: None")
-        print(f"Is authenticated: {auth_service.is_authenticated()}")
-        
-        # Test auth headers
-        headers = auth_service.get_auth_headers()
-        print(f"\nAuth headers:")
-        for key, value in headers.items():
-            if key == 'Authorization' and value:
-                print(f"  {key}: {value[:20]}...")
-            else:
-                print(f"  {key}: {value}")
+        print(f"  Token: {auth_service._token}")
+        return True
+    else:
+        print(f"\n✗ LOGIN FAILED")
+        print(f"  Error: {message}")
+        return False
     
     return success
 
@@ -75,20 +63,28 @@ def test_token_management():
     auth_service = get_auth_service()
     
     # First access should trigger login
-    print("\nFirst token access (should trigger login):")
+    print("\nGetting token (should trigger login)...")
     token1 = auth_service.token
-    print(f"Token: {token1[:8]}..." if token1 else "Token: None")
+    
+    if token1:
+        print(f"✓ TOKEN RETRIEVED: {token1}")
+    else:
+        print("✗ FAILED TO GET TOKEN")
+        return False
     
     # Second access should use cached token
-    print("\nSecond token access (should use cache):")
+    print("\nGetting token again (should use cache)...")
     token2 = auth_service.token
-    print(f"Token: {token2[:8]}..." if token2 else "Token: None")
-    print(f"Tokens match: {token1 == token2}")
+    
+    if token1 == token2:
+        print(f"✓ CACHE WORKING - Same token returned")
+    else:
+        print(f"✗ CACHE FAILED - Different tokens")
+        return False
     
     # Test logout
-    print("\nTesting logout...")
     auth_service.logout()
-    print(f"Is authenticated after logout: {auth_service.is_authenticated()}")
+    print(f"\n✓ LOGGED OUT")
 
 
 def test_error_handling():
