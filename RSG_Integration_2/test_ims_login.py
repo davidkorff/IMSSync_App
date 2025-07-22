@@ -15,7 +15,7 @@ from app.services.ims.auth_service import get_auth_service, IMSAuthService
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Show all debug messages
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)

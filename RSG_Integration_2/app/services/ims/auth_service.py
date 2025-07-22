@@ -89,6 +89,7 @@ class IMSAuthService:
             # Make request
             url = f"{self.base_url}{self.logon_endpoint}"
             logger.info(f"Attempting IMS login at: {url}")
+            logger.debug(f"SOAP Request:\n{soap_request}")
             
             response = requests.post(
                 url,
@@ -99,6 +100,10 @@ class IMSAuthService:
             
             # Check HTTP status
             response.raise_for_status()
+            
+            # Log response
+            logger.debug(f"SOAP Response Status: {response.status_code}")
+            logger.debug(f"SOAP Response:\n{response.text}")
             
             # Parse response
             return self._parse_login_response(response.text)
@@ -123,6 +128,9 @@ class IMSAuthService:
             Tuple[bool, str]: (success, message)
         """
         try:
+            # Log raw response for debugging
+            logger.debug(f"Raw response to parse:\n{response_xml}")
+            
             # Parse XML
             root = ET.fromstring(response_xml)
             
