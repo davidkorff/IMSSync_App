@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 from datetime import datetime
 
 from app.services.ims.base_service import BaseIMSService
+from app.services.ims.auth_service import get_auth_service
 from config import IMS_CONFIG
 import requests
 
@@ -19,6 +20,7 @@ class IMSIssueService(BaseIMSService):
         self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
         self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
         self.timeout = IMS_CONFIG["timeout"]
+        self.auth_service = get_auth_service()
         self._last_soap_request = None
         self._last_soap_response = None
         self._last_url = None
@@ -35,8 +37,7 @@ class IMSIssueService(BaseIMSService):
         """
         try:
             # Get auth token
-            auth_service = self._get_auth_service()
-            token = auth_service.token
+            token = self.auth_service.token
             
             if not token:
                 return False, None, "Authentication required"
