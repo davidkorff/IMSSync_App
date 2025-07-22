@@ -5,12 +5,23 @@ from datetime import datetime
 
 from app.services.ims.base_service import BaseIMSService
 from config import IMS_CONFIG
+import requests
 
 logger = logging.getLogger(__name__)
 
 
 class IMSIssueService(BaseIMSService):
     """Service for issuing policies in IMS."""
+    
+    def __init__(self):
+        super().__init__()
+        self.base_url = IMS_CONFIG["base_url"]
+        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
+        self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
+        self.timeout = IMS_CONFIG["timeout"]
+        self._last_soap_request = None
+        self._last_soap_response = None
+        self._last_url = None
     
     def issue_policy(self, quote_guid: str) -> Tuple[bool, Optional[str], str]:
         """
@@ -34,15 +45,34 @@ class IMSIssueService(BaseIMSService):
             soap_request = self._build_issue_policy_request(quote_guid, token)
             
             # Make the request
-            endpoint = f"{IMS_CONFIG['BASE_URL']}/quotefunctions.asmx"
+            url = f"{self.base_url}{self.services_env}{self.endpoint}"
             headers = {
                 "Content-Type": "text/xml; charset=utf-8",
                 "SOAPAction": "http://tempuri.org/IMSWebServices/QuoteFunctions/IssuePolicy"
             }
             
-            response = self._make_request(endpoint, soap_request, headers)
+            logger.info(f"Issuing policy for quote: {quote_guid}")
+            logger.debug(f"SOAP Request URL: {url}")
+            logger.debug(f"SOAP Request:\n{soap_request}")
             
-            if response:
+            # Store request details for error reporting
+            self._last_url = url
+            self._last_soap_request = soap_request
+            
+            try:
+                response = requests.post(
+                    url,
+                    data=soap_request,
+                    headers=headers,
+                    timeout=self.timeout
+                )
+                
+                # Store response for error reporting
+                self._last_soap_response = response.text
+                
+                # Check HTTP status
+                response.raise_for_status()
+                
                 # Parse the response
                 success, issue_date, message = self._parse_issue_policy_response(response.text)
                 
@@ -52,8 +82,20 @@ class IMSIssueService(BaseIMSService):
                 else:
                     logger.error(f"Failed to issue policy for quote {quote_guid}: {message}")
                     return False, None, message
-            else:
-                return False, None, "Failed to connect to IMS service"
+                    
+            except requests.exceptions.RequestException as e:
+                error_msg = f"HTTP request failed: {str(e)}"
+                logger.error(error_msg)
+                # Build detailed error message with SOAP details
+                detailed_msg = error_msg
+                if self._last_url:
+                    detailed_msg += f"\n\nRequest URL: {self._last_url}"
+                if self._last_soap_request:
+                    detailed_msg += f"\n\nSOAP Request Sent:\n{self._last_soap_request}"
+                if hasattr(e, 'response') and e.response is not None:
+                    detailed_msg += f"\n\nHTTP Response Status: {e.response.status_code}"
+                    detailed_msg += f"\n\nHTTP Response Body:\n{e.response.text}"
+                return False, None, detailed_msg
                 
         except Exception as e:
             error_msg = f"Error issuing policy: {str(e)}"
@@ -67,7 +109,7 @@ class IMSIssueService(BaseIMSService):
   <soap:Header>
     <TokenHeader xmlns="http://tempuri.org/IMSWebServices/QuoteFunctions">
       <Token>{token}</Token>
-      <Context>string</Context>
+      <Context>RSG_Integration</Context>
     </TokenHeader>
   </soap:Header>
   <soap:Body>

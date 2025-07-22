@@ -15,10 +15,14 @@ class IMSQuoteService:
     
     def __init__(self):
         self.base_url = IMS_CONFIG["base_url"]
+        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
         self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
         self.timeout = IMS_CONFIG["timeout"]
         self.auth_service = get_auth_service()
         self.quote_config = QUOTE_CONFIG
+        self._last_soap_request = None
+        self._last_soap_response = None
+        self._last_url = None
         
     def add_quote_with_submission(
         self,
@@ -114,8 +118,14 @@ class IMSQuoteService:
             }
             
             # Make request
-            url = f"{self.base_url}{self.endpoint}"
+            url = f"{self.base_url}{self.services_env}{self.endpoint}"
             logger.info(f"Creating quote for insured: {insured_guid}")
+            logger.debug(f"SOAP Request URL: {url}")
+            logger.debug(f"SOAP Request:\n{soap_request}")
+            
+            # Store request details for error reporting
+            self._last_url = url
+            self._last_soap_request = soap_request
             
             response = requests.post(
                 url,
@@ -123,6 +133,9 @@ class IMSQuoteService:
                 headers=headers,
                 timeout=self.timeout
             )
+            
+            # Store response for error reporting
+            self._last_soap_response = response.text
             
             # Check HTTP status
             response.raise_for_status()
@@ -133,7 +146,16 @@ class IMSQuoteService:
         except requests.exceptions.RequestException as e:
             error_msg = f"HTTP request failed: {str(e)}"
             logger.error(error_msg)
-            return False, None, error_msg
+            # Build detailed error message with SOAP details
+            detailed_msg = error_msg
+            if self._last_url:
+                detailed_msg += f"\n\nRequest URL: {self._last_url}"
+            if self._last_soap_request:
+                detailed_msg += f"\n\nSOAP Request Sent:\n{self._last_soap_request}"
+            if hasattr(e, 'response') and e.response is not None:
+                detailed_msg += f"\n\nHTTP Response Status: {e.response.status_code}"
+                detailed_msg += f"\n\nHTTP Response Body:\n{e.response.text}"
+            return False, None, detailed_msg
         except Exception as e:
             error_msg = f"Unexpected error during quote creation: {str(e)}"
             logger.error(error_msg)
@@ -234,7 +256,7 @@ class IMSQuoteService:
                 commission_rate = 0.175  # Default to 17.5%
         
         # Create the quote
-        return self.add_quote_with_submission(
+        success, quote_guid, message = self.add_quote_with_submission(
             insured_guid=insured_guid,
             producer_contact_guid=producer_contact_guid,
             underwriter_guid=underwriter_guid,
@@ -243,6 +265,9 @@ class IMSQuoteService:
             state_id=state_id,
             producer_commission=commission_rate
         )
+        
+        # Return with any captured error details
+        return success, quote_guid, message
     
     def _escape_xml(self, value: str) -> str:
         """Escape special XML characters."""
