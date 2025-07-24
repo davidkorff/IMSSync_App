@@ -267,17 +267,10 @@ class IMSDataAccessService:
             Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
         """
         try:
-            # Prepare parameters
-            parameters = [
-                {"name": "PolicyNumber", "value": policy_number}
-            ]
-            
-            logger.info(f"Looking up quote for policy number: {policy_number}")
-            
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spGetQuoteByPolicyNumber_WS",
-                parameters
+                "spGetQuoteByPolicyNumber",
+                ["PolicyNumber", policy_number]
             )
             
             if not success:
@@ -316,6 +309,81 @@ class IMSDataAccessService:
             logger.error(error_msg)
             return False, None, error_msg
     
+    def get_quote_by_option_id(self, option_id: int) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Find quote GUID by option_id (opportunity_id from Triton).
+        
+        Args:
+            option_id: The option_id/opportunity_id to search for
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
+            quote_info contains only QuoteGuid
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetQuoteByOptionID",
+                ["OptionID", str(option_id)]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict or not result_dict.get("QuoteGuid"):
+                return False, None, f"No quote found for option_id: {option_id}"
+            
+            # Return just the QuoteGuid
+            quote_info = {
+                "QuoteGuid": result_dict.get("QuoteGuid")
+            }
+            
+            logger.info(f"Found quote {quote_info['QuoteGuid']} for option_id {option_id}")
+            return True, quote_info, "Quote lookup successful"
+            
+        except Exception as e:
+            error_msg = f"Error looking up quote by option_id: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def _parse_single_row_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse XML result expecting a single row of data.
+        
+        Args:
+            result_xml: The XML result from ExecuteDataSet
+            
+        Returns:
+            Dict containing the row data or None if no row found
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Find the first Table element (single row result)
+            table = root.find('.//Table')
+            if table is None:
+                return None
+            
+            # Convert all child elements to a dictionary
+            result = {}
+            for child in table:
+                if child.text is not None:
+                    result[child.tag] = child.text
+                else:
+                    result[child.tag] = None
+                    
+            return result if result else None
+            
+        except Exception as e:
+            logger.error(f"Error parsing single row result: {str(e)}")
+            return None
     
     def _escape_xml(self, value: str) -> str:
         """Escape special XML characters."""

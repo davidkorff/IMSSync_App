@@ -51,6 +51,9 @@ BEGIN
         [gross_premium] DECIMAL(18,2),
         [commission_rate] DECIMAL(5,2),
         
+        -- Opportunity information
+        [opportunity_id] INT NULL,
+        
         -- Midterm endorsement fields
         [midterm_endt_id] INT NULL,
         [midterm_endt_description] NVARCHAR(500) NULL,
@@ -84,6 +87,7 @@ BEGIN
     -- Create indexes for better performance
     CREATE INDEX [IX_tblTritonQuoteData_QuoteOptionGuid] ON [dbo].[tblTritonQuoteData] ([QuoteOptionGuid]);
     CREATE INDEX [IX_tblTritonQuoteData_policy_number] ON [dbo].[tblTritonQuoteData] ([policy_number]);
+    CREATE INDEX [IX_tblTritonQuoteData_opportunity_id] ON [dbo].[tblTritonQuoteData] ([opportunity_id]);
     CREATE INDEX [IX_tblTritonQuoteData_renewal_of_quote_guid] ON [dbo].[tblTritonQuoteData] ([renewal_of_quote_guid]);
     CREATE INDEX [IX_tblTritonQuoteData_transaction_type] ON [dbo].[tblTritonQuoteData] ([transaction_type]);
     CREATE INDEX [IX_tblTritonQuoteData_created_date] ON [dbo].[tblTritonQuoteData] ([created_date]);

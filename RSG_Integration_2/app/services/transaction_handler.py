@@ -11,6 +11,7 @@ from app.services.ims.quote_options_service import get_quote_options_service
 from app.services.ims.payload_processor_service import get_payload_processor_service
 from app.services.ims.bind_service import get_bind_service
 from app.services.ims.issue_service import get_issue_service
+from app.services.ims.unbind_service import get_unbind_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class TransactionHandler:
         self.payload_processor = get_payload_processor_service()
         self.bind_service = get_bind_service()
         self.issue_service = get_issue_service()
+        self.unbind_service = get_unbind_service()
     
     def process_transaction(self, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], str]:
         """
@@ -59,37 +61,65 @@ class TransactionHandler:
             if not auth_success:
                 return False, results, f"Authentication failed: {auth_message}"
             
-            # For issue transactions, we need to find the existing quote
-            if transaction_type == "issue":
+            # For issue and unbind transactions, we need to find the existing quote
+            if transaction_type in ["issue", "unbind"]:
+                # First try to find by option_id if provided
+                option_id = payload.get("opportunity_id") or payload.get("option_id")
                 policy_number = payload.get("policy_number")
-                if not policy_number:
-                    return False, results, "Issue transaction requires policy_number"
                 
-                logger.info(f"Looking up existing quote for policy {policy_number}")
-                success, quote_info, message = self.data_service.get_quote_by_policy_number(policy_number)
+                if option_id:
+                    logger.info(f"Looking up existing quote by option_id: {option_id}")
+                    success, quote_info, message = self.data_service.get_quote_by_option_id(int(option_id))
+                    if not success and policy_number:
+                        # Fall back to policy number if option_id lookup fails and policy_number is provided
+                        logger.info(f"Option ID lookup failed, trying policy number: {policy_number}")
+                        success, quote_info, message = self.data_service.get_quote_by_policy_number(policy_number)
+                elif policy_number:
+                    logger.info(f"Looking up existing quote by policy number: {policy_number}")
+                    success, quote_info, message = self.data_service.get_quote_by_policy_number(policy_number)
+                else:
+                    return False, results, f"{transaction_type.capitalize()} transaction requires either option_id or policy_number"
+                
                 if not success:
                     return False, results, f"Failed to find quote: {message}"
                 
                 quote_guid = quote_info.get("QuoteGuid")
                 if not quote_guid:
-                    return False, results, "Quote GUID not found for policy"
+                    return False, results, "Quote GUID not found"
                 
                 results["quote_guid"] = quote_guid
-                results["insured_guid"] = quote_info.get("InsuredGuid")
-                results["policy_number"] = policy_number
+                # Only set these if they came from the full policy number lookup
+                if "InsuredGuid" in quote_info:
+                    results["insured_guid"] = quote_info.get("InsuredGuid")
+                if "PolicyNumber" in quote_info:
+                    results["policy_number"] = quote_info.get("PolicyNumber")
                 
-                # Issue the policy
-                logger.info(f"Issuing policy for quote {quote_guid}")
-                success, issue_date, message = self.issue_service.issue_policy(quote_guid)
-                if not success:
-                    return False, results, f"Issue failed: {message}"
-                
-                results["issue_date"] = issue_date
-                results["issue_status"] = "completed"
-                results["end_time"] = datetime.utcnow().isoformat()
-                results["status"] = "completed"
-                
-                logger.info(f"Successfully issued policy: {issue_date}")
+                if transaction_type == "issue":
+                    # Issue the policy
+                    logger.info(f"Issuing policy for quote {quote_guid}")
+                    success, issue_date, message = self.issue_service.issue_policy(quote_guid)
+                    if not success:
+                        return False, results, f"Issue failed: {message}"
+                    
+                    results["issue_date"] = issue_date
+                    results["issue_status"] = "completed"
+                    results["end_time"] = datetime.utcnow().isoformat()
+                    results["status"] = "completed"
+                    
+                    logger.info(f"Successfully issued policy: {issue_date}")
+                    
+                elif transaction_type == "unbind":
+                    # Unbind the policy
+                    logger.info(f"Unbinding policy for quote {quote_guid}")
+                    success, message = self.unbind_service.unbind_policy(quote_guid)
+                    if not success:
+                        return False, results, f"Unbind failed: {message}"
+                    
+                    results["unbind_status"] = "completed"
+                    results["end_time"] = datetime.utcnow().isoformat()
+                    results["status"] = "completed"
+                    
+                    logger.info(f"Successfully unbound policy {policy_number}")
                 
                 summary_msg = self._build_summary_message(results, payload)
                 return True, results, summary_msg
@@ -185,6 +215,9 @@ class TransactionHandler:
         elif transaction_type == "issue" and results.get("issue_date"):
             msg_parts.append(f"Issue Date: {results.get('issue_date')}")
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
+        elif transaction_type == "unbind" and results.get("unbind_status") == "completed":
+            msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
+            msg_parts.append("Status: Successfully unbound")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         

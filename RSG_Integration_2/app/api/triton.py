@@ -51,8 +51,8 @@ async def process_transaction(payload: Dict[str, Any]):
     
     Supported transaction types:
     - bind: Creates quote and binds it to get policy number
-    - unbind: Creates quote without binding
-    - issue: Issues the policy to get issue date (assumes policy is already bound)
+    - unbind: Unbinds an existing bound policy (requires option_id or policy_number)
+    - issue: Issues the policy to get issue date (requires option_id or policy_number)
     - midterm_endorsement: Process endorsement
     - cancellation: Cancel policy
     - reinstatement: Reinstate policy
