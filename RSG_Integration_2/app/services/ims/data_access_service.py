@@ -256,6 +256,66 @@ class IMSDataAccessService:
         
         return success, info, message
     
+    def get_quote_by_policy_number(self, policy_number: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Find quote information by policy number.
+        
+        Args:
+            policy_number: The policy number to search for
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
+        """
+        try:
+            # Prepare parameters
+            parameters = [
+                {"name": "PolicyNumber", "value": policy_number}
+            ]
+            
+            logger.info(f"Looking up quote for policy number: {policy_number}")
+            
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetQuoteByPolicyNumber_WS",
+                parameters
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return False, None, f"No quote found for policy number: {policy_number}"
+            
+            # Extract key fields
+            quote_info = {
+                "QuoteGuid": result_dict.get("QuoteGuid"),
+                "PolicyNumber": result_dict.get("PolicyNumber"),
+                "InsuredGuid": result_dict.get("InsuredGuid"),
+                "Effective": result_dict.get("Effective"),
+                "Expiration": result_dict.get("Expiration"),
+                "QuoteStatusID": result_dict.get("QuoteStatusID"),
+                "QuoteStatusName": result_dict.get("QuoteStatusName"),
+                "StateID": result_dict.get("StateID"),
+                "ProducerContactGuid": result_dict.get("ProducerContactGuid"),
+                "UnderwriterGuid": result_dict.get("UnderwriterGuid"),
+                "InsuredName": result_dict.get("insured_name"),
+                "NetPremium": result_dict.get("net_premium"),
+                "TritonStatus": result_dict.get("TritonStatus"),
+                "LastTransactionId": result_dict.get("LastTransactionId"),
+                "LastTransactionDate": result_dict.get("LastTransactionDate")
+            }
+            
+            logger.info(f"Found quote {quote_info['QuoteGuid']} for policy {policy_number}")
+            return True, quote_info, "Quote lookup successful"
+            
+        except Exception as e:
+            error_msg = f"Error looking up quote by policy number: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
     
     def _escape_xml(self, value: str) -> str:
         """Escape special XML characters."""

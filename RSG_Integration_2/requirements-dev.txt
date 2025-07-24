@@ -1,0 +1,5 @@
+# Development dependencies for FastAPI/Uvicorn
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+
+fastapi==0.104.1
+uvicorn==0.24.0

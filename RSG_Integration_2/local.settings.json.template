@@ -1,0 +1,22 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "FUNCTIONS_EXTENSION_VERSION": "~4",
+    "PYTHON_ENABLE_WORKER_EXTENSIONS": "1",
+    
+    "IMS_ONE_USERNAME": "your_ims_username",
+    "IMS_ONE_PASSWORD": "your_encrypted_password",
+    "IMS_BASE_URL": "http://10.64.32.234",
+    "IMS_SERVICES_ENV": "/ims_one",
+    
+    "LOG_LEVEL": "INFO",
+    "DEBUG": "false"
+  },
+  "Host": {
+    "LocalHttpPort": 7071,
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}

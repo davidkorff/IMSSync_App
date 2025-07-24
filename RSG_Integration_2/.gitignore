@@ -64,3 +64,9 @@ docs/_build/
 *.tmp
 *.bak
 .cache/
+
+# Azure Functions
+local.settings.json
+.python_packages/
+.azure/
+func-cli/

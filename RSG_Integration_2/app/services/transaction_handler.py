@@ -59,6 +59,42 @@ class TransactionHandler:
             if not auth_success:
                 return False, results, f"Authentication failed: {auth_message}"
             
+            # For issue transactions, we need to find the existing quote
+            if transaction_type == "issue":
+                policy_number = payload.get("policy_number")
+                if not policy_number:
+                    return False, results, "Issue transaction requires policy_number"
+                
+                logger.info(f"Looking up existing quote for policy {policy_number}")
+                success, quote_info, message = self.data_service.get_quote_by_policy_number(policy_number)
+                if not success:
+                    return False, results, f"Failed to find quote: {message}"
+                
+                quote_guid = quote_info.get("QuoteGuid")
+                if not quote_guid:
+                    return False, results, "Quote GUID not found for policy"
+                
+                results["quote_guid"] = quote_guid
+                results["insured_guid"] = quote_info.get("InsuredGuid")
+                results["policy_number"] = policy_number
+                
+                # Issue the policy
+                logger.info(f"Issuing policy for quote {quote_guid}")
+                success, issue_date, message = self.issue_service.issue_policy(quote_guid)
+                if not success:
+                    return False, results, f"Issue failed: {message}"
+                
+                results["issue_date"] = issue_date
+                results["issue_status"] = "completed"
+                results["end_time"] = datetime.utcnow().isoformat()
+                results["status"] = "completed"
+                
+                logger.info(f"Successfully issued policy: {issue_date}")
+                
+                summary_msg = self._build_summary_message(results, payload)
+                return True, results, summary_msg
+            
+            # For all other transaction types, continue with the normal flow
             # 2. Find/Create Insured
             success, insured_guid, message = self.insured_service.find_or_create_insured(payload)
             if not success:
@@ -118,23 +154,6 @@ class TransactionHandler:
                 results["bind_status"] = "completed"
                 logger.info(f"Successfully bound policy: {policy_number}")
                 
-            elif transaction_type == "issue":
-                # Must bind first, then issue
-                logger.info(f"Binding quote {quote_guid} before issuing for transaction {payload.get('transaction_id')}")
-                success, policy_number, message = self.bind_service.bind_quote(quote_guid)
-                if not success:
-                    return False, results, f"Bind failed: {message}"
-                results["bound_policy_number"] = policy_number
-                logger.info(f"Successfully bound policy: {policy_number}")
-                
-                # Now issue the policy
-                logger.info(f"Issuing policy for quote {quote_guid}")
-                success, issue_date, message = self.issue_service.issue_policy(quote_guid)
-                if not success:
-                    return False, results, f"Issue failed: {message}"
-                results["issue_date"] = issue_date
-                results["issue_status"] = "completed"
-                logger.info(f"Successfully issued policy: {issue_date}")
             
             # Complete
             results["end_time"] = datetime.utcnow().isoformat()
@@ -165,6 +184,7 @@ class TransactionHandler:
             msg_parts.append(f"Bound Policy Number: {results.get('bound_policy_number')}")
         elif transaction_type == "issue" and results.get("issue_date"):
             msg_parts.append(f"Issue Date: {results.get('issue_date')}")
+            msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         

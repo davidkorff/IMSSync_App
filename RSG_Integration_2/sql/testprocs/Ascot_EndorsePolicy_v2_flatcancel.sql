@@ -1,0 +1,730 @@
+USE [Greyhawk_Test]
+GO
+/****** Object:  StoredProcedure [dbo].[Ascot_EndorsePolicy_v2_flatcancel]    Script Date: 7/17/2025 10:22:56 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[Ascot_EndorsePolicy_v2_flatcancel]
+(
+	--Change  all master to ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX
+	--Chnage all tables to Ascot_AL3QuoteDetailTable_V2_flatcancel_flatcancel
+
+      @QuoteGuid UNIQUEIDENTIFIER,
+      @TransEffDate DATETIME,
+      @Comment VARCHAR(50),
+      @EndorsementCalcType CHAR(1),
+      @NewPremium MONEY,
+      @QuoteStatusID INT,
+      @QuoteStatusReasonID INT,
+      @DateBound DATETIME,
+      @UserGuid UNIQUEIDENTIFIER,
+      @BillingCode CHAR(5),
+      @SkipTaxesAndFees bit,
+	  @DnlTrID uniqueidentifier,
+	  @BrokerCommissionFeeChargeCode int,
+	  @ExpirationDate datetime,
+	  @TerrorismPremium money,
+	  @CopyOptions BIT
+)
+AS
+BEGIN
+	SET NOCOUNT ON
+
+    DECLARE @ControlNumber INT
+	DECLARE @EndorsementQuoteID INT
+    DECLARE @EndorsementQuoteGuid UNIQUEIDENTIFIER
+    DECLARE @OfficeID INT
+	DECLARE @CompanyLineGuid uniqueidentifier
+	DECLARE @PolicyEffectiveDate datetime
+	DECLARE @CurrentQuoteStatusID int
+
+    SELECT	@ControlNumber = Q.ControlNo,
+            @OfficeID = tblClientOffices.OfficeID,
+			@CompanyLineGuid = Q.CompanyLineGuid,
+			@PolicyEffectiveDate = Q.EffectiveDate,
+			@CurrentQuoteStatusID = Q.QuoteStatusID
+    FROM	tblQuotes Q
+	INNER JOIN tblClientOffices ON Q.QuotingLocationGuid = tblClientOffices.OfficeGuid
+    WHERE	Q.QuoteGuid = @QuoteGuid
+
+	--****************************************************
+	BEGIN TRANSACTION
+	--****************************************************
+
+	IF OBJECT_ID('tempdb..#InvoiceInstallmentsTable') IS NOT NULL
+	BEGIN
+
+		DROP TABLE #InvoiceInstallmentsTable
+
+	END
+
+	CREATE TABLE #InvoiceInstallmentsTable
+	(
+		QuoteID int,
+		EffectiveDate datetime,
+		ExpirationDate datetime,
+		NumInstallments int,
+		Installment int,
+		InstallmentDueDate datetime,
+		BillingCode varchar(100),
+		InstallmentMod decimal(20, 19)
+	)
+
+    --Create the endorsement record
+	EXEC  spCopyQuote
+			@QuoteGuid = @QuoteGuid,
+			@TransactionTypeID = 'E',
+			@QuoteStatusID = @QuoteStatusID,
+			@QuoteStatusReasonID = @QuoteStatusReasonID,
+			@EndorsementEffective = @TransEffDate,
+			@EndtRequestDate = @DateBound,
+			@EndorsementComment = @Comment,
+			@EndorsementCalculationType = @EndorsementCalcType,
+			@copyOptions = @CopyOptions
+      
+    --Get the Endorsement Quote Guid
+    SELECT TOP 1 @EndorsementQuoteGuid = Q.QuoteGuid, @EndorsementQuoteID = Q.QuoteID FROM tblQuotes Q WHERE ControlNo = @ControlNumber ORDER BY QuoteId DESC
+
+	
+	--TFS 87687  CAll Ascot custom spcopyquote.
+	EXEC  GreyHawk_spCopyQuote
+			@newQuoteGuid = @EndorsementQuoteGuid,
+			@OldQuoteGuid = @QuoteGuid
+	
+
+
+	-- Update Insured information that was passed in from source data ie excel psreadsheet
+	--TFS 86643 
+
+	DECLARE @InsuredPolicyNameSource VARCHAR (300)
+	DECLARE @InsuredDBAName VARCHAR (300)
+	DECLARE @InsuredFirstNameSource VARCHAR (300)
+	DECLARE @InsuredLastNameSource VARCHAR (300)
+	DECLARE @InsuredAddress2Source VARCHAR (300)
+	DECLARE @InsuredAddressSource VARCHAR (300)	
+	DECLARE @InsuredCitySource VARCHAR (300)
+	DECLARE @InsuredStateSource VARCHAR (300)
+	DECLARE @InsuredZipSource VARCHAR (300)
+	DECLARE @InsuredCountySource VARCHAR (300)	
+	DECLARE @InsuredGuid UNIQUEIDENTIFIER
+
+
+
+	SELECT  
+	@InsuredPolicyNameSource =  InsuredName,
+	@InsuredDBAName = DBAName,
+	@InsuredFirstNameSource = InsuredFirstName,
+	@InsuredLastNameSource = InsuredLastName,	
+	@InsuredAddressSource = InsuredAddress,
+	@InsuredAddress2Source = InsuredAddress2,
+	@InsuredCitySource = InsuredCity,
+	@InsuredStateSource = InsuredState,
+	@InsuredZipSource = InsuredZip,
+	@InsuredCountySource = InsuredCounty
+	
+	FROM ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX where DnlTrId = @DnlTrID and controlnum = @ControlNumber
+
+	SELECT @insuredGuid = S.insuredGuid from tblSubmissionGroup S join tblQuotes q on q.SubmissionGroupGuid = S.SubmissionGroupGUID
+	WHERE q.QuoteGUID = @EndorsementQuoteGuid
+
+
+	
+	
+	--Update insured information at quote level
+	UPDATE TBLQUOTES 
+		SET InsuredPolicyName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredPolicyNameSource)), ''), InsuredPolicyName) ,			
+		InsuredAddress1 = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredAddressSource)), ''), InsuredAddress1) 	,
+		InsuredAddress2 = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredAddress2Source)), ''), InsuredAddress2) 	,
+		InsuredCity = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredCitySource)), ''), InsuredCity) 	,
+		InsuredState = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredStateSource)), ''), InsuredState) 	,
+		InsuredZipCode = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredZipSource)), ''), InsuredZipCode) 	,
+		InsuredCounty = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredCountySource)), ''), InsuredCounty) 	
+	WHERE QuoteGUID = @EndorsementQuoteGuid
+
+
+	UPDATE TBLQUOTES 
+		SET InsuredCorporationName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredPolicyNameSource)), ''), InsuredCorporationName)		
+	WHERE QuoteGUID = @EndorsementQuoteGuid and InsuredBusinessTypeID = 13 --corporation
+
+	UPDATE TBLQUOTES 		
+		SET InsuredFirstName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredFirstNameSource)), ''), InsuredFirstName) 	,
+		InsuredLastName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredLastNameSource)), ''), InsuredLastName) 		
+	WHERE QuoteGUID = @EndorsementQuoteGuid and InsuredBusinessTypeID = 4 --individual
+
+
+	--update at Inured level
+	
+	UPDATE tblInsureds 
+			SET PolicyName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredPolicyNameSource)), ''), PolicyName) 
+	WHERE InsuredGUID = @InsuredGuid
+
+	--Check to see if it's an individual or corporation
+	UPDATE tblInsureds 
+			SET CorporationName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredPolicyNameSource)), ''), CorporationName) 
+	WHERE InsuredGUID = @InsuredGuid and BusinessTypeID = 13 --corporation
+
+	UPDATE tblInsureds 
+			SET FirstName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredFirstNameSource)), ''), FirstName) ,
+			LastName = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredLastNameSource)), ''), LastName) 
+	WHERE InsuredGUID = @InsuredGuid and BusinessTypeID = 4 --inidvidual
+	
+	--updated address at Insuredloc level
+
+	--select top 1 * from tblInsuredLocations
+	UPDATE tblInsuredLocations
+		SET [Name] = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredPolicyNameSource)), ''), [Name]) 	,		
+		Address1 = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredAddressSource)), ''), Address1) 	,
+		Address2 = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredAddress2Source)), ''), Address2) 	,
+		City = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredCitySource)), ''), City) 	,
+		County = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredCountySource)), ''), County) ,	
+		[State] = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredStateSource)), ''), [State])	,
+		ZipCode = ISNULL(NULLIF(LTRIM(RTRIM(@InsuredZipSource)), ''), ZipCode) 	
+		
+	WHERE InsuredGUID = @InsuredGuid and LocationTypeID = 1--inidvidual
+
+
+	
+    --Copy forward the quote option
+    INSERT INTO tblQuoteOptions
+    (
+            QuoteOptionGUID,
+            OriginalQuoteOptionGUID,
+            QuoteGUID,
+            LineGUID,
+            CompanyLocationID,
+            DateCreated,
+            Bound,
+            Quote,
+            AdditionalComments,
+            CompanyInstallmentID,
+            AutoApplyFeeLog
+    )
+    SELECT	NEWID(),
+            QuoteOptionGUID,
+            @EndorsementQuoteGuid,
+            LineGUID,
+            CompanyLocationID,
+            GETDATE(),
+            1,
+            0,
+            AdditionalComments,
+            CompanyInstallmentID,
+            AutoApplyFeeLog
+    FROM	tblQuoteOptions
+    WHERE	QuoteGuid = @QuoteGuid
+
+
+	
+	DECLARE @PremiumCursorQuoteOptionGuid uniqueidentifier
+	DECLARE @PremiumCursorChargeCode int
+	DECLARE @PremiumCursorOfficeID int
+	DECLARE @PremiumCursorPremium money
+	DECLARE @PremiumCursorCommissionable bit
+	DECLARE @PremiumCursorAddedDate datetime
+
+	DECLARE EndorsePremiumCursor Cursor FAST_FORWARD FORWARD_ONLY
+	FOR SELECT	NewQuoteOptions.QuoteOptionGuid,
+				ISNULL(ChargeCodeTable.ChargeCode, tblFin_PolicyCharges.ChargeCode) AS ChargeCode,
+				tblQuoteOptionPremiums.OfficeId,
+				CASE WHEN NewPremiumTable.CompanyLocationCode IS NULL
+					THEN CASE WHEN tblFin_PolicyCharges.ChargeID = 'TERR' THEN @TerrorismPremium ELSE @NewPremium END
+					ELSE CASE WHEN ChargeCodeTable.ChargeID = 'TERR' THEN NewPremiumTable.Terrorism ELSE NewPremiumTable.Premium END
+				END,
+				tblQuoteOptionPremiums.Commissionable,
+				GETDATE()
+		FROM	tblQuoteOptions 
+		INNER JOIN tblQuoteOptions NewQuoteOptions ON NewQuoteOptions.OriginalQuoteOptionGuid = tblQuoteOptions.QuoteOptionGuid
+		INNER JOIN tblQuoteOptionPremiums ON tblQuoteOptions.QuoteOptionGuid = tblQuoteOptionPremiums.QuoteOptionGuid
+		INNER JOIN tblFin_PolicyCharges ON tblQuoteOptionPremiums.ChargeCode = tblFin_PolicyCharges.ChargeCode
+		INNER JOIN lstLines ON tblQuoteOptions.LineGuid = lstLines.LineGuid
+		OUTER APPLY (
+						SELECT	Ascot_AL3QuoteDetailTable_V2_flatcancel.Premium,
+								Ascot_AL3QuoteDetailTable_V2_flatcancel.Terrorism,
+								Ascot_AL3QuoteDetailTable_V2_flatcancel.CompanyLocationCode,
+								Ascot_AL3QuoteDetailTable_V2_flatcancel.LineCode,
+								Ascot_AL3QuoteDetailTable_V2_flatcancel.StateID
+						FROM	Ascot_AL3QuoteDetailTable_V2_flatcancel
+						WHERE	Ascot_AL3QuoteDetailTable_V2_flatcancel.DnlTrId = @DnlTrID and controlnum = @ControlNumber
+					) AS NewPremiumTable
+		OUTER APPLY (
+						SELECT TOP 1 SubPC.ChargeCode,
+									SubPC.ChargeID
+						FROM tblFin_PolicyCharges SubPC
+						WHERE SubPC.ChargeID = tblFin_PolicyCharges.ChargeID
+						AND SubPC.StateID = NewPremiumTable.StateID
+					) AS ChargeCodeTable
+		OUTER APPLY (
+						SELECT ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.CompanyCode AS CompanyLocationCode,
+								ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.LineCode
+						FROM ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX
+						WHERE ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.DnlTrId = @DnlTrId and controlnum = @ControlNumber
+					) AS PolicyLevelImportTable
+		WHERE	tblQuoteOptions.QuoteGuid = @QuoteGuid
+		AND		CASE WHEN NewPremiumTable.LineCode IS NULL
+					THEN CASE WHEN lstLines.LineID = PolicyLevelImportTable.LineCode THEN 1 ELSE 0 END
+					ELSE CASE WHEN lstLines.LineID = NewPremiumTable.LineCode THEN 1 ELSE 0 END
+				END = 1
+		AND		CASE WHEN NewPremiumTable.CompanyLocationCode IS NULL
+					THEN CASE WHEN tblQuoteOptions.CompanyLocationID = PolicyLevelImportTable.CompanyLocationCode THEN 1 ELSE 0 END
+					ELSE CASE WHEN tblQuoteOptions.CompanyLocationID = NewPremiumTable.CompanyLocationCode THEN 1 ELSE 0 END
+				END = 1
+
+	OPEN EndorsePremiumCursor
+	FETCH EndorsePremiumCursor INTO @PremiumCursorQuoteOptionGuid, @PremiumCursorChargeCode, @PremiumCursorOfficeID, @PremiumCursorPremium, @PremiumCursorCommissionable, @PremiumCursorAddedDate
+
+	WHILE @@Fetch_status=0
+	BEGIN
+
+		INSERT INTO tblQuoteOptionPremiums
+		(
+			QuoteOptionGuid,
+			ChargeCode,
+			OfficeID,
+			Premium,
+			AnnualPremium,
+			Commissionable,
+			Added
+		)
+		VALUES
+		(
+			@PremiumCursorQuoteOptionGuid,
+			@PremiumCursorChargeCode,
+			@PremiumCursorOfficeID,
+			@PremiumCursorPremium,
+			@PremiumCursorPremium,
+			@PremiumCursorCommissionable,
+			@PremiumCursorAddedDate
+		)
+
+		FETCH EndorsePremiumCursor INTO @PremiumCursorQuoteOptionGuid, @PremiumCursorChargeCode, @PremiumCursorOfficeID, @PremiumCursorPremium, @PremiumCursorCommissionable, @PremiumCursorAddedDate
+	END--WHILE @@Fetch_status=0
+
+	CLOSE EndorsePremiumCursor 
+	DEALLOCATE EndorsePremiumCursor
+
+	IF @BrokerCommissionFeeChargeCode IS NOT NULL
+	BEGIN
+
+		DECLARE @BrokerCommissionPercent decimal(9, 8)
+		DECLARE @BrokerFeeAppliesToLineGuid uniqueidentifier
+		DECLARE @BrokerFeeAppliesToCompanyLineGuid uniqueidentifier
+
+		SELECT	@BrokerCommissionPercent = ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.BrokerCommissionPercent,
+				@BrokerFeeAppliesToLineGuid = lstLines.LineGUID,
+				@BrokerFeeAppliesToCompanyLineGuid = CL.CompanyLineGuid
+		FROM ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX
+		INNER JOIN lstLines ON ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.LineCode = lstLines.LineID
+		Inner Join  tblCompanyLocations on tblCompanyLocations.CompanyLocationCode = ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.CompanyCode
+		Inner Join  tblCompanyLines CL on CL.LineGUID = lstLines.LineGUID and CL.CompanyLocationGUID = tblCompanyLocations.CompanyLocationGUID and ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX.StateOfIssuance = CL.StateID
+		WHERE	DnlTrId = @DnlTrId and controlnum = @ControlNumber
+
+		DECLARE @BrokerCommissionCompanyFeeID int
+		SELECT @BrokerCommissionCompanyFeeID = CompanyFeeID
+		FROM tblCompanyPolicyCharges
+		WHERE tblCompanyPolicyCharges.ChargeCode = @BrokerCommissionFeeChargeCode
+		AND tblCompanyPolicyCharges.LineGuid = @BrokerFeeAppliesToLineGuid
+
+		IF @BrokerCommissionCompanyFeeID IS NULL
+		BEGIN
+
+			raiserror('No CompanyFeeID setup found for ChargeCode and Line', 15, 1) with nowait;
+
+		END
+
+		INSERT INTO tblQuoteOptionCharges(QuoteOptionGuid, CompanyFeeID, ChargeCode, OfficeID, CompanyLineGuid, FeeTypeID, Payable, PercentageRate, Splittable, AutoApplied)
+		SELECT	tblQuoteOptions.QuoteOptionGuid,
+				@BrokerCommissionCompanyFeeID,
+				@BrokerCommissionFeeChargeCode,
+				@OfficeID,
+				@BrokerFeeAppliesToCompanyLineGuid,
+				3,
+				0,
+				@BrokerCommissionPercent, 
+				0,
+				0
+		FROM	tblQuoteOptions
+		WHERE	tblQuoteOptions.QuoteGuid = @EndorsementQuoteGuid
+
+
+	END
+
+
+      --Update Quote Option Data
+    UPDATE tblQuoteOptions SET Bound = 1 WHERE QuoteGuid = @EndorsementQuoteGuid
+
+	--Send invoices to accounting (AccountingTransfer.vb)
+    DECLARE @InvoiceNum INT
+
+	DECLARE @NumInstallments int
+	DECLARE @IMSInstallmentPlanID int = NULL
+
+	SELECT @NumInstallments = ISNULL(P.NumInstallments, 1)
+	FROM ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX P
+	WHERE P.DnlTrId = @DnlTrId and controlnum = @ControlNumber
+
+	DECLARE @InstallmentPlanMappingTable TABLE
+	(
+		OptionName varchar(200),
+		SafeHarborNumInstallments int
+	)
+
+	INSERT INTO @InstallmentPlanMappingTable VALUES('Quarterly', 4)
+	INSERT INTO @InstallmentPlanMappingTable VALUES('Semi-Annual', 2)
+
+	SELECT TOP 1 @IMSInstallmentPlanID = tblCompanyLineInstallments.ID
+	FROM tblCompanyLineInstallments
+	INNER JOIN tblCompanyLines ON tblCompanyLineInstallments.CompanyLineID = tblCompanyLines.CompanyLineID
+	INNER JOIN @InstallmentPlanMappingTable T ON tblCompanyLineInstallments.OptionName = T.OptionName
+	WHERE tblCompanyLines.CompanyLineGUID = @CompanyLineGuid
+	AND T.SafeHarborNumInstallments = @NumInstallments
+		
+
+	DECLARE @FirstInvoicePercentage decimal(20, 19)
+	DECLARE @FirstInvoiceTerm int
+	DECLARE @FirstInvoiceBillingCode varchar(100)
+	DECLARE @FirstInvoiceFromEffectiveDate bit
+	DECLARE @FirstInvoiceFromBillingDate bit
+	DECLARE @InstallmentPercentage decimal(20, 19)
+	DECLARE @InstallmentTerms int--how many days/months between installments
+	DECLARE @InstallmentFromEffectiveDate datetime
+	DECLARE @InstallmentFromBillingDate datetime
+	DECLARE @UseMonth bit--defines if months are used for @InstallmentTerms instead of days
+
+	IF @IMSInstallmentPlanID IS NOT NULL
+	BEGIN
+
+		SELECT	@FirstInvoicePercentage = tblCompanyLineInstallments.DownpaymentPercentage,
+				@FirstInvoiceTerm = tblCompanyLineInstallments.DownpaymentTerm,
+				@FirstInvoiceBillingCode = lstBillingTypes.BillingCode,
+				@FirstInvoiceFromEffectiveDate = tblCompanyLineInstallments.DownpaymentFromEffectiveDate,
+				@FirstInvoiceFromBillingDate = tblCompanyLineInstallments.DownpaymentFromDateBilled,
+									
+				@InstallmentPercentage = ((1.0000 - tblCompanyLineInstallments.DownpaymentPercentage) / tblCompanyLineInstallments.NumPayments),
+				@InstallmentTerms = tblCompanyLineInstallments.InstallmentTerms,
+				@InstallmentFromEffectiveDate = tblCompanyLineInstallments.InstallmentFromEffectiveDate,
+				@InstallmentFromBillingDate = tblCompanyLineInstallments.InstallmentFromDateBilled,
+				@UseMonth = tblCompanyLineInstallments.UseMonth
+
+		FROM	tblCompanyLineInstallments
+		LEFT JOIN lstBillingTypes ON tblCompanyLineInstallments.DownpaymentBillingTypeID = lstBillingTypes.BillingTypeID
+		WHERE	ID = @IMSInstallmentPlanID
+
+	END
+	ELSE
+	BEGIN
+
+		DECLARE @ProducerPaymentMeasuredFrom_Endorsement varchar(10)
+		DECLARE @ProducerPaymentTermDays int = 0
+		SELECT @ProducerPaymentMeasuredFrom_Endorsement = tblCompanyLineTermsOfPayment.ProducerPaymentMeasuredFrom_Endorsement,
+				@ProducerPaymentTermDays = tblCompanyLineTermsOfPayment.DefaultProducerTermsOfPayment_Endorsement
+		FROM tblCompanyLines
+		INNER JOIN tblCompanyLineTermsOfPayment ON tblCompanyLines.CompanyLineID = tblCompanyLineTermsOfPayment.CompanyLineID
+		WHERE tblCompanyLines.CompanyLineGUID = @CompanyLineGuid
+		AND DATEDIFF(d, tblCompanyLineTermsOfPayment.Effective, @PolicyEffectiveDate) >= 0
+		ORDER BY Effective DESC
+		--E=Effective
+		--G=GAAP
+		--M=End of Month (billed?)
+		--B=Billed
+
+		DECLARE @TransactionMonths int = DATEDIFF(m, @TransEffDate, @ExpirationDate)
+
+		SET @FirstInvoicePercentage = 1.0000 / @NumInstallments
+		SET @FirstInvoiceTerm = @ProducerPaymentTermDays
+		SET @FirstInvoiceBillingCode = @BillingCode
+		SET @FirstInvoiceFromEffectiveDate = 1
+		SET @FirstInvoiceFromBillingDate = 0
+
+		SET @InstallmentPercentage = @FirstInvoicePercentage
+		SET @InstallmentTerms = @TransactionMonths / @NumInstallments
+		SET @InstallmentFromEffectiveDate = 1
+		SET @InstallmentFromBillingDate = 0
+		SET @UseMonth = 1
+
+		IF @ProducerPaymentMeasuredFrom_Endorsement = 'E'
+		BEGIN
+
+			SET @FirstInvoiceFromEffectiveDate = 1
+			SET @FirstInvoiceFromBillingDate = 0
+
+			SET @InstallmentFromEffectiveDate = 1
+			SET @InstallmentFromBillingDate = 0
+
+		END
+						
+		IF @ProducerPaymentMeasuredFrom_Endorsement = 'B'
+		BEGIN
+
+			SET @FirstInvoiceFromEffectiveDate = 0
+			SET @FirstInvoiceFromBillingDate = 1
+
+			SET @InstallmentFromEffectiveDate = 0
+			SET @InstallmentFromBillingDate = 1
+
+		END
+
+		IF @InstallmentTerms < 1
+		BEGIN
+
+			DECLARE @TransactionDays int = DATEDIFF(d, @TransEffDate, @ExpirationDate)
+			SET @InstallmentTerms = @TransactionDays / @NumInstallments
+			SET @UseMonth = 0
+
+		END
+
+	END
+
+	IF EXISTS(SELECT * FROM #InvoiceInstallmentsTable)
+	BEGIN
+
+		DELETE FROM #InvoiceInstallmentsTable
+
+	END
+
+	WHILE (SELECT COUNT(*) FROM #InvoiceInstallmentsTable) < @NumInstallments
+	BEGIN
+
+		IF (SELECT COUNT(*) FROM #InvoiceInstallmentsTable) = 0
+		BEGIN
+
+			DECLARE @CalculatedDueDate datetime
+
+			IF @FirstInvoiceFromEffectiveDate = 1
+			BEGIN
+
+				SET @CalculatedDueDate = DATEADD(d, @FirstInvoiceTerm, @TransEffDate)
+
+			END
+			ELSE IF @FirstInvoiceFromBillingDate = 1
+			BEGIN
+
+				SET @CalculatedDueDate = DATEADD(d, @FirstInvoiceTerm, @DateBound)
+
+			END
+
+			--downpayment info or single invoice, use first invoice vars
+			INSERT INTO #InvoiceInstallmentsTable VALUES
+			(
+				@EndorsementQuoteID, 
+				@TransEffDate, 
+				@ExpirationDate, 
+				@NumInstallments, 
+				(SELECT COUNT(*) FROM #InvoiceInstallmentsTable) + 1, 
+				@CalculatedDueDate,
+				@FirstInvoiceBillingCode,
+				@FirstInvoicePercentage
+			)
+
+		END
+		ELSE
+		BEGIN
+
+			DECLARE @CurrentInstallmentNumber int = (SELECT COUNT(*) FROM #InvoiceInstallmentsTable) + 1
+
+			IF @InstallmentFromEffectiveDate = 1
+			BEGIN
+
+				IF @UseMonth = 1
+				BEGIN
+									
+					SET @CalculatedDueDate = DATEADD(m, @InstallmentTerms * (@CurrentInstallmentNumber - 1), @TransEffDate)
+
+				END
+				ELSE
+				BEGIN
+									
+					SET @CalculatedDueDate = DATEADD(d, @InstallmentTerms * (@CurrentInstallmentNumber - 1), @TransEffDate)
+
+				END
+
+			END
+			ELSE IF @InstallmentFromBillingDate = 1
+			BEGIN
+
+				IF @UseMonth = 1
+				BEGIN
+									
+					SET @CalculatedDueDate = DATEADD(m, @InstallmentTerms * (@CurrentInstallmentNumber - 1), @DateBound)
+
+				END
+				ELSE
+				BEGIN
+									
+					SET @CalculatedDueDate = DATEADD(d, @InstallmentTerms * (@CurrentInstallmentNumber - 1), @DateBound)
+
+				END
+
+			END
+
+			INSERT INTO #InvoiceInstallmentsTable VALUES
+			(
+				@EndorsementQuoteID, 
+				@TransEffDate, 
+				@ExpirationDate, 
+				@NumInstallments, 
+				@CurrentInstallmentNumber, 
+				@CalculatedDueDate,
+				@BillingCode,
+				@InstallmentPercentage
+			)
+
+		END
+
+	END
+
+	IF (SELECT SUM(ISNULL(tblQuoteOptionPremiums.Premium, 0)) FROM tblQuoteOptions INNER JOIN tblQuoteOptionPremiums ON tblQuoteOptions.QuoteOptionGuid = tblQuoteOptionPremiums.QuoteOptionGuid WHERE tblQuoteOptions.QuoteGuid = @EndorsementQuoteGuid) <> 0
+	BEGIN
+
+		--need to loop here for installments
+		DECLARE @ProcessedInvoiceCount int = 0
+		WHILE @ProcessedInvoiceCount < @NumInstallments
+		BEGIN
+
+			DECLARE @InvoiceProcessInstallmentMod decimal(20, 19) = 1.0
+			DECLARE @InvoiceProcessInstallmentDueDate datetime = NULL
+			DECLARE @InvoiceProcessInstallmentBillingCode varchar(100) = NULL
+
+			SELECT @InvoiceProcessInstallmentMod = I.InstallmentMod,
+					@InvoiceProcessInstallmentDueDate = I.InstallmentDueDate,
+					@InvoiceProcessInstallmentBillingCode = I.BillingCode
+
+			FROM #InvoiceInstallmentsTable I
+			WHERE (I.Installment - 1) = @ProcessedInvoiceCount
+			  
+
+			
+
+			EXECUTE spAccountingTransfer
+			0, --@Debug
+			@EndorsementQuoteGuid, --@QuoteGuid
+			@UserGuid, --@UserGuid
+			@OfficeID, --@OfficeID
+			1, --@IsEndorsement
+			@InvoiceProcessInstallmentMod, --@InstallmentBillingPremiumModFactor
+			@InvoiceProcessInstallmentDueDate, --@DueDate
+			@DateBound, --@DateBilled
+			NULL, --@Amount
+			@InvoiceProcessInstallmentBillingCode, --@BillingCode
+			'', --@InvoiceComments
+			NULL, --@ModifiesInvoiceNum
+			NULL, --@BillToAdditionalInterestID
+			@InvoiceNum OUTPUT
+
+			IF @SkipTaxesAndFees=0
+			BEGIN
+				--Loop through all the fees on the policy
+				DECLARE @QuoteOptionChargeAmount MONEY
+				DECLARE @QuoteOptionFeeID INT
+
+				DECLARE db_cursor CURSOR FOR  
+					SELECT DISTINCT tblQuoteOptionCharges.Amount, tblQuoteOptionCharges.OptionFeeID
+					FROM tblQuotes
+					INNER JOIN tblQuoteOptions ON tblQuotes.QuoteGUID = tblQuoteOptions.QuoteGUID
+					INNER JOIN tblQuoteOptionCharges ON tblQuoteOptions.QuoteOptionGUID = tblQuoteOptionCharges.QuoteOptionGuid
+					INNER JOIN tblQuoteDetails ON tblQuotes.QuoteGUID = tblQuoteDetails.QuoteGUID
+					INNER JOIN tblCompanyLines ON tblQuoteDetails.CompanyLineGUID = tblCompanyLines.CompanyLineGUID AND tblQuoteOptions.LineGUID = tblCompanyLines.LineGUID
+					WHERE (tblQuotes.QuoteGUID = @EndorsementQuoteGuid)
+					AND (tblQuoteOptions.Bound = 1)
+					AND (tblQuoteOptionCharges.WaivedByUserGuid IS NULL)
+
+				OPEN db_cursor   
+				FETCH NEXT FROM db_cursor INTO @QuoteOptionChargeAmount, @QuoteOptionFeeID
+
+				WHILE @@FETCH_STATUS = 0   
+				BEGIN   
+
+						EXEC spAccountingTransfer_Fees
+						0, --@Debug
+						@QuoteOptionFeeID, --@OptionFeeID
+						@InvoiceNum, --@InvoiceNum
+						@QuoteOptionChargeAmount, --@Amount
+						@InvoiceProcessInstallmentBillingCode --@BillingCode
+
+				FETCH NEXT FROM db_cursor INTO @QuoteOptionChargeAmount, @QuoteOptionFeeID
+				END   
+
+				CLOSE db_cursor   
+				DEALLOCATE db_cursor
+			END--IF @SkipTaxesAndFees=0
+
+			--Post to Journal
+			EXEC spFin_PostInvoice @InvoiceNum
+
+			exec GreyHawk_AfterPostInvoice @invoicenum--Posts reinsurance data
+
+			SET @ProcessedInvoiceCount = @ProcessedInvoiceCount + 1
+
+		END--WHILE @ProcessedInvoiceCount < @NumInstallments
+
+		--Verify Premiums
+		EXEC spAccountingTransfer_VerifyPremiumsTransferred
+					@EndorsementQuoteGuid, --@quoteGuid
+					0, --@debug
+					0 --@reVerify
+
+		--Verify Fees
+		IF @SkipTaxesAndFees=0
+		EXEC spAccountingTransfer_VerifyFeesTransferred	@EndorsementQuoteGuid --@quoteGuid
+
+		--Verify Invoices were created
+		DECLARE @InvoiceCount INT
+		SELECT @InvoiceCount = COUNT(*) FROM tblFin_Invoices WHERE QuoteID = (SELECT QuoteID FROM tblQuotes WHERE QuoteGuid = @EndorsementQuoteGuid) AND Failed = 0
+
+		IF (@InvoiceCount <> @NumInstallments)
+		BEGIN
+			ROLLBACK TRANSACTION
+			RETURN --Raise error here
+		END
+
+		DECLARE @OptionPremiumCheck money
+		DECLARE @BilledPremiumCheck money
+
+		SELECT @OptionPremiumCheck = SUM(tblQuoteOptionPremiums.Premium)
+		FROM tblQuotes
+		INNER JOIN tblQuoteOptions ON tblQuotes.QuoteGuid = tblQuoteOptions.QuoteGuid
+		INNER JOIN tblQuoteOptionPremiums ON tblQuoteOptions.QuoteOptionGUID = tblQuoteOptionPremiums.QuoteOptionGuid
+		WHERE tblQuotes.QuoteID = @EndorsementQuoteID
+
+		SELECT @BilledPremiumCheck = SUM(tblFIn_InvoiceDetails.AmtBilled)
+		FROM tblFin_Invoices
+		INNER JOIN tblFin_InvoiceDetails ON tblFin_Invoices.InvoiceNum = tblFin_InvoiceDetails.InvoiceNum
+		WHERE tblFin_Invoices.Failed = 0
+		AND tblFin_InvoiceDetails.ChargeType = 'P'
+		AND tblFin_Invoices.QuoteID = @EndorsementQuoteID
+
+		DECLARE @BadPremiumErrorMessage varchar(200)
+		SET @BadPremiumErrorMessage = 'Invoice premium is too different from option premium.' +
+										' InvoicePremium: ' + dbo.FormatNumber(@BilledPremiumCheck, 2) + 
+										'; OptionPremium ' + dbo.FormatNumber(@OptionPremiumCheck, 2) +
+										'; InstallmentMod: ' + dbo.FormatNumber(@InvoiceProcessInstallmentMod, 10)
+
+		IF ABS(@OptionPremiumCheck - @BilledPremiumCheck) > 3
+		BEGIN
+
+			RAISERROR(@BadPremiumErrorMessage,15,1)
+
+		END
+
+	END--IF ISNULL(@NewPremium, 0) <> 0
+
+	--Update Quote Data
+	UPDATE tblQuotes SET DateIssued = GETDATE(),
+						IssuedByUserID = (SELECT TOP 1 UserId FROM tblUsers WHERE UserGuid = @UserGuid),
+						DateBound = GETDATE(),
+						BoundByUserId = (SELECT TOP 1 UserId FROM tblUsers WHERE UserGuid = @UserGuid),
+						QuoteStatusId = CASE WHEN @CurrentQuoteStatusID = 12 THEN 12 ELSE 3 END,
+						ExpirationDate = @ExpirationDate
+	WHERE QuoteGuid = @EndorsementQuoteGuid
+	AND DateIssued IS NULL
+			
+	UPDATE ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX SET CreatedQuoteID = @EndorsementQuoteID
+	FROM ASCOT_AL3PolicyMasterTable_V2_FLATCANCEL_DATAFIX
+	WHERE DnlTrID = @DnlTrID and  controlnum = @ControlNumber
+
+    COMMIT TRANSACTION
+
+	DROP TABLE #InvoiceInstallmentsTable
+
+END
+

@@ -1,5 +1,4 @@
-fastapi==0.104.1
-uvicorn==0.24.0
+# Core dependencies for both FastAPI and Azure Functions
 pydantic==2.5.0
 python-dotenv==1.0.0
 requests==2.31.0
@@ -8,3 +7,6 @@ zeep==4.2.1
 openpyxl==3.1.2
 python-multipart==0.0.6
 aiofiles==23.2.1
+
+# Azure Functions
+azure-functions==1.18.0

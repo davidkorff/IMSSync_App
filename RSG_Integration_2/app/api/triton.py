@@ -46,13 +46,13 @@ async def process_transaction(payload: Dict[str, Any]):
     5. Store data and register premium
     6. Execute transaction-specific action:
        - bind: Binds quote to get policy number
-       - issue: Binds quote first, then issues policy to get issue date
+       - issue: Issues policy to get issue date (assumes already bound)
        - Others: No additional action
     
     Supported transaction types:
     - bind: Creates quote and binds it to get policy number
     - unbind: Creates quote without binding
-    - issue: Binds quote first, then issues the policy (returns both policy number and issue date)
+    - issue: Issues the policy to get issue date (assumes policy is already bound)
     - midterm_endorsement: Process endorsement
     - cancellation: Cancel policy
     - reinstatement: Reinstate policy

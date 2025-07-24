@@ -103,6 +103,16 @@ class IMSPayloadProcessorService:
             "QuoteOptionGuid", quote_option_guid
         ]
         
+        # Add the full JSON payload for audit trail
+        params.extend([
+            "full_payload_json", json.dumps(payload, indent=2)
+        ])
+        
+        # Add renewal information (if available)
+        params.extend([
+            "renewal_of_quote_guid", payload.get("renewal_of_quote_guid", "")
+        ])
+        
         # Add all payload fields
         param_mapping = [
             ("umr", "umr"),
