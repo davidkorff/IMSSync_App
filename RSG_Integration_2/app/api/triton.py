@@ -68,10 +68,23 @@ async def process_transaction(payload: Dict[str, Any]):
         
         if result["success"]:
             logger.info(f"Successfully processed transaction: {payload.get('transaction_id')}")
+            return TransactionResponse(**result)
         else:
-            logger.error(f"Failed to process transaction: {payload.get('transaction_id')} - {result.get('message')}")
-        
-        return TransactionResponse(**result)
+            error_message = result.get('message', 'Transaction processing failed')
+            logger.error(f"Failed to process transaction: {payload.get('transaction_id')} - {error_message}")
+            
+            # Determine appropriate error code based on the error message
+            if "Authentication failed" in error_message:
+                raise HTTPException(status_code=401, detail=error_message)
+            elif "validation failed" in error_message or "requires" in error_message:
+                raise HTTPException(status_code=400, detail=error_message)
+            elif "not found" in error_message or "Failed to find" in error_message:
+                raise HTTPException(status_code=404, detail=error_message)
+            elif "already exists" in error_message:
+                raise HTTPException(status_code=409, detail=error_message)
+            else:
+                # For bind failures, quote failures, etc. - unprocessable entity
+                raise HTTPException(status_code=422, detail=error_message)
         
     except Exception as e:
         logger.error(f"Error processing transaction: {str(e)}", exc_info=True)
