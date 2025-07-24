@@ -1,6 +1,7 @@
 -- Production stored procedure to process Triton payload data
 -- Inserts into both tblTritonQuoteData and tblTritonTransactionData
 -- Updates policy number and registers premium
+-- Uses JSON parsing to extract values from the payload
 
 IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spProcessTritonPayload_WS')
 BEGIN
@@ -13,67 +14,127 @@ CREATE PROCEDURE [dbo].[spProcessTritonPayload_WS]
     @QuoteGuid UNIQUEIDENTIFIER,
     @QuoteOptionGuid UNIQUEIDENTIFIER,
     
-    -- Full JSON payload for audit trail
+    -- Full JSON payload for processing and audit trail
     @full_payload_json NVARCHAR(MAX),
     
-    -- Renewal information
-    @renewal_of_quote_guid UNIQUEIDENTIFIER = NULL,
-    
-    -- Payload fields
-    @umr NVARCHAR(100) = NULL,
-    @agreement_number NVARCHAR(100) = NULL,
-    @section_number NVARCHAR(100) = NULL,
-    @class_of_business NVARCHAR(200),
-    @program_name NVARCHAR(200),
-    @policy_number NVARCHAR(50),
-    @expiring_policy_number NVARCHAR(50) = NULL,
-    @underwriter_name NVARCHAR(200),
-    @producer_name NVARCHAR(200),
-    @invoice_date NVARCHAR(50),
-    @policy_fee DECIMAL(18,2) = NULL,
-    @surplus_lines_tax NVARCHAR(50) = NULL,
-    @stamping_fee NVARCHAR(50) = NULL,
-    @other_fee NVARCHAR(50) = NULL,
-    @insured_name NVARCHAR(500),
-    @insured_state NVARCHAR(2),
-    @insured_zip NVARCHAR(10),
-    @effective_date NVARCHAR(50),
-    @expiration_date NVARCHAR(50),
-    @bound_date NVARCHAR(50),
-    @opportunity_type NVARCHAR(100),
-    @business_type NVARCHAR(100),
-    @status NVARCHAR(100),
-    @limit_amount NVARCHAR(100),
-    @limit_prior NVARCHAR(100),
-    @deductible_amount NVARCHAR(100),
-    @gross_premium DECIMAL(18,2),
-    @commission_rate DECIMAL(5,2),
-    @commission_percent DECIMAL(5,2) = NULL,
-    @commission_amount DECIMAL(18,2) = NULL,
-    @net_premium DECIMAL(18,2),
-    @base_premium DECIMAL(18,2),
-    @opportunity_id INT,
-    @midterm_endt_id INT = NULL,
-    @midterm_endt_description NVARCHAR(500) = NULL,
-    @midterm_endt_effective_from NVARCHAR(50) = NULL,
-    @midterm_endt_endorsement_number NVARCHAR(50) = NULL,
-    @additional_insured NVARCHAR(MAX) = NULL,
-    @address_1 NVARCHAR(200),
-    @address_2 NVARCHAR(200) = NULL,
-    @city NVARCHAR(100),
-    @state NVARCHAR(2),
-    @zip NVARCHAR(10),
-    @transaction_id NVARCHAR(100),
-    @prior_transaction_id NVARCHAR(100) = NULL,
-    @transaction_type NVARCHAR(100),
-    @transaction_date NVARCHAR(50),
-    @source_system NVARCHAR(50)
+    -- Optional renewal information
+    @renewal_of_quote_guid UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
     
     BEGIN TRY
         BEGIN TRANSACTION;
+        
+        -- Declare variables to hold parsed JSON values
+        DECLARE @transaction_id NVARCHAR(100),
+                @umr NVARCHAR(100),
+                @agreement_number NVARCHAR(100),
+                @section_number NVARCHAR(100),
+                @class_of_business NVARCHAR(200),
+                @program_name NVARCHAR(200),
+                @policy_number NVARCHAR(50),
+                @expiring_policy_number NVARCHAR(50),
+                @underwriter_name NVARCHAR(200),
+                @producer_name NVARCHAR(200),
+                @invoice_date NVARCHAR(50),
+                @policy_fee DECIMAL(18,2),
+                @surplus_lines_tax NVARCHAR(50),
+                @stamping_fee NVARCHAR(50),
+                @other_fee NVARCHAR(50),
+                @insured_name NVARCHAR(500),
+                @insured_state NVARCHAR(2),
+                @insured_zip NVARCHAR(10),
+                @effective_date NVARCHAR(50),
+                @expiration_date NVARCHAR(50),
+                @bound_date NVARCHAR(50),
+                @opportunity_type NVARCHAR(100),
+                @business_type NVARCHAR(100),
+                @status NVARCHAR(100),
+                @limit_amount NVARCHAR(100),
+                @limit_prior NVARCHAR(100),
+                @deductible_amount NVARCHAR(100),
+                @gross_premium DECIMAL(18,2),
+                @commission_rate DECIMAL(5,2),
+                @commission_percent DECIMAL(5,2),
+                @commission_amount DECIMAL(18,2),
+                @net_premium DECIMAL(18,2),
+                @base_premium DECIMAL(18,2),
+                @opportunity_id INT,
+                @midterm_endt_id INT,
+                @midterm_endt_description NVARCHAR(500),
+                @midterm_endt_effective_from NVARCHAR(50),
+                @midterm_endt_endorsement_number NVARCHAR(50),
+                @additional_insured NVARCHAR(MAX),
+                @address_1 NVARCHAR(200),
+                @address_2 NVARCHAR(200),
+                @city NVARCHAR(100),
+                @state NVARCHAR(2),
+                @zip NVARCHAR(10),
+                @prior_transaction_id NVARCHAR(100),
+                @transaction_type NVARCHAR(100),
+                @transaction_date NVARCHAR(50),
+                @source_system NVARCHAR(50);
+        
+        -- Parse JSON values
+        SET @transaction_id = JSON_VALUE(@full_payload_json, '$.transaction_id');
+        SET @umr = JSON_VALUE(@full_payload_json, '$.umr');
+        SET @agreement_number = JSON_VALUE(@full_payload_json, '$.agreement_number');
+        SET @section_number = JSON_VALUE(@full_payload_json, '$.section_number');
+        SET @class_of_business = JSON_VALUE(@full_payload_json, '$.class_of_business');
+        SET @program_name = JSON_VALUE(@full_payload_json, '$.program_name');
+        SET @policy_number = JSON_VALUE(@full_payload_json, '$.policy_number');
+        SET @expiring_policy_number = JSON_VALUE(@full_payload_json, '$.expiring_policy_number');
+        SET @underwriter_name = JSON_VALUE(@full_payload_json, '$.underwriter_name');
+        SET @producer_name = JSON_VALUE(@full_payload_json, '$.producer_name');
+        SET @invoice_date = JSON_VALUE(@full_payload_json, '$.invoice_date');
+        SET @policy_fee = TRY_CAST(JSON_VALUE(@full_payload_json, '$.policy_fee') AS DECIMAL(18,2));
+        SET @surplus_lines_tax = JSON_VALUE(@full_payload_json, '$.surplus_lines_tax');
+        SET @stamping_fee = JSON_VALUE(@full_payload_json, '$.stamping_fee');
+        SET @other_fee = JSON_VALUE(@full_payload_json, '$.other_fee');
+        SET @insured_name = JSON_VALUE(@full_payload_json, '$.insured_name');
+        SET @insured_state = JSON_VALUE(@full_payload_json, '$.insured_state');
+        SET @insured_zip = JSON_VALUE(@full_payload_json, '$.insured_zip');
+        SET @effective_date = JSON_VALUE(@full_payload_json, '$.effective_date');
+        SET @expiration_date = JSON_VALUE(@full_payload_json, '$.expiration_date');
+        SET @bound_date = JSON_VALUE(@full_payload_json, '$.bound_date');
+        SET @opportunity_type = JSON_VALUE(@full_payload_json, '$.opportunity_type');
+        SET @business_type = JSON_VALUE(@full_payload_json, '$.business_type');
+        SET @status = JSON_VALUE(@full_payload_json, '$.status');
+        SET @limit_amount = JSON_VALUE(@full_payload_json, '$.limit_amount');
+        SET @limit_prior = JSON_VALUE(@full_payload_json, '$.limit_prior');
+        SET @deductible_amount = JSON_VALUE(@full_payload_json, '$.deductible_amount');
+        SET @gross_premium = TRY_CAST(JSON_VALUE(@full_payload_json, '$.gross_premium') AS DECIMAL(18,2));
+        SET @commission_rate = TRY_CAST(JSON_VALUE(@full_payload_json, '$.commission_rate') AS DECIMAL(5,2));
+        SET @commission_percent = TRY_CAST(JSON_VALUE(@full_payload_json, '$.commission_percent') AS DECIMAL(5,2));
+        SET @commission_amount = TRY_CAST(JSON_VALUE(@full_payload_json, '$.commission_amount') AS DECIMAL(18,2));
+        SET @net_premium = TRY_CAST(JSON_VALUE(@full_payload_json, '$.net_premium') AS DECIMAL(18,2));
+        SET @base_premium = TRY_CAST(JSON_VALUE(@full_payload_json, '$.base_premium') AS DECIMAL(18,2));
+        SET @opportunity_id = TRY_CAST(JSON_VALUE(@full_payload_json, '$.opportunity_id') AS INT);
+        SET @midterm_endt_id = TRY_CAST(JSON_VALUE(@full_payload_json, '$.midterm_endt_id') AS INT);
+        SET @midterm_endt_description = JSON_VALUE(@full_payload_json, '$.midterm_endt_description');
+        SET @midterm_endt_effective_from = JSON_VALUE(@full_payload_json, '$.midterm_endt_effective_from');
+        SET @midterm_endt_endorsement_number = JSON_VALUE(@full_payload_json, '$.midterm_endt_endorsement_number');
+        
+        -- Handle additional_insured as array (convert to string representation)
+        SET @additional_insured = JSON_QUERY(@full_payload_json, '$.additional_insured');
+        
+        SET @address_1 = JSON_VALUE(@full_payload_json, '$.address_1');
+        SET @address_2 = JSON_VALUE(@full_payload_json, '$.address_2');
+        SET @city = JSON_VALUE(@full_payload_json, '$.city');
+        SET @state = JSON_VALUE(@full_payload_json, '$.state');
+        SET @zip = JSON_VALUE(@full_payload_json, '$.zip');
+        SET @prior_transaction_id = JSON_VALUE(@full_payload_json, '$.prior_transaction_id');
+        SET @transaction_type = JSON_VALUE(@full_payload_json, '$.transaction_type');
+        SET @transaction_date = JSON_VALUE(@full_payload_json, '$.transaction_date');
+        SET @source_system = JSON_VALUE(@full_payload_json, '$.source_system');
+        
+        -- Handle empty strings as NULL for certain fields
+        IF @surplus_lines_tax = '' SET @surplus_lines_tax = NULL;
+        IF @stamping_fee = '' SET @stamping_fee = NULL;
+        IF @other_fee = '' SET @other_fee = NULL;
+        IF @address_2 = '' SET @address_2 = NULL;
+        IF @midterm_endt_effective_from = '' SET @midterm_endt_effective_from = NULL;
         
         -- 1. ALWAYS insert into tblTritonTransactionData (keeps full history)
         INSERT INTO tblTritonTransactionData (

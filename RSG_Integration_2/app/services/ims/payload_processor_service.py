@@ -113,72 +113,8 @@ class IMSPayloadProcessorService:
             "renewal_of_quote_guid", payload.get("renewal_of_quote_guid", "")
         ])
         
-        # Add all payload fields
-        param_mapping = [
-            ("umr", "umr"),
-            ("agreement_number", "agreement_number"),
-            ("section_number", "section_number"),
-            ("class_of_business", "class_of_business"),
-            ("program_name", "program_name"),
-            ("policy_number", "policy_number"),
-            ("expiring_policy_number", "expiring_policy_number"),
-            ("underwriter_name", "underwriter_name"),
-            ("producer_name", "producer_name"),
-            ("invoice_date", "invoice_date"),
-            ("policy_fee", "policy_fee"),
-            ("surplus_lines_tax", "surplus_lines_tax"),
-            ("stamping_fee", "stamping_fee"),
-            ("other_fee", "other_fee"),
-            ("insured_name", "insured_name"),
-            ("insured_state", "insured_state"),
-            ("insured_zip", "insured_zip"),
-            ("effective_date", "effective_date"),
-            ("expiration_date", "expiration_date"),
-            ("bound_date", "bound_date"),
-            ("opportunity_type", "opportunity_type"),
-            ("business_type", "business_type"),
-            ("status", "status"),
-            ("limit_amount", "limit_amount"),
-            ("limit_prior", "limit_prior"),
-            ("deductible_amount", "deductible_amount"),
-            ("gross_premium", "gross_premium"),
-            ("commission_rate", "commission_rate"),
-            ("commission_percent", "commission_percent"),
-            ("commission_amount", "commission_amount"),
-            ("net_premium", "net_premium"),
-            ("base_premium", "base_premium"),
-            ("opportunity_id", "opportunity_id"),
-            ("midterm_endt_id", "midterm_endt_id"),
-            ("midterm_endt_description", "midterm_endt_description"),
-            ("midterm_endt_effective_from", "midterm_endt_effective_from"),
-            ("midterm_endt_endorsement_number", "midterm_endt_endorsement_number"),
-            ("additional_insured", "additional_insured"),
-            ("address_1", "address_1"),
-            ("address_2", "address_2"),
-            ("city", "city"),
-            ("state", "state"),
-            ("zip", "zip"),
-            ("transaction_id", "transaction_id"),
-            ("prior_transaction_id", "prior_transaction_id"),
-            ("transaction_type", "transaction_type"),
-            ("transaction_date", "transaction_date"),
-            ("source_system", "source_system")
-        ]
-        
-        for param_name, payload_key in param_mapping:
-            value = payload.get(payload_key)
-            
-            # Handle special cases
-            if param_name == "additional_insured" and isinstance(value, list):
-                # Convert list to JSON string
-                value = json.dumps(value) if value else None
-            elif value == "":
-                # Convert empty strings to None for SQL
-                value = None
-            
-            # Convert value to string for the parameter list
-            params.extend([param_name, str(value) if value is not None else ""])
-        
+        # No longer need individual parameters since the stored procedure
+        # now parses the JSON internally
         return params
     
     def _parse_processing_result(self, result_xml: str) -> Dict[str, Any]:
