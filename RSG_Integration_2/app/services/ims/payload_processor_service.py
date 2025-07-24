@@ -108,10 +108,12 @@ class IMSPayloadProcessorService:
             "full_payload_json", json.dumps(payload, indent=2)
         ])
         
-        # Add renewal information (if available)
-        params.extend([
-            "renewal_of_quote_guid", payload.get("renewal_of_quote_guid", "")
-        ])
+        # Add renewal information only if it has a valid value (not empty string)
+        renewal_guid = payload.get("renewal_of_quote_guid")
+        if renewal_guid and renewal_guid.strip():  # Only add if not None and not empty string
+            params.extend([
+                "renewal_of_quote_guid", renewal_guid
+            ])
         
         # No longer need individual parameters since the stored procedure
         # now parses the JSON internally
