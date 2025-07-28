@@ -1,0 +1,36 @@
+stages:
+- stage: Deploy_Dev
+  displayName: 'CI Stage Deploy to Dev'
+  dependsOn: CI_Build_stage
+  condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'release'))
+  jobs:
+  - job: Deploy
+    displayName: 'Deploy to Dev'
+    steps:
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download Build Artifacts'
+        inputs:
+          artifactName: 'drop'
+          targetPath: '$(System.DefaultWorkingDirectory)/drop'
+
+      - task: AzureFunctionApp@2
+        condition: true
+        displayName: 'Azure Function App Deploy to Dev'
+        inputs:
+          connectedServiceNameARM: 'sc-greenhill-corp-nprd-ado-01'
+          appType: 'functionAppLinux'
+          appName: 'fa-corp-triton-dev-eus2-001'
+          package: '$(System.DefaultWorkingDirectory)/drop/$(Build.BuildId).zip'
+          deployToSlotOrASE: true
+          deploymentMethod: 'auto'
+      - task: UniversalPackages@0
+        displayName: 'Publish artifact as Universal Package'
+        inputs:
+          command: 'publish'
+          publishDirectory: '$(System.DefaultWorkingDirectory)/drop/'
+          feedsToUsePublish: 'internal'
+          vstsFeedPublish: 'a9badce7-4611-427b-a4f8-84ab9bf6521f/1e82eedb-a949-4367-a58d-ebaf19cd0df4'
+          vstsFeedPackagePublish: 'triton_ims_integration_api'
+          versionOption: 'custom'
+          versionPublish: '$(majorVersion).$(minorVersion).$(Build.BuildId)'
+          packagePublishDescription: 'triton_ims_integration_api Artifcat'

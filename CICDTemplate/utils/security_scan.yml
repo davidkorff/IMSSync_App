@@ -1,0 +1,53 @@
+# CICDTemplate/utils/security-scan.yml
+stages:
+  - stage: Checkmarx_Scan
+    displayName: 'Checkmarx Scan'
+    jobs:
+      - job: Checkmarx_Scan
+        condition: or(succeeded(), eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranchName'], 'release'))
+        displayName: 'Checkmarx Scan'
+        steps:
+        - task: Checkmarx AST@3
+          inputs:
+            projectName: 'triton-ims-integration-api'
+            branchName: '$(Build.SourceBranchName)'
+            tenantName: 'ryan-specialty'
+            CheckmarxService: 'triton-checkmarx'
+            additionalParams: --threshold "sast-critical=1; sast-high=5"
+          continueOnError: false
+        - powershell: |
+                      Write-Host "Parsing Checkmarx Scan results..."
+                      $htmlPath = "C:\a\_temp\cxASTResults.html"
+
+                      if (Test-Path $htmlPath) {
+                          $htmlContent = Get-Content $htmlPath -Raw
+
+                          # Check for high risk level in the scan summary
+                          $riskLevelFound = $htmlContent | Select-String -Pattern "High Risk"
+
+                          if ($riskLevelFound) {
+                              Write-Host "High risk level found in scan results. Failing the build."
+                              exit 1
+                          } else {
+                              Write-Host "No high risk level found. Continuing the build."
+                          }
+                      } else {
+                          Write-Host "HTML report not found at path: $htmlPath"
+                          exit 1
+                      }
+        - task: PowerShell@2
+          condition: failed()
+          inputs:
+            targetType: 'inline'
+            script: |
+                $sendMailMessageSplat = @{
+                    From = 'cloud@ryansg.com'
+                    To = 'cloud@ryansg.com'
+                    Subject = 'triton-ims-integration-api - CheckMarx step is failing'
+                    Body = "Checkmax step is failing for triton-ims-integration-api."
+                    Attachments = 'C:\a\_temp\cxASTResults.html'
+                    Priority = 'High'
+                    DeliveryNotificationOption = 'OnSuccess', 'OnFailure'
+                    SmtpServer = 'smtp.ryansg.com'
+                }
+                Send-MailMessage @sendMailMessageSplat

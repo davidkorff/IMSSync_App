@@ -1,0 +1,59 @@
+stages:
+  # CI Stage: Continuous Integration stage
+  - stage: CI_Build_stage
+    displayName: 'Build stage'
+    dependsOn: []
+    jobs:
+      - job: Build
+        displayName: 'Build job'
+        steps:
+          # Step 1: Install python version 3.12.2
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                sudo apt-get update
+                sudo apt-get install -y software-properties-common
+                sudo add-apt-repository ppa:deadsnakes/ppa
+                sudo apt-get update
+                sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
+                python3.11 --version
+            displayName: 'Install Python 3.11 manually' # Display name for the task
+          - task: PowerShell@2
+            inputs:
+              targetType: 'inline'
+              script: 'get-childitem -path $(Build.SourcesDirectory) -recurse'
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                    python3.11 -m venv venv
+                    source venv/bin/activate
+                    pip install --no-cache-dir -r requirements.txt
+            displayName: 'Install dependencies' # Display name for the task
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                    command -v zip || echo "zip not found"
+                    sudo apt-get install zip
+            displayName: 'Install zip' # Display name for the task
+          # Step 5: Archive files in a folder
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(System.DefaultWorkingDirectory)/' # Define root folder where files are to be archived
+              includeRootFolder: false
+              archiveType: 'zip' # Define the archive type
+              archiveFile: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip' # Give the name of archive file
+              replaceExistingArchive: true # Replace existing archive files
+            displayName: 'Archive files' # Display name for the task
+
+          # Step 6: Publish build artifacts to the pipeline artifacts
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(System.DefaultWorkingDirectory)/$(Build.BuildId).zip'
+              artifactName: 'drop'
+            displayName: 'Publish Artifact' # Display name for the task
+
+
+
