@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Header>
+    <TokenHeader xmlns="http://tempuri.org/IMSWebServices/DataAccess">
+      <Token>fb01e05b-fbc3-467c-bd25-7163c63080a4</Token>
+      <Context>RSG</Context>
+    </TokenHeader>
+  </soap:Header>
+  <soap:Body>
+    <ExecuteDataSet xmlns="http://tempuri.org/IMSWebServices/DataAccess">
+      <procedureName>spGetQuoteOptions</procedureName>
+      <parameters>
+        <string>QuoteGuid</string>
+        <string>f57495b2-425c-4f07-a115-ccd5beedd5e4</string>
+      </parameters>
+    </ExecuteDataSet>
+  </soap:Body>
+</soap:Envelope>
