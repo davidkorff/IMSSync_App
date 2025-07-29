@@ -55,8 +55,7 @@ CREATE INDEX [IX_tblTritonTransactionData_date_created] ON [dbo].[tblTritonTrans
 CREATE INDEX [IX_tblTritonTransactionData_opportunity_id] ON [dbo].[tblTritonTransactionData] ([opportunity_id]);
 CREATE INDEX [IX_tblTritonTransactionData_policy_number] ON [dbo].[tblTritonTransactionData] ([policy_number]);
 
--- Grant permissions
-GRANT SELECT, INSERT ON [dbo].[tblTritonTransactionData] TO [IMS_User];
+
 
 PRINT 'Table tblTritonTransactionData created successfully with simplified schema';
 GO

@@ -39,8 +39,7 @@ BEGIN
 END
 GO
 
--- Grant execute permission to IMS user
-GRANT EXECUTE ON [dbo].[spGetQuoteByOpportunityID_WS] TO [IMS_User]
+
 GO
 
 PRINT 'Stored procedure spGetQuoteByOpportunityID_WS created successfully';
