@@ -111,8 +111,6 @@ BEGIN
     CREATE INDEX [IX_tblTritonTransactionData_transaction_type] ON [dbo].[tblTritonTransactionData] ([transaction_type]);
     CREATE INDEX [IX_tblTritonTransactionData_created_date] ON [dbo].[tblTritonTransactionData] ([created_date]);
 
-    -- Grant permissions
-    GRANT SELECT, INSERT ON [dbo].[tblTritonTransactionData] TO [IMS_User];
 
     PRINT 'Table tblTritonTransactionData created successfully';
 END

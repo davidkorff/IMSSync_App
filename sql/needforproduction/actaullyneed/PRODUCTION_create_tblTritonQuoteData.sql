@@ -92,8 +92,7 @@ BEGIN
     CREATE INDEX [IX_tblTritonQuoteData_transaction_type] ON [dbo].[tblTritonQuoteData] ([transaction_type]);
     CREATE INDEX [IX_tblTritonQuoteData_created_date] ON [dbo].[tblTritonQuoteData] ([created_date]);
 
-    -- Grant permissions
-    GRANT SELECT, INSERT, UPDATE, DELETE ON [dbo].[tblTritonQuoteData] TO [IMS_User];
+
 
     PRINT 'Table tblTritonQuoteData created successfully';
 END

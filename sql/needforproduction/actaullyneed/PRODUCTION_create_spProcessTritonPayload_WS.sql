@@ -425,8 +425,7 @@ BEGIN
 END
 GO
 
--- Grant execute permissions
-GRANT EXECUTE ON [dbo].[spProcessTritonPayload_WS] TO [IMS_User];
+
 GO
 
 PRINT 'Stored procedure spProcessTritonPayload_WS created successfully';
