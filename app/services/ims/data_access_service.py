@@ -1,4 +1,5 @@
 import logging
+import json
 import requests
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Tuple, Any
@@ -384,6 +385,154 @@ class IMSDataAccessService:
         except Exception as e:
             logger.error(f"Error parsing single row result: {str(e)}")
             return None
+    
+    def store_triton_transaction(self, payload: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Store transaction data using spStoreTritonTransaction_WS.
+        
+        Args:
+            payload: The Triton transaction payload
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, result_data, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spStoreTritonTransaction",
+                [
+                    "transaction_id", payload.get("transaction_id", ""),
+                    "full_payload_json", json.dumps(payload),
+                    "opportunity_id", str(payload.get("opportunity_id", "")),
+                    "policy_number", payload.get("policy_number", ""),
+                    "insured_name", payload.get("insured_name", ""),
+                    "transaction_type", payload.get("transaction_type", ""),
+                    "transaction_date", payload.get("transaction_date", ""),
+                    "source_system", payload.get("source_system", "TRITON")
+                ]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if result_dict:
+                logger.info(f"Transaction stored: {result_dict.get('Status')} - {result_dict.get('Message')}")
+                return True, result_dict, result_dict.get("Message", "Transaction stored")
+            else:
+                return False, None, "No result returned from stored procedure"
+                
+        except Exception as e:
+            error_msg = f"Error storing transaction: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def get_quote_by_opportunity_id(self, opportunity_id: int) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Find quote information by opportunity_id and check if bound.
+        
+        Args:
+            opportunity_id: The opportunity_id to search for
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetQuoteByOpportunityID",
+                ["OpportunityID", str(opportunity_id)]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return True, None, f"No quote found for opportunity_id: {opportunity_id}"
+            
+            logger.info(f"Found quote {result_dict.get('QuoteGuid')} for opportunity_id {opportunity_id}")
+            return True, result_dict, "Quote lookup successful"
+            
+        except Exception as e:
+            error_msg = f"Error looking up quote by opportunity_id: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def check_quote_bound_status(self, quote_guid: str) -> Tuple[bool, bool, str]:
+        """
+        Check if a quote is already bound.
+        
+        Args:
+            quote_guid: The GUID of the quote to check
+            
+        Returns:
+            Tuple[bool, bool, str]: (success, is_bound, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spCheckQuoteBoundStatus",
+                ["QuoteGuid", quote_guid]
+            )
+            
+            if not success:
+                return False, False, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return False, False, "No result returned from bound status check"
+            
+            is_bound = result_dict.get("IsBound") == "1"
+            bound_message = result_dict.get("BoundMessage", "Unknown status")
+            
+            logger.info(f"Quote {quote_guid} bound status: {is_bound} - {bound_message}")
+            return True, is_bound, bound_message
+            
+        except Exception as e:
+            error_msg = f"Error checking bound status: {str(e)}"
+            logger.error(error_msg)
+            return False, False, error_msg
+    
+    def get_quote_by_expiring_policy_number(self, policy_number: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Find quote information by expiring policy number for renewals.
+        
+        Args:
+            policy_number: The expiring policy number
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetQuoteByExpiringPolicyNumber",
+                ["ExpiringPolicyNumber", policy_number]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return True, None, f"No quote found for policy number: {policy_number}"
+            
+            logger.info(f"Found expiring quote {result_dict.get('QuoteGuid')} for policy {policy_number}")
+            return True, result_dict, "Expiring quote lookup successful"
+            
+        except Exception as e:
+            error_msg = f"Error looking up expiring policy: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
     
     def _escape_xml(self, value: str) -> str:
         """Escape special XML characters."""

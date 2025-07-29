@@ -32,6 +32,7 @@
   "net_premium":                 1714,
   "base_premium":                1558,
   "opportunity_id":              106113,
+  "expiring_opportunity_id":     106112,
   "midterm_endt_id":             null,
   "midterm_endt_description":    null,
   "midterm_endt_effective_from": "",

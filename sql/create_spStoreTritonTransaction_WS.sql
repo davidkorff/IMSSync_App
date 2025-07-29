@@ -81,8 +81,6 @@ BEGIN
 END
 GO
 
--- Grant execute permission to IMS user
-GRANT EXECUTE ON [dbo].[spStoreTritonTransaction_WS] TO [IMS_User]
 GO
 
 PRINT 'Stored procedure spStoreTritonTransaction_WS created successfully';

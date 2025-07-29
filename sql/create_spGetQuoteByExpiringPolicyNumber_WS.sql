@@ -36,7 +36,6 @@ END
 GO
 
 -- Grant execute permission to IMS user
-GRANT EXECUTE ON [dbo].[spGetQuoteByExpiringPolicyNumber_WS] TO [IMS_User]
 GO
 
 PRINT 'Stored procedure spGetQuoteByExpiringPolicyNumber_WS created successfully';
