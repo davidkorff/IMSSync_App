@@ -1,4 +1,4 @@
-from .auth_service import AuthService
+from .auth_service import IMSAuthService as AuthService
 from .insured_service import InsuredService
 from .quote_service import QuoteService
 from .invoice_service import InvoiceService
