@@ -21,8 +21,6 @@ BEGIN
         tqd.policy_number,
         tqd.insured_name,
         tqd.opportunity_id,
-        tqd.opportunity_type,
-        tqd.expiring_opportunity_id,
         tqd.created_date,
         q.QuoteStatusID,
         q.PolicyNumber AS QuotePolicyNumber,
@@ -32,7 +30,6 @@ BEGIN
             WHEN qs.Bound = 1 THEN 1
             ELSE 0
         END AS IsBound,
-        qs.QuoteStatus,
         qs.Bound AS BoundFlag
     FROM tblTritonQuoteData tqd
     INNER JOIN tblQuotes q ON tqd.QuoteGuid = q.QuoteGuid

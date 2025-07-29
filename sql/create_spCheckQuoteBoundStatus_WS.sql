@@ -23,7 +23,6 @@ BEGIN
             q.PolicyNumber,
             q.DateBound,
             q.DateIssued,
-            qs.QuoteStatus,
             qs.Bound,
             CASE 
                 WHEN qs.Bound = 1 THEN 1
@@ -46,7 +45,6 @@ BEGIN
             NULL AS PolicyNumber,
             NULL AS DateBound,
             NULL AS DateIssued,
-            NULL AS QuoteStatus,
             NULL AS Bound,
             0 AS IsBound,
             'Quote not found' AS BoundMessage;

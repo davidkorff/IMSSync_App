@@ -30,7 +30,7 @@ BEGIN
                 'Warning' AS Status,
                 'Transaction already exists' AS Message,
                 transaction_id,
-                date_created
+                created_date
             FROM tblTritonTransactionData
             WHERE transaction_id = @transaction_id;
             
@@ -47,7 +47,7 @@ BEGIN
             transaction_type,
             transaction_date,
             source_system,
-            date_created
+            created_date
         )
         VALUES (
             @transaction_id,
@@ -67,7 +67,7 @@ BEGIN
             'Transaction stored successfully' AS Message,
             @transaction_id AS transaction_id,
             SCOPE_IDENTITY() AS TritonTransactionDataID,
-            GETDATE() AS date_created;
+            GETDATE() AS created_date;
             
     END TRY
     BEGIN CATCH

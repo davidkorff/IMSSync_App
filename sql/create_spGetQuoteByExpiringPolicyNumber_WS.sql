@@ -27,10 +27,7 @@ BEGIN
         tqd.created_date,
         q.QuoteStatusID,
         q.DateBound,
-        q.DateIssued,
-        q.InsuredGuid,
-        q.ProducerContactGuid,
-        q.UnderwriterGuid
+        q.DateIssued
     FROM tblTritonQuoteData tqd
     INNER JOIN tblQuotes q ON tqd.QuoteGuid = q.QuoteGuid
     WHERE tqd.policy_number = @ExpiringPolicyNumber
