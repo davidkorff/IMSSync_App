@@ -3,14 +3,14 @@ from typing import Optional, Dict, Any
 from uuid import UUID
 
 from .base_service import BaseIMSService
-from .auth_service import AuthService
+from .auth_service import IMSAuthService
 
 logger = logging.getLogger(__name__)
 
 class InvoiceService(BaseIMSService):
     """Service for IMS invoice operations"""
     
-    def __init__(self, auth_service: AuthService):
+    def __init__(self, auth_service: IMSAuthService):
         super().__init__("invoice_factory")
         self.auth_service = auth_service
     
