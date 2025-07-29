@@ -1,10 +1,18 @@
 -- Stored procedure to process Triton payload data
--- Inserts into tblTritonQuoteData, updates policy number, and registers premium
+-- Production Version: Includes full_payload_json and renewal_of_quote_guid
+-- Inserts into both tblTritonQuoteData and tblTritonTransactionData
+-- Updates policy number and registers premium
 
 CREATE OR ALTER PROCEDURE [dbo].[spProcessTritonPayload_WS]
     -- Quote identifiers
     @QuoteGuid UNIQUEIDENTIFIER,
     @QuoteOptionGuid UNIQUEIDENTIFIER,
+    
+    -- Full JSON payload for audit trail
+    @full_payload_json NVARCHAR(MAX),
+    
+    -- Renewal information
+    @renewal_of_quote_guid UNIQUEIDENTIFIER = NULL,
     
     -- Payload fields
     @umr NVARCHAR(100) = NULL,
@@ -62,7 +70,120 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
         
-        -- 1. Insert or update data in tblTritonQuoteData
+        -- 1. ALWAYS insert into tblTritonTransactionData (keeps full history)
+        INSERT INTO tblTritonTransactionData (
+            transaction_id,
+            QuoteGuid,
+            QuoteOptionGuid,
+            full_payload_json,
+            renewal_of_quote_guid,
+            umr,
+            agreement_number,
+            section_number,
+            class_of_business,
+            program_name,
+            policy_number,
+            expiring_policy_number,
+            underwriter_name,
+            producer_name,
+            invoice_date,
+            policy_fee,
+            surplus_lines_tax,
+            stamping_fee,
+            other_fee,
+            insured_name,
+            insured_state,
+            insured_zip,
+            effective_date,
+            expiration_date,
+            bound_date,
+            opportunity_type,
+            business_type,
+            status,
+            limit_amount,
+            limit_prior,
+            deductible_amount,
+            gross_premium,
+            commission_rate,
+            commission_percent,
+            commission_amount,
+            net_premium,
+            base_premium,
+            opportunity_id,
+            midterm_endt_id,
+            midterm_endt_description,
+            midterm_endt_effective_from,
+            midterm_endt_endorsement_number,
+            additional_insured,
+            address_1,
+            address_2,
+            city,
+            state,
+            zip,
+            prior_transaction_id,
+            transaction_type,
+            transaction_date,
+            source_system,
+            created_date,
+            last_updated
+        ) VALUES (
+            @transaction_id,
+            @QuoteGuid,
+            @QuoteOptionGuid,
+            @full_payload_json,
+            @renewal_of_quote_guid,
+            @umr,
+            @agreement_number,
+            @section_number,
+            @class_of_business,
+            @program_name,
+            @policy_number,
+            @expiring_policy_number,
+            @underwriter_name,
+            @producer_name,
+            @invoice_date,
+            @policy_fee,
+            @surplus_lines_tax,
+            @stamping_fee,
+            @other_fee,
+            @insured_name,
+            @insured_state,
+            @insured_zip,
+            @effective_date,
+            @expiration_date,
+            @bound_date,
+            @opportunity_type,
+            @business_type,
+            @status,
+            @limit_amount,
+            @limit_prior,
+            @deductible_amount,
+            @gross_premium,
+            @commission_rate,
+            @commission_percent,
+            @commission_amount,
+            @net_premium,
+            @base_premium,
+            @opportunity_id,
+            @midterm_endt_id,
+            @midterm_endt_description,
+            @midterm_endt_effective_from,
+            @midterm_endt_endorsement_number,
+            @additional_insured,
+            @address_1,
+            @address_2,
+            @city,
+            @state,
+            @zip,
+            @prior_transaction_id,
+            @transaction_type,
+            @transaction_date,
+            @source_system,
+            GETDATE(),
+            GETDATE()
+        );
+        
+        -- 2. Insert or update data in tblTritonQuoteData
         -- Check if record exists for this quote
         IF EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @QuoteGuid)
         BEGIN
@@ -70,6 +191,7 @@ BEGIN
             UPDATE tblTritonQuoteData
             SET 
                 QuoteOptionGuid = @QuoteOptionGuid,
+                renewal_of_quote_guid = @renewal_of_quote_guid,
                 umr = @umr,
                 agreement_number = @agreement_number,
                 section_number = @section_number,
@@ -127,6 +249,7 @@ BEGIN
             INSERT INTO tblTritonQuoteData (
                 QuoteGuid,
                 QuoteOptionGuid,
+                renewal_of_quote_guid,
                 umr,
                 agreement_number,
                 section_number,
@@ -180,6 +303,7 @@ BEGIN
             ) VALUES (
                 @QuoteGuid,
                 @QuoteOptionGuid,
+                @renewal_of_quote_guid,
                 @umr,
                 @agreement_number,
                 @section_number,
@@ -233,12 +357,12 @@ BEGIN
             );
         END
         
-        -- 2. Update policy number in tblquotes
+        -- 3. Update policy number in tblquotes
         UPDATE tblquotes 
         SET PolicyNumber = @policy_number 
         WHERE QuoteGuid = @QuoteGuid;
         
-        -- 3. Register the premium using UpdatePremiumHistoricV3
+        -- 4. Register the premium using UpdatePremiumHistoricV3
         -- This assumes net_premium column exists in tblTritonQuoteData
         EXEC dbo.UpdatePremiumHistoricV3
             @quoteOptionGuid        = @QuoteOptionGuid,
@@ -252,7 +376,8 @@ BEGIN
             'Success' AS Status,
             'Payload processed successfully' AS Message,
             @QuoteGuid AS QuoteGuid,
-            @QuoteOptionGuid AS QuoteOptionGuid;
+            @QuoteOptionGuid AS QuoteOptionGuid,
+            @transaction_id AS TransactionId;
             
     END TRY
     BEGIN CATCH
