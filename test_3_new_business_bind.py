@@ -4,13 +4,14 @@ Tests the complete workflow for binding a new business policy
 """
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from test_bind_workflow_base import *
 from app.services.transaction_handler import get_transaction_handler
 import json
 
-def test_new_business_bind():
+def test_new_business_bind(json_file=None):
     """Test complete new business bind workflow"""
     test_result = TestResult("new_business_bind")
     handler = get_transaction_handler()
@@ -18,21 +19,34 @@ def test_new_business_bind():
     try:
         # Step 1: Create new business payload
         log_test_step("Create new business bind payload")
-        payload = create_test_payload(
-            transaction_type="bind",
-            opportunity_id=999002,  # New unique opportunity_id
-            policy_number="TST999002",
-            opportunity_type="new"  # Explicitly set as new business
-        )
         
-        # Add any additional fields needed
-        payload.update({
-            "umr": "TEST/UMR/999002",
-            "agreement_number": "TEST-AGREE-001",
-            "section_number": "001",
-            "policy_fee": 250.00,
-            "invoice_date": datetime.now().strftime("%m/%d/%Y")
-        })
+        if json_file:
+            # Load payload from JSON file
+            log_test_step(f"Loading payload from {json_file}")
+            try:
+                with open(json_file, 'r') as f:
+                    payload = json.load(f)
+                logger.info(f"✓ Loaded payload from {json_file}")
+            except Exception as e:
+                test_result.add_step("Load JSON file", False, None, str(e))
+                return test_result
+        else:
+            # Use default test payload
+            payload = create_test_payload(
+                transaction_type="bind",
+                opportunity_id=999002,  # New unique opportunity_id
+                policy_number="TST999002",
+                opportunity_type="new"  # Explicitly set as new business
+            )
+            
+            # Add any additional fields needed
+            payload.update({
+                "umr": "TEST/UMR/999002",
+                "agreement_number": "TEST-AGREE-001",
+                "section_number": "001",
+                "policy_fee": 250.00,
+                "invoice_date": datetime.now().strftime("%m/%d/%Y")
+            })
         
         test_result.add_step("Create payload", True, {
             "transaction_id": payload["transaction_id"],
@@ -136,8 +150,13 @@ def test_new_business_bind():
         if success:
             log_test_step("Test duplicate bind prevention")
             
-            # Try to bind the same opportunity_id again
-            success2, results2, message2 = handler.process_transaction(payload)
+            # Try to bind the same opportunity_id again (only if using generated payload)
+            if not json_file:
+                success2, results2, message2 = handler.process_transaction(payload)
+            else:
+                # Skip duplicate test with external JSON to avoid conflicts
+                success2 = False
+                message2 = "Skipped duplicate test when using external JSON"
             
             if not success2 and "already bound" in message2.lower():
                 test_result.add_step("Duplicate bind prevention", True, {
@@ -174,4 +193,8 @@ def test_new_business_bind():
     return test_result
 
 if __name__ == "__main__":
-    test_new_business_bind()
+    parser = argparse.ArgumentParser(description='Test new business bind workflow')
+    parser.add_argument('--json', '-j', type=str, help='Path to JSON file containing test payload')
+    args = parser.parse_args()
+    
+    test_new_business_bind(json_file=args.json)

@@ -4,14 +4,16 @@ Tests the spGetQuoteByOpportunityID_WS and spCheckQuoteBoundStatus_WS procedures
 """
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from test_bind_workflow_base import *
 from app.services.ims.data_access_service import get_data_access_service
 from app.services.ims.auth_service import get_auth_service
 import xml.etree.ElementTree as ET
+import json
 
-def test_rebind_detection():
+def test_rebind_detection(json_file=None):
     """Test rebind detection workflow"""
     test_result = TestResult("rebind_detection")
     data_service = get_data_access_service()
@@ -28,11 +30,25 @@ def test_rebind_detection():
         
         # Step 2: Create test payload for rebind scenario
         log_test_step("Create test payload for rebind")
-        payload = create_test_payload(
-            transaction_type="bind",
-            opportunity_id=88475,  # Use a known opportunity_id that might exist
-            policy_number="RSG240088475"
-        )
+        
+        if json_file:
+            # Load payload from JSON file
+            log_test_step(f"Loading payload from {json_file}")
+            try:
+                with open(json_file, 'r') as f:
+                    payload = json.load(f)
+                logger.info(f"✓ Loaded payload from {json_file}")
+            except Exception as e:
+                test_result.add_step("Load JSON file", False, None, str(e))
+                return test_result
+        else:
+            # Use default test payload
+            payload = create_test_payload(
+                transaction_type="bind",
+                opportunity_id=88475,  # Use a known opportunity_id that might exist
+                policy_number="RSG240088475"
+            )
+        
         test_result.add_step("Create payload", True, {"payload": payload})
         
         # Step 3: Check if quote exists for this opportunity_id
@@ -201,4 +217,8 @@ def test_rebind_detection():
     return test_result
 
 if __name__ == "__main__":
-    test_rebind_detection()
+    parser = argparse.ArgumentParser(description='Test rebind detection workflow')
+    parser.add_argument('--json', '-j', type=str, help='Path to JSON file containing test payload')
+    args = parser.parse_args()
+    
+    test_rebind_detection(json_file=args.json)

@@ -4,6 +4,7 @@ Tests the complete workflow for binding a renewal policy
 """
 import sys
 import os
+import argparse
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from test_bind_workflow_base import *
@@ -12,7 +13,7 @@ from app.services.ims.data_access_service import get_data_access_service
 import json
 import xml.etree.ElementTree as ET
 
-def test_renewal_bind():
+def test_renewal_bind(json_file=None):
     """Test complete renewal bind workflow"""
     test_result = TestResult("renewal_bind")
     handler = get_transaction_handler()
@@ -22,15 +23,26 @@ def test_renewal_bind():
         # Step 1: Create renewal payload
         log_test_step("Create renewal bind payload")
         
-        # For renewal, we need an expiring policy
-        payload = create_test_payload(
-            transaction_type="bind",
-            opportunity_id=999003,  # New renewal opportunity
-            policy_number="TST999003",
-            opportunity_type="renewal",  # Set as renewal
-            expiring_opportunity_id=88475,  # Reference to expiring policy
-            expiring_policy_number="RSG240088475"  # Expiring policy number
-        )
+        if json_file:
+            # Load payload from JSON file
+            log_test_step(f"Loading payload from {json_file}")
+            try:
+                with open(json_file, 'r') as f:
+                    payload = json.load(f)
+                logger.info(f"✓ Loaded payload from {json_file}")
+            except Exception as e:
+                test_result.add_step("Load JSON file", False, None, str(e))
+                return test_result
+        else:
+            # For renewal, we need an expiring policy
+            payload = create_test_payload(
+                transaction_type="bind",
+                opportunity_id=999003,  # New renewal opportunity
+                policy_number="TST999003",
+                opportunity_type="renewal",  # Set as renewal
+                expiring_opportunity_id=88475,  # Reference to expiring policy
+                expiring_policy_number="RSG240088475"  # Expiring policy number
+            )
         
         test_result.add_step("Create payload", True, {
             "transaction_id": payload["transaction_id"],
@@ -53,10 +65,16 @@ def test_renewal_bind():
         
         expiring_quote_guid = None
         
-        success, result_xml, message = data_service.execute_dataset(
-            "spGetQuoteByExpiringPolicyNumber",
-            ["ExpiringPolicyNumber", payload["expiring_policy_number"]]
-        )
+        # Only look up expiring policy if expiring_policy_number is provided
+        if payload.get("expiring_policy_number"):
+            success, result_xml, message = data_service.execute_dataset(
+                "spGetQuoteByExpiringPolicyNumber",
+                ["ExpiringPolicyNumber", payload["expiring_policy_number"]]
+            )
+        else:
+            success = False
+            result_xml = None
+            message = "No expiring policy number provided"
         
         if success and result_xml:
             try:
@@ -151,27 +169,32 @@ def test_renewal_bind():
                     except Exception as e:
                         test_result.add_step("Parse renewal verification", False, None, str(e))
         
-        # Step 5: Test renewal with missing expiring policy
-        log_test_step("Test renewal without expiring policy reference")
-        
-        orphan_payload = create_test_payload(
-            transaction_type="bind",
-            opportunity_id=999004,
-            policy_number="TST999004",
-            opportunity_type="renewal"
-            # No expiring_opportunity_id or expiring_policy_number
-        )
-        
-        success2, results2, message2 = handler.process_transaction(orphan_payload)
-        
-        if success2:
-            test_result.add_step("Renewal without expiring", True, {
-                "message": "Renewal created without expiring policy link",
-                "quote_guid": results2.get("quote_guid")
-            })
-            logger.info("✓ Renewal can be created without expiring policy reference")
+        # Step 5: Test renewal with missing expiring policy (only if using generated payload)
+        if not json_file:
+            log_test_step("Test renewal without expiring policy reference")
+            
+            orphan_payload = create_test_payload(
+                transaction_type="bind",
+                opportunity_id=999004,
+                policy_number="TST999004",
+                opportunity_type="renewal"
+                # No expiring_opportunity_id or expiring_policy_number
+            )
+            
+            success2, results2, message2 = handler.process_transaction(orphan_payload)
+            
+            if success2:
+                test_result.add_step("Renewal without expiring", True, {
+                    "message": "Renewal created without expiring policy link",
+                    "quote_guid": results2.get("quote_guid")
+                })
+                logger.info("✓ Renewal can be created without expiring policy reference")
+            else:
+                test_result.add_step("Renewal without expiring", False, results2, message2)
         else:
-            test_result.add_step("Renewal without expiring", False, results2, message2)
+            test_result.add_step("Renewal without expiring", True, {
+                "message": "Skipped orphan renewal test when using external JSON"
+            })
         
     except Exception as e:
         logger.error(f"Test failed with exception: {str(e)}", exc_info=True)
@@ -197,4 +220,8 @@ def test_renewal_bind():
     return test_result
 
 if __name__ == "__main__":
-    test_renewal_bind()
+    parser = argparse.ArgumentParser(description='Test renewal bind workflow')
+    parser.add_argument('--json', '-j', type=str, help='Path to JSON file containing test payload')
+    args = parser.parse_args()
+    
+    test_renewal_bind(json_file=args.json)
