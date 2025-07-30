@@ -16,9 +16,9 @@ stages:
                 sudo apt-get install -y software-properties-common
                 sudo add-apt-repository ppa:deadsnakes/ppa
                 sudo apt-get update
-                sudo apt-get install -y python3.11 python3.11-venv python3.11-dev
-                python3.11 --version
-            displayName: 'Install Python 3.11 manually' # Display name for the task
+                sudo apt-get install -y python3.10 python3.10-venv python3.10-dev
+                python3.10 --version
+            displayName: 'Install Python 3.10 manually' # Display name for the task
           - task: PowerShell@2
             inputs:
               targetType: 'inline'
@@ -27,9 +27,9 @@ stages:
             inputs:
               targetType: 'inline'
               script: |
-                    python3.11 -m venv venv
+                    python3.10 -m venv venv
                     source venv/bin/activate
-                    pip install --target="./.python_pacakges/lib/site-pacages" -r requirements.txt
+                    pip3.10 install --target="./.python_pacakges/lib/site-pacKages" -r requirements.txt
             displayName: 'Install dependencies' # Display name for the task
           - task: Bash@3
             inputs:
