@@ -29,7 +29,7 @@ stages:
               script: |
                     python3.11 -m venv venv
                     source venv/bin/activate
-                    pip install --no-cache-dir -r requirements.txt
+                    pip install --target="./.python_pacakges/lib/site-pacages" -r requirements.txt
             displayName: 'Install dependencies' # Display name for the task
           - task: Bash@3
             inputs:
