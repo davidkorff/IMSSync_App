@@ -21,7 +21,7 @@ stages:
           appType: 'functionAppLinux'
           appName: 'fa-corp-triton-dev-eus2-001'
           package: '$(System.DefaultWorkingDirectory)/drop/$(Build.BuildId).zip'
-          runtimeStack: 'PYTHON|3.11'
+          runtimeStack: 'PYTHON|3.10'
           deploymentMethod: 'zipDeploy'
       - task: UniversalPackages@0
         displayName: 'Publish artifact as Universal Package'
