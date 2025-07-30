@@ -61,8 +61,72 @@ class TransactionHandler:
             if not auth_success:
                 return False, results, f"Authentication failed: {auth_message}"
             
+            # 2. Store transaction first (no QuoteGuid)
+            logger.info("Storing transaction data")
+            success, trans_result, message = self.data_service.store_triton_transaction(payload)
+            if not success:
+                logger.warning(f"Transaction storage warning: {message}")
+            else:
+                results["transaction_stored"] = trans_result.get("Status", "Unknown")
+            
+            # 3. Check for rebind if this is a bind transaction
+            if transaction_type == "bind":
+                logger.info("Checking for existing quote")
+                opportunity_id = payload.get("opportunity_id")
+                
+                if opportunity_id:
+                    # Check if quote already exists for this opportunity_id
+                    success, quote_info, message = self.data_service.get_quote_by_opportunity_id(opportunity_id)
+                    if success and quote_info:
+                        # Quote exists - check if already bound
+                        quote_guid = quote_info.get("QuoteGuid")
+                        logger.info(f"Found existing quote {quote_guid} for opportunity_id {opportunity_id}")
+                        
+                        # Check bound status
+                        success, is_bound, bound_message = self.data_service.check_quote_bound_status(quote_guid)
+                        if not success:
+                            return False, results, f"Failed to check bound status: {bound_message}"
+                        
+                        if is_bound:
+                            # Policy already bound - error
+                            return False, results, "Policy Already Bound"
+                        
+                        # Quote exists but not bound - proceed to rebind
+                        logger.info("Quote exists but not bound - proceeding with rebind")
+                        results["rebind"] = True
+                        results["quote_guid"] = quote_guid
+                        results["quote_option_guid"] = quote_info.get("QuoteOptionGuid")
+                        
+                        # Process payload to update data and bind
+                        success, process_result, message = self.payload_processor.process_payload(
+                            payload=payload,
+                            quote_guid=quote_guid,
+                            quote_option_guid=quote_info.get("QuoteOptionGuid")
+                        )
+                        if not success:
+                            return False, results, f"Payload processing failed: {message}"
+                        
+                        # Bind the existing quote
+                        logger.info(f"Binding existing quote {quote_guid}")
+                        success, policy_number, message = self.bind_service.bind_quote(quote_guid)
+                        if not success:
+                            return False, results, f"Bind failed: {message}"
+                        
+                        results["bound_policy_number"] = policy_number
+                        results["bind_status"] = "completed"
+                        results["end_time"] = datetime.utcnow().isoformat()
+                        results["status"] = "completed"
+                        
+                        summary_msg = self._build_summary_message(results, payload)
+                        return True, results, summary_msg
+                    else:
+                        logger.info(f"No existing quote found for opportunity_id {opportunity_id}")
+                        results["rebind"] = False
+                
+                # No existing quote - continue with normal flow to create new quote
+            
             # For issue and unbind transactions, we need to find the existing quote
-            if transaction_type in ["issue", "unbind"]:
+            elif transaction_type in ["issue", "unbind"]:
                 # First try to find by option_id if provided
                 option_id = payload.get("opportunity_id") or payload.get("option_id")
                 policy_number = payload.get("policy_number")
@@ -144,19 +208,37 @@ class TransactionHandler:
                 return False, results, f"Underwriter lookup failed: {message}"
             results["underwriter_guid"] = underwriter_guid
             
-            # 5. Create Quote
+            # 5. Handle renewal logic if needed
+            renewal_of_quote_guid = None
+            opportunity_type = payload.get("opportunity_type", "").lower()
+            
+            if opportunity_type == "renewal":
+                # Check for expiring policy to link renewal
+                expiring_policy_number = payload.get("expiring_policy_number")
+                if expiring_policy_number:
+                    logger.info(f"Looking up expiring policy: {expiring_policy_number}")
+                    success, expiring_quote_info, message = self.data_service.get_quote_by_expiring_policy_number(expiring_policy_number)
+                    if success and expiring_quote_info:
+                        renewal_of_quote_guid = expiring_quote_info.get("QuoteGuid")
+                        logger.info(f"Found expiring quote {renewal_of_quote_guid} for policy {expiring_policy_number}")
+                        results["renewal_of_quote_guid"] = renewal_of_quote_guid
+                    else:
+                        logger.warning(f"No expiring quote found for policy {expiring_policy_number}")
+            
+            # 6. Create Quote
             success, quote_guid, message = self.quote_service.create_quote_from_payload(
                 payload=payload,
                 insured_guid=results["insured_guid"],
                 producer_contact_guid=results["producer_contact_guid"],
                 producer_location_guid=results["producer_location_guid"],
-                underwriter_guid=results["underwriter_guid"]
+                underwriter_guid=results["underwriter_guid"],
+                renewal_of_quote_guid=renewal_of_quote_guid
             )
             if not success:
                 return False, results, f"Quote creation failed: {message}"
             results["quote_guid"] = quote_guid
             
-            # 6. Add Quote Options
+            # 7. Add Quote Options
             success, option_info, message = self.quote_options_service.auto_add_quote_options(quote_guid)
             if not success:
                 return False, results, f"Quote options failed: {message}"
@@ -165,7 +247,7 @@ class TransactionHandler:
             results["line_name"] = option_info.get("LineName")
             results["company_location"] = option_info.get("CompanyLocation")
             
-            # 7. Process Payload (Store data, update policy number, register premium)
+            # 8. Process Payload (Store data, update policy number, register premium)
             success, process_result, message = self.payload_processor.process_payload(
                 payload=payload,
                 quote_guid=results["quote_guid"],
@@ -174,7 +256,7 @@ class TransactionHandler:
             if not success:
                 return False, results, f"Payload processing failed: {message}"
             
-            # 8. Handle transaction-specific operations
+            # 9. Handle transaction-specific operations
             if transaction_type == "bind":
                 logger.info(f"Binding quote {quote_guid} for transaction {payload.get('transaction_id')}")
                 success, policy_number, message = self.bind_service.bind_quote(quote_guid)

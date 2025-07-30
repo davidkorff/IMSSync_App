@@ -182,7 +182,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "getProducerbyName",
+                "getProducerbyName_WS",
                 ["fullname", producer_name]
             )
             
@@ -270,7 +270,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spGetQuoteByPolicyNumber",
+                "spGetQuoteByPolicyNumber_WS",
                 ["PolicyNumber", policy_number]
             )
             
@@ -324,7 +324,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spGetQuoteByOptionID",
+                "spGetQuoteByOptionID_WS",
                 ["OptionID", str(option_id)]
             )
             
@@ -399,7 +399,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spStoreTritonTransaction",
+                "spStoreTritonTransaction_WS",
                 [
                     "transaction_id", payload.get("transaction_id", ""),
                     "full_payload_json", json.dumps(payload),
@@ -408,7 +408,7 @@ class IMSDataAccessService:
                     "insured_name", payload.get("insured_name", ""),
                     "transaction_type", payload.get("transaction_type", ""),
                     "transaction_date", payload.get("transaction_date", ""),
-                    "source_system", payload.get("source_system", "TRITON")
+                    "source_system", payload.get("source_system", "triton")
                 ]
             )
             
@@ -442,7 +442,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spGetQuoteByOpportunityID",
+                "spGetQuoteByOpportunityID_WS",
                 ["OpportunityID", str(opportunity_id)]
             )
             
@@ -476,7 +476,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spCheckQuoteBoundStatus",
+                "spCheckQuoteBoundStatus_WS",
                 ["QuoteGuid", quote_guid]
             )
             
@@ -513,7 +513,7 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "spGetQuoteByExpiringPolicyNumber",
+                "spGetQuoteByExpiringPolicyNumber_WS",
                 ["ExpiringPolicyNumber", policy_number]
             )
             

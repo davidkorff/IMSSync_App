@@ -57,7 +57,7 @@ class IMSPayloadProcessorService:
             
             # Execute the stored procedure
             success, result_xml, message = self.data_service.execute_dataset(
-                "spProcessTritonPayload",
+                "spProcessTritonPayload_WS",
                 parameters
             )
             

@@ -33,7 +33,11 @@ class IMSQuoteService:
         expiration_date: str,
         state_id: str,
         producer_commission: float,
-        submission_date: Optional[str] = None
+        submission_date: Optional[str] = None,
+        policy_type_id: int = 1,
+        expiring_quote_guid: Optional[str] = None,
+        expiring_policy_number: Optional[str] = None,
+        renewal_of_quote_guid: Optional[str] = None
     ) -> Tuple[bool, Optional[str], str]:
         """
         Add a new quote with submission using the AddQuoteWithSubmission method.
@@ -47,6 +51,10 @@ class IMSQuoteService:
             state_id: State code (e.g., "MI")
             producer_commission: Producer commission rate (e.g., 0.175)
             submission_date: Optional submission date (defaults to today)
+            policy_type_id: 1 for new business, 2 for renewal
+            expiring_quote_guid: GUID of expiring quote (renewals only)
+            expiring_policy_number: Expiring policy number (renewals only)
+            renewal_of_quote_guid: GUID of quote being renewed (renewals only)
             
         Returns:
             Tuple[bool, Optional[str], str]: (success, quote_guid, message)
@@ -66,6 +74,16 @@ class IMSQuoteService:
             producer_commission_str = str(producer_commission)
             if not producer_commission_str.startswith('.'):
                 producer_commission_str = str(producer_commission / 100) if producer_commission > 1 else str(producer_commission)
+            
+            # Build renewal fields if applicable
+            renewal_fields = ""
+            if policy_type_id == 2:  # Renewal
+                if expiring_quote_guid:
+                    renewal_fields += f"        <ExpiringQuoteGuid>{expiring_quote_guid}</ExpiringQuoteGuid>\n"
+                if expiring_policy_number:
+                    renewal_fields += f"        <ExpiringPolicyNumber>{self._escape_xml(expiring_policy_number)}</ExpiringPolicyNumber>\n"
+                if renewal_of_quote_guid:
+                    renewal_fields += f"        <RenewalOfQuoteGuid>{renewal_of_quote_guid}</RenewalOfQuoteGuid>\n"
             
             # Construct SOAP request
             soap_request = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -104,8 +122,9 @@ class IMSQuoteService:
           <CompanyLocationGUID>{self.quote_config["company_location"]}</CompanyLocationGUID>
         </QuoteDetail>
         <Underwriter>{underwriter_guid}</Underwriter>
-        <PolicyTypeID>{self.quote_config["default_policy_type_id"]}</PolicyTypeID>
+        <PolicyTypeID>{policy_type_id}</PolicyTypeID>
         <InsuredBusinessTypeID>{self.quote_config["default_business_type_id"]}</InsuredBusinessTypeID>
+{renewal_fields.rstrip()}
       </quote>
     </AddQuoteWithSubmission>
   </soap:Body>
@@ -211,7 +230,8 @@ class IMSQuoteService:
         insured_guid: str,
         producer_contact_guid: str,
         producer_location_guid: str,
-        underwriter_guid: str
+        underwriter_guid: str,
+        renewal_of_quote_guid: Optional[str] = None
     ) -> Tuple[bool, Optional[str], str]:
         """
         Create a quote using data from Triton payload and previously obtained GUIDs.
@@ -280,6 +300,11 @@ class IMSQuoteService:
             except:
                 commission_rate = 0.175  # Default to 17.5%
         
+        # Determine policy type and renewal fields
+        opportunity_type = payload.get("opportunity_type", "").lower()
+        policy_type_id = 2 if opportunity_type == "renewal" else 1
+        expiring_policy_number = payload.get("expiring_policy_number")
+        
         # Create the quote
         success, quote_guid, message = self.add_quote_with_submission(
             insured_guid=insured_guid,
@@ -288,7 +313,11 @@ class IMSQuoteService:
             effective_date=effective_date,
             expiration_date=expiration_date,
             state_id=state_id,
-            producer_commission=commission_rate
+            producer_commission=commission_rate,
+            policy_type_id=policy_type_id,
+            expiring_quote_guid=renewal_of_quote_guid if policy_type_id == 2 else None,
+            expiring_policy_number=expiring_policy_number if policy_type_id == 2 else None,
+            renewal_of_quote_guid=renewal_of_quote_guid if policy_type_id == 2 else None
         )
         
         # Return with any captured error details

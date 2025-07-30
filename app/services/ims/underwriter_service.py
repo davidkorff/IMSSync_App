@@ -52,7 +52,7 @@ class IMSUnderwriterService:
   </soap:Header>
   <soap:Body>
     <ExecuteDataSet xmlns="http://tempuri.org/IMSWebServices/DataAccess">
-      <procedureName>getUserbyName</procedureName>
+      <procedureName>getUserbyName_WS</procedureName>
       <parameters>
         <string>fullname</string>
         <string>{self._escape_xml(underwriter_name)}</string>
