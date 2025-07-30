@@ -319,6 +319,14 @@ BEGIN
                 @PremiumField           = 'gross_premium';
         END
         
+        -- 5. Auto apply fees using the quote option GUID
+        -- Check if the stored procedure exists before calling
+        IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
+        BEGIN
+            EXEC dbo.spAutoApplyFees
+                @quoteOptionGuid = @QuoteOptionGuid;
+        END
+        
         COMMIT TRANSACTION;
         
         -- Return success
