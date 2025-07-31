@@ -34,7 +34,10 @@
       "Bash(func start)",
       "Bash(func start --verbose)",
       "Bash(func start:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(/usr/bin/python3:*)",
+      "Bash(./run_test.sh:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   }
