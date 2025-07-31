@@ -544,6 +544,149 @@ class IMSDataAccessService:
                 .replace(">", "&gt;")
                 .replace('"', "&quot;")
                 .replace("'", "&apos;"))
+    
+    def get_invoice_data(self, quote_guid: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Get invoice data using ryan_rptInvoice_WS stored procedure.
+        
+        Args:
+            quote_guid: The GUID of the quote to get invoice for
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, invoice_data, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "ryan_rptInvoice",
+                ["QuoteGuid", quote_guid]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the invoice XML to JSON
+            invoice_data = self._parse_invoice_xml_to_json(result_xml)
+            
+            if invoice_data:
+                logger.info(f"Successfully retrieved invoice data for quote {quote_guid}")
+                return True, invoice_data, "Invoice data retrieved successfully"
+            else:
+                return False, None, "No invoice data found"
+                
+        except Exception as e:
+            error_msg = f"Error getting invoice data: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def _parse_invoice_xml_to_json(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse invoice XML response into structured JSON.
+        
+        Args:
+            result_xml: The XML result from ryan_rptInvoice
+            
+        Returns:
+            Dict containing structured invoice data or None if parsing fails
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Initialize result structure
+            invoice_data = {
+                "invoice_info": {},
+                "financial": {},
+                "insured": {},
+                "producer": {},
+                "company": {},
+                "line_items": [],
+                "payment_instructions": {},
+                "dates": {}
+            }
+            
+            # Parse main invoice table (Table)
+            main_table = root.find('.//Table')
+            if main_table is not None:
+                # Extract invoice info
+                invoice_data["invoice_info"]["invoice_num"] = self._get_xml_text(main_table, "InvoiceNum")
+                invoice_data["invoice_info"]["office_invoice_num"] = self._get_xml_text(main_table, "OfficeInvoiceNum")
+                invoice_data["invoice_info"]["policy_number"] = self._get_xml_text(main_table, "PolicyNumber")
+                invoice_data["invoice_info"]["control_no"] = self._get_xml_text(main_table, "ControlNo")
+                invoice_data["invoice_info"]["policy_type"] = self._get_xml_text(main_table, "PolicyType")
+                invoice_data["invoice_info"]["line_name"] = self._get_xml_text(main_table, "LineName")
+                
+                # Extract financial info
+                invoice_data["financial"]["premium"] = self._parse_float(self._get_xml_text(main_table, "Premium"))
+                invoice_data["financial"]["commission_pct"] = self._parse_float(self._get_xml_text(main_table, "CommissionPct"))
+                invoice_data["financial"]["commission_amount"] = self._parse_float(self._get_xml_text(main_table, "CommissionAmount"))
+                invoice_data["financial"]["net_premium"] = self._parse_float(self._get_xml_text(main_table, "NetPremium"))
+                invoice_data["financial"]["net_due"] = self._parse_float(self._get_xml_text(main_table, "NetDue"))
+                
+                # Extract dates
+                invoice_data["dates"]["effective_date"] = self._get_xml_text(main_table, "EffectiveDate")
+                invoice_data["dates"]["expiration_date"] = self._get_xml_text(main_table, "ExpirationDate")
+                invoice_data["dates"]["invoice_date"] = self._get_xml_text(main_table, "InvoiceDate")
+                invoice_data["dates"]["due_date"] = self._get_xml_text(main_table, "DueDate")
+                invoice_data["dates"]["policy_period"] = self._get_xml_text(main_table, "PolicyPeriod")
+                
+                # Extract insured info
+                invoice_data["insured"]["name"] = self._get_xml_text(main_table, "NamedInsured")
+                invoice_data["insured"]["address"] = self._get_xml_text(main_table, "InsuredNameAddress")
+                invoice_data["insured"]["id"] = self._get_xml_text(main_table, "InsuredID")
+                
+                # Extract producer info
+                invoice_data["producer"]["name"] = self._get_xml_text(main_table, "ProducerName")
+                invoice_data["producer"]["address"] = self._get_xml_text(main_table, "ProducerNameAddress")
+                
+                # Extract company info
+                invoice_data["company"]["name"] = self._get_xml_text(main_table, "CompanyName")
+                invoice_data["company"]["office_name"] = self._get_xml_text(main_table, "QuotingOfficeName")
+                invoice_data["company"]["office_phone"] = self._get_xml_text(main_table, "QuotingOfficePhone")
+                
+                # Extract payment instructions
+                invoice_data["payment_instructions"]["ach_wire"] = self._get_xml_text(main_table, "AchOrWireTransfer")
+                invoice_data["payment_instructions"]["check_to_lockbox"] = self._get_xml_text(main_table, "CheckToLockbox")
+                invoice_data["payment_instructions"]["make_check_payable_to"] = self._get_xml_text(main_table, "MakeCheckPayableTo")
+            
+            # Parse line items (Table5)
+            for line_item in root.findall('.//Table5'):
+                item = {
+                    "invoice_num": self._get_xml_text(line_item, "InvoiceNum"),
+                    "description": self._get_xml_text(line_item, "Description"),
+                    "effective_date": self._get_xml_text(line_item, "EffectiveDate"),
+                    "due_date": self._get_xml_text(line_item, "DueDate"),
+                    "premium": self._parse_float(self._get_xml_text(line_item, "Premium")),
+                    "fees": self._parse_float(self._get_xml_text(line_item, "Fees")),
+                    "commission": self._parse_float(self._get_xml_text(line_item, "Commission")),
+                    "gross_premium": self._parse_float(self._get_xml_text(line_item, "GrossPremium")),
+                    "amount_due": self._parse_float(self._get_xml_text(line_item, "AmountDue")),
+                    "net_amount_due": self._parse_float(self._get_xml_text(line_item, "NetAmountDue"))
+                }
+                invoice_data["line_items"].append(item)
+            
+            return invoice_data
+            
+        except Exception as e:
+            logger.error(f"Error parsing invoice XML: {str(e)}")
+            return None
+    
+    def _get_xml_text(self, element: ET.Element, tag: str) -> Optional[str]:
+        """Safely get text from XML element."""
+        child = element.find(tag)
+        return child.text if child is not None and child.text else None
+    
+    def _parse_float(self, value: Optional[str]) -> Optional[float]:
+        """Safely parse float from string."""
+        if value:
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
 
 
 # Singleton instance

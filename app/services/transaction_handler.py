@@ -108,12 +108,16 @@ class TransactionHandler:
                         
                         # Bind the existing quote
                         logger.info(f"Binding existing quote {quote_guid}")
-                        success, policy_number, message = self.bind_service.bind_quote(quote_guid)
+                        success, bind_result, message = self.bind_service.bind_quote(quote_guid)
                         if not success:
                             return False, results, f"Bind failed: {message}"
                         
-                        results["bound_policy_number"] = policy_number
+                        results["bound_policy_number"] = bind_result.get("policy_number")
                         results["bind_status"] = "completed"
+                        
+                        # Include invoice data if available
+                        if bind_result.get("invoice_data"):
+                            results["invoice_data"] = bind_result["invoice_data"]
                         results["end_time"] = datetime.utcnow().isoformat()
                         results["status"] = "completed"
                         
@@ -259,12 +263,20 @@ class TransactionHandler:
             # 9. Handle transaction-specific operations
             if transaction_type == "bind":
                 logger.info(f"Binding quote {quote_guid} for transaction {payload.get('transaction_id')}")
-                success, policy_number, message = self.bind_service.bind_quote(quote_guid)
+                success, bind_result, message = self.bind_service.bind_quote(quote_guid)
                 if not success:
                     return False, results, f"Bind failed: {message}"
-                results["bound_policy_number"] = policy_number
+                
+                # Extract policy number and invoice data from bind result
+                results["bound_policy_number"] = bind_result.get("policy_number")
                 results["bind_status"] = "completed"
-                logger.info(f"Successfully bound policy: {policy_number}")
+                
+                # Include invoice data if available
+                if bind_result.get("invoice_data"):
+                    results["invoice_data"] = bind_result["invoice_data"]
+                    logger.info(f"Successfully bound policy: {bind_result.get('policy_number')} with invoice data")
+                else:
+                    logger.info(f"Successfully bound policy: {bind_result.get('policy_number')} (no invoice data)")
                 
             
             # Complete

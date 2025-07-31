@@ -134,6 +134,24 @@ def test_renewal_bind(json_file=None):
                 else:
                     test_result.add_step(f"Validate {name}", False, results, f"{name} not found")
             
+            # Check for invoice data in renewal bind
+            invoice_data = results.get("invoice_data")
+            if invoice_data:
+                test_result.add_step("Validate invoice data", True, {
+                    "invoice_num": invoice_data.get("invoice_info", {}).get("invoice_num"),
+                    "policy_number": invoice_data.get("invoice_info", {}).get("policy_number"),
+                    "premium": invoice_data.get("financial", {}).get("premium"),
+                    "net_premium": invoice_data.get("financial", {}).get("net_premium")
+                })
+                logger.info(f"✓ Invoice data retrieved successfully for renewal")
+                logger.info(f"  Invoice Number: {invoice_data.get('invoice_info', {}).get('invoice_num')}")
+                logger.info(f"  Policy Number: {invoice_data.get('invoice_info', {}).get('policy_number')}")
+                logger.info(f"  Premium: ${invoice_data.get('financial', {}).get('premium'):,.2f}")
+                logger.info(f"  Net Premium: ${invoice_data.get('financial', {}).get('net_premium'):,.2f}")
+            else:
+                logger.warning("⚠ No invoice data returned with renewal bind result")
+                test_result.add_step("Validate invoice data", False, results, "No invoice data in response")
+            
             # Verify renewal was created with correct policy type
             if results.get("quote_guid"):
                 log_test_step("Verify renewal quote details")

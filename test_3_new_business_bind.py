@@ -108,6 +108,24 @@ def test_new_business_bind(json_file=None):
                 if bound_policy:
                     test_result.add_step("Validate bind", True, {"bound_policy_number": bound_policy})
                     logger.info(f"✓ Policy bound successfully: {bound_policy}")
+                    
+                    # Check for invoice data
+                    invoice_data = results.get("invoice_data")
+                    if invoice_data:
+                        test_result.add_step("Validate invoice data", True, {
+                            "invoice_num": invoice_data.get("invoice_info", {}).get("invoice_num"),
+                            "policy_number": invoice_data.get("invoice_info", {}).get("policy_number"),
+                            "premium": invoice_data.get("financial", {}).get("premium"),
+                            "net_premium": invoice_data.get("financial", {}).get("net_premium")
+                        })
+                        logger.info(f"✓ Invoice data retrieved successfully")
+                        logger.info(f"  Invoice Number: {invoice_data.get('invoice_info', {}).get('invoice_num')}")
+                        logger.info(f"  Policy Number: {invoice_data.get('invoice_info', {}).get('policy_number')}")
+                        logger.info(f"  Premium: ${invoice_data.get('financial', {}).get('premium'):,.2f}")
+                        logger.info(f"  Net Premium: ${invoice_data.get('financial', {}).get('net_premium'):,.2f}")
+                    else:
+                        logger.warning("⚠ No invoice data returned with bind result")
+                        test_result.add_step("Validate invoice data", False, results, "No invoice data in response")
                 else:
                     test_result.add_step("Validate bind", False, results, "No bound policy number returned")
             else:

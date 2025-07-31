@@ -1,10 +1,11 @@
 import logging
 import xml.etree.ElementTree as ET
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from datetime import datetime
 
 from app.services.ims.base_service import BaseIMSService
 from app.services.ims.auth_service import get_auth_service
+from app.services.ims.data_access_service import get_data_access_service
 from config import IMS_CONFIG
 import requests
 
@@ -21,19 +22,21 @@ class IMSBindService(BaseIMSService):
         self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
         self.timeout = IMS_CONFIG["timeout"]
         self.auth_service = get_auth_service()
+        self.data_access_service = get_data_access_service()
         self._last_soap_request = None
         self._last_soap_response = None
         self._last_url = None
     
-    def bind_quote(self, quote_guid: str) -> Tuple[bool, Optional[str], str]:
+    def bind_quote(self, quote_guid: str) -> Tuple[bool, Optional[Dict[str, Any]], str]:
         """
-        Bind a quote and get the policy number.
+        Bind a quote and get the policy number and invoice data.
         
         Args:
             quote_guid: The GUID of the quote to bind
             
         Returns:
-            Tuple[bool, Optional[str], str]: (success, policy_number, message)
+            Tuple[bool, Optional[Dict], str]: (success, result_data, message)
+            result_data contains: policy_number and invoice_data
         """
         try:
             # Get auth token
@@ -79,7 +82,21 @@ class IMSBindService(BaseIMSService):
                 
                 if success:
                     logger.info(f"Successfully bound quote {quote_guid} - Policy Number: {policy_number}")
-                    return True, policy_number, f"Quote bound successfully. Policy Number: {policy_number}"
+                    
+                    # Get invoice data after successful bind
+                    invoice_success, invoice_data, invoice_message = self.data_access_service.get_invoice_data(quote_guid)
+                    
+                    result_data = {
+                        "policy_number": policy_number,
+                        "invoice_data": invoice_data if invoice_success else None
+                    }
+                    
+                    if not invoice_success:
+                        logger.warning(f"Failed to retrieve invoice data: {invoice_message}")
+                        # Still return success for bind, but note the invoice warning
+                        return True, result_data, f"Quote bound successfully. Policy Number: {policy_number}. Warning: {invoice_message}"
+                    
+                    return True, result_data, f"Quote bound successfully. Policy Number: {policy_number}"
                 else:
                     logger.error(f"Failed to bind quote {quote_guid}: {message}")
                     return False, None, message
