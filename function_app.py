@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 
+@app.function_name("httpTrigger1")
 @app.route(route="api/triton/transaction/new", methods=["POST"])
 async def process_transaction(req: func.HttpRequest) -> func.HttpResponse:
     """
@@ -75,6 +76,7 @@ async def process_transaction(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
+@app.function_name("httpTrigger2")
 @app.route(route="api/triton/transaction-types", methods=["GET"])
 async def get_transaction_types(req: func.HttpRequest) -> func.HttpResponse:
     """Get supported transaction types."""
@@ -100,6 +102,7 @@ async def get_transaction_types(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
+@app.function_name("httpTrigger3")
 @app.route(route="api/triton/status", methods=["GET"])
 async def triton_status(req: func.HttpRequest) -> func.HttpResponse:
     """Check Triton API status."""
@@ -114,6 +117,7 @@ async def triton_status(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
+@app.function_name("httpTrigger4")
 @app.route(route="api/ims/status", methods=["GET"])
 async def ims_status(req: func.HttpRequest) -> func.HttpResponse:
     """Check IMS API status."""
@@ -128,6 +132,7 @@ async def ims_status(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
+@app.function_name("httpTrigger5")
 @app.route(route="health", methods=["GET"])
 async def health_check(req: func.HttpRequest) -> func.HttpResponse:
     """Health check endpoint."""
@@ -160,6 +165,7 @@ async def health_check(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
+@app.function_name("httpTrigger6")
 @app.route(route="", methods=["GET"])
 async def root(req: func.HttpRequest) -> func.HttpResponse:
     """Root endpoint - basic info."""

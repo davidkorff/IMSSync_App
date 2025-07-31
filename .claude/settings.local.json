@@ -26,7 +26,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(mv:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(pip install:*)",
+      "Bash(func --version)",
+      "Bash(where npm)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }
