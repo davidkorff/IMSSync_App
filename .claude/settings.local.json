@@ -30,7 +30,11 @@
       "Bash(pip install:*)",
       "Bash(func --version)",
       "Bash(where npm)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(func start)",
+      "Bash(func start --verbose)",
+      "Bash(func start:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
