@@ -79,48 +79,48 @@ def test_new_business_bind(json_file=None):
         # Step 1: Create new business payload
         log_test_step("Create new business bind payload")
         
+        # Try to load from JSON file first
+        json_loaded = False
         if json_file:
-            # Load payload from JSON file
-            print(f"\nAttempting to load JSON from: {json_file}")
-            log_test_step(f"Loading payload from {json_file}")
-            
-            try:
-                # Check if file exists
-                if not os.path.exists(json_file):
-                    raise FileNotFoundError(f"File not found: {json_file}")
+            if os.path.exists(json_file):
+                # Load payload from JSON file
+                print(f"\nAttempting to load JSON from: {json_file}")
+                log_test_step(f"Loading payload from {json_file}")
                 
-                # Load JSON with explicit encoding
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    print(f"  File size: {len(content)} bytes")
-                    payload = json.loads(content)
-                
-                print(f"✓ Successfully loaded JSON with {len(payload)} fields")
-                if logger:
-                    logger.info(f"✓ Loaded payload from {json_file}")
-                
-                # Validate required fields
-                required = ['transaction_id', 'opportunity_id', 'transaction_type']
-                for field in required:
-                    if field not in payload:
-                        print(f"  Warning: Missing field '{field}'")
-                    else:
-                        print(f"  ✓ {field}: {payload[field]}")
-                        
-            except FileNotFoundError as e:
-                print(f"✗ File not found: {e}")
-                test_result.add_step("Load JSON file", False, None, str(e))
-                return test_result
-            except json.JSONDecodeError as e:
-                print(f"✗ Invalid JSON: {e}")
-                test_result.add_step("Load JSON file", False, None, f"JSON decode error: {e}")
-                return test_result
-            except Exception as e:
-                print(f"✗ Unexpected error loading JSON: {e}")
-                traceback.print_exc()
-                test_result.add_step("Load JSON file", False, None, str(e))
-                return test_result
-        else:
+                try:
+                    # Load JSON with explicit encoding
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        print(f"  File size: {len(content)} bytes")
+                        payload = json.loads(content)
+                    
+                    print(f"✓ Successfully loaded JSON with {len(payload)} fields")
+                    if logger:
+                        logger.info(f"✓ Loaded payload from {json_file}")
+                    
+                    # Validate required fields
+                    required = ['transaction_id', 'opportunity_id', 'transaction_type']
+                    for field in required:
+                        if field not in payload:
+                            print(f"  Warning: Missing field '{field}'")
+                        else:
+                            print(f"  ✓ {field}: {payload[field]}")
+                    
+                    json_loaded = True
+                            
+                except json.JSONDecodeError as e:
+                    print(f"✗ Invalid JSON: {e}")
+                    test_result.add_step("Load JSON file", False, None, f"JSON decode error: {e}")
+                    return test_result
+                except Exception as e:
+                    print(f"✗ Unexpected error loading JSON: {e}")
+                    traceback.print_exc()
+                    test_result.add_step("Load JSON file", False, None, str(e))
+                    return test_result
+            else:
+                print(f"\nJSON file '{json_file}' not found, using default test payload instead")
+        
+        if not json_loaded:
             # Use default test payload
             print("\nGenerating default test payload...")
             payload = create_test_payload(
@@ -258,7 +258,8 @@ def main():
     print("="*80)
     
     parser = argparse.ArgumentParser(description='Test new business bind workflow (v2)')
-    parser.add_argument('--json', '-j', type=str, help='Path to JSON file containing test payload')
+    parser.add_argument('--json', '-j', type=str, default='test.json', 
+                       help='Path to JSON file containing test payload (default: test.json)')
     
     try:
         args = parser.parse_args()

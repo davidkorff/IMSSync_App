@@ -37,7 +37,8 @@
       "Bash(curl:*)",
       "Bash(/usr/bin/python3:*)",
       "Bash(./run_test.sh:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }
