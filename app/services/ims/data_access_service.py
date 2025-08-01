@@ -593,8 +593,14 @@ class IMSDataAccessService:
             if not result_xml:
                 return None
                 
+            # Log the raw XML for debugging (first 1000 chars)
+            logger.debug(f"Raw invoice XML (first 1000 chars): {result_xml[:1000]}")
+            
+            # Try to clean up common XML issues
+            cleaned_xml = self._clean_xml_for_parsing(result_xml)
+            
             # Parse the XML
-            root = ET.fromstring(result_xml)
+            root = ET.fromstring(cleaned_xml)
             
             # Initialize result structure
             invoice_data = {
@@ -672,6 +678,39 @@ class IMSDataAccessService:
             
         except Exception as e:
             logger.error(f"Error parsing invoice XML: {str(e)}")
+            
+            # Save problematic XML for debugging
+            try:
+                import os
+                from datetime import datetime
+                
+                # Create debug directory if it doesn't exist
+                debug_dir = "debug_xml"
+                if not os.path.exists(debug_dir):
+                    os.makedirs(debug_dir)
+                
+                # Save the raw XML
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = os.path.join(debug_dir, f"invoice_xml_error_{timestamp}.xml")
+                
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(result_xml)
+                
+                logger.error(f"Problematic XML saved to: {filename}")
+                
+                # Also log the specific location of the error if available
+                if hasattr(e, 'position'):
+                    line, column = e.position
+                    logger.error(f"XML error at line {line}, column {column}")
+                    
+                    # Try to show the problematic section
+                    lines = result_xml.split('\n')
+                    if line <= len(lines):
+                        logger.error(f"Problematic line: {lines[line-1]}")
+                        
+            except Exception as save_error:
+                logger.warning(f"Could not save debug XML: {save_error}")
+            
             return None
     
     def _get_xml_text(self, element: ET.Element, tag: str) -> Optional[str]:
@@ -687,6 +726,45 @@ class IMSDataAccessService:
             except ValueError:
                 return None
         return None
+    
+    def _clean_xml_for_parsing(self, xml_string: str) -> str:
+        """
+        Clean XML string to handle common issues that cause parsing errors.
+        
+        Args:
+            xml_string: Raw XML string
+            
+        Returns:
+            Cleaned XML string
+        """
+        try:
+            # Remove any BOM (Byte Order Mark)
+            if xml_string.startswith('\ufeff'):
+                xml_string = xml_string[1:]
+            
+            # Replace common problematic characters
+            # Replace control characters except tab, newline, carriage return
+            import re
+            xml_string = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', xml_string)
+            
+            # Handle unescaped ampersands that aren't part of entities
+            xml_string = re.sub(r'&(?!(?:amp|lt|gt|apos|quot);)', '&amp;', xml_string)
+            
+            # Remove any content before the first '<'
+            first_tag = xml_string.find('<')
+            if first_tag > 0:
+                xml_string = xml_string[first_tag:]
+            
+            # Log if we made any changes
+            if xml_string != xml_string:
+                logger.debug("XML was cleaned for parsing")
+            
+            return xml_string
+            
+        except Exception as e:
+            logger.warning(f"Error cleaning XML: {str(e)}")
+            # Return original if cleaning fails
+            return xml_string
 
 
 # Singleton instance
