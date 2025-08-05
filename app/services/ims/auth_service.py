@@ -59,6 +59,20 @@ class IMSAuthService:
             logger.error(f"Failed to refresh token: {message}")
             return None
     
+    @property
+    def user_guid(self) -> Optional[str]:
+        """Get current user GUID, refresh if expired."""
+        if self._user_guid and self._token_expiry and datetime.now() < self._token_expiry:
+            return self._user_guid
+        
+        # Token expired or doesn't exist, need to login
+        success, message = self.login()
+        if success:
+            return self._user_guid
+        else:
+            logger.error(f"Failed to refresh token and get user GUID: {message}")
+            return None
+    
     def login(self) -> Tuple[bool, str]:
         """
         Authenticate with IMS and obtain a session token.

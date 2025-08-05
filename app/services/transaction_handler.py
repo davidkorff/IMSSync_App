@@ -177,9 +177,21 @@ class TransactionHandler:
                     logger.info(f"Successfully issued policy: {issue_date}")
                     
                 elif transaction_type == "unbind":
-                    # Unbind the policy
-                    logger.info(f"Unbinding policy for quote {quote_guid}")
-                    success, message = self.unbind_service.unbind_policy(quote_guid)
+                    # Unbind the policy using option_id if available
+                    if option_id:
+                        logger.info(f"Unbinding policy using option ID: {option_id}")
+                        success, unbind_result, message = self.unbind_service.unbind_policy_by_option_id(int(option_id))
+                        if success and unbind_result:
+                            # Update results with unbind data
+                            if unbind_result.get("QuoteGuid"):
+                                results["quote_guid"] = unbind_result["QuoteGuid"]
+                            if unbind_result.get("PolicyNumber"):
+                                results["policy_number"] = unbind_result["PolicyNumber"]
+                    else:
+                        # Fallback to regular unbind if we have quote_guid
+                        logger.info(f"Unbinding policy for quote {quote_guid}")
+                        success, message = self.unbind_service.unbind_policy(quote_guid)
+                    
                     if not success:
                         return False, results, f"Unbind failed: {message}"
                     
@@ -187,7 +199,7 @@ class TransactionHandler:
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
                     
-                    logger.info(f"Successfully unbound policy {policy_number}")
+                    logger.info(f"Successfully unbound policy {results.get('policy_number', policy_number)}")
                 
                 summary_msg = self._build_summary_message(results, payload)
                 return True, results, summary_msg

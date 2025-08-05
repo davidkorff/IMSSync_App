@@ -38,7 +38,8 @@
       "Bash(/usr/bin/python3:*)",
       "Bash(./run_test.sh:*)",
       "Bash(bash:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }

@@ -1,9 +1,10 @@
 import logging
 import xml.etree.ElementTree as ET
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 
 from app.services.ims.base_service import BaseIMSService
 from app.services.ims.auth_service import get_auth_service
+from app.services.ims.data_access_service import get_data_access_service
 from config import IMS_CONFIG
 import requests
 
@@ -20,13 +21,14 @@ class IMSUnbindService(BaseIMSService):
         self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
         self.timeout = IMS_CONFIG["timeout"]
         self.auth_service = get_auth_service()
+        self.data_service = get_data_access_service()
         self._last_soap_request = None
         self._last_soap_response = None
         self._last_url = None
     
     def unbind_policy(self, quote_guid: str, keep_policy_numbers: bool = True, keep_affidavit_numbers: bool = True) -> Tuple[bool, str]:
         """
-        Unbind a policy.
+        Unbind a policy using SOAP web service.
         
         Args:
             quote_guid: The GUID of the quote to unbind
@@ -105,6 +107,60 @@ class IMSUnbindService(BaseIMSService):
             logger.error(error_msg)
             return False, error_msg
     
+    def unbind_policy_by_option_id(self, option_id: int, keep_policy_numbers: bool = True, keep_affidavit_numbers: bool = True) -> Tuple[bool, Dict[str, Any], str]:
+        """
+        Unbind a policy using option ID via stored procedure.
+        
+        Args:
+            option_id: The option ID to unbind
+            keep_policy_numbers: Whether to keep the policy numbers
+            keep_affidavit_numbers: Whether to keep affidavit numbers
+            
+        Returns:
+            Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
+        """
+        try:
+            # Get user guid from auth service
+            user_guid = self.auth_service.user_guid
+            
+            if not user_guid:
+                return False, {}, "Authentication required - no user GUID available"
+            
+            logger.info(f"Unbinding policy for option ID: {option_id}")
+            
+            # Prepare parameters for stored procedure
+            params = {
+                "OptionID": option_id,
+                "UserGuid": user_guid,
+                "KeepPolicyNumbers": keep_policy_numbers,
+                "KeepAffidavitNumbers": keep_affidavit_numbers
+            }
+            
+            # Call the stored procedure
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="Triton_UnbindPolicy_WS",
+                parameters=params
+            )
+            
+            if not success:
+                return False, {}, f"Failed to execute unbind procedure: {message}"
+            
+            # Parse the result
+            result_data = self._parse_unbind_procedure_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "1":
+                logger.info(f"Successfully unbound policy. QuoteGuid: {result_data.get('QuoteGuid')}, PolicyNumber: {result_data.get('PolicyNumber')}")
+                return True, result_data, result_data.get("Message", "Policy unbound successfully")
+            else:
+                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to unbind policy: {error_msg}")
+                return False, result_data or {}, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error unbinding policy by option ID: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return False, {}, error_msg
+    
     def _build_unbind_request(self, quote_guid: str, user_guid: str, keep_policy_numbers: bool, keep_affidavit_numbers: bool, token: str) -> str:
         """Build the SOAP request for UnbindPolicy."""
         keep_policy_str = "true" if keep_policy_numbers else "false"
@@ -166,6 +222,62 @@ class IMSUnbindService(BaseIMSService):
             error_msg = f"Error parsing unbind response: {str(e)}"
             logger.error(error_msg)
             return False, error_msg
+    
+    def _parse_unbind_procedure_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse the result from Triton_UnbindPolicy_WS stored procedure.
+        
+        Args:
+            result_xml: The XML result from ExecuteDataSet
+            
+        Returns:
+            Dict containing the result data or None if parsing fails
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Find the first Table element (single row result)
+            table = root.find('.//Table')
+            if table is None:
+                logger.warning("No Table element found in unbind result")
+                return None
+            
+            # Extract the fields
+            result_data = {}
+            
+            # Extract Result (0 or 1)
+            result_elem = table.find('Result')
+            if result_elem is not None and result_elem.text:
+                result_data['Result'] = result_elem.text.strip()
+            
+            # Extract Message
+            message_elem = table.find('Message')
+            if message_elem is not None and message_elem.text:
+                result_data['Message'] = message_elem.text.strip()
+            
+            # Extract QuoteGuid
+            quote_guid_elem = table.find('QuoteGuid')
+            if quote_guid_elem is not None and quote_guid_elem.text:
+                result_data['QuoteGuid'] = quote_guid_elem.text.strip()
+            
+            # Extract PolicyNumber
+            policy_num_elem = table.find('PolicyNumber')
+            if policy_num_elem is not None and policy_num_elem.text:
+                result_data['PolicyNumber'] = policy_num_elem.text.strip()
+            
+            logger.debug(f"Parsed unbind result: {result_data}")
+            return result_data
+            
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse unbind procedure result XML: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error parsing unbind procedure result: {str(e)}")
+            return None
 
 
 # Singleton instance
