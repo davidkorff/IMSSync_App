@@ -7,7 +7,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[Triton_UnbindPolicy_WS]
+CREATE OR ALTER PROCEDURE [dbo].[Triton_UnbindPolicy]
 (
     @OptionID INT,
     @UserGuid UNIQUEIDENTIFIER,
@@ -143,7 +143,7 @@ BEGIN
         )
         VALUES (
             @UserID,
-            'Unbound Policy #' + ISNULL(@PolicyNumber, '') + ' - Control #' + CAST(@ControlNo AS VARCHAR) + ' via Triton_UnbindPolicy_WS - OptionID: ' + CAST(@OptionID AS VARCHAR),
+            'Unbound Policy #' + ISNULL(@PolicyNumber, '') + ' - Control #' + CAST(@ControlNo AS VARCHAR) + ' via Triton_UnbindPolicy - OptionID: ' + CAST(@OptionID AS VARCHAR),
             @QuoteGuid
         );
 
@@ -283,7 +283,7 @@ BEGIN
         VALUES (
             GETDATE(),
             @ErrorMessage,
-            'Triton_UnbindPolicy_WS',
+            'Triton_UnbindPolicy',
             ERROR_LINE(),
             @UserID
         );
@@ -303,5 +303,5 @@ END
 GO
 
 -- Grant permissions
-GRANT EXECUTE ON [dbo].[Triton_UnbindPolicy_WS] TO [TritonWebUser];
+GRANT EXECUTE ON [dbo].[Triton_UnbindPolicy] TO [TritonWebUser];
 GO

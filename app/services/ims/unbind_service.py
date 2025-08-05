@@ -128,17 +128,17 @@ class IMSUnbindService(BaseIMSService):
             
             logger.info(f"Unbinding policy for option ID: {option_id}")
             
-            # Prepare parameters for stored procedure
-            params = {
-                "OptionID": option_id,
-                "UserGuid": user_guid,
-                "KeepPolicyNumbers": keep_policy_numbers,
-                "KeepAffidavitNumbers": keep_affidavit_numbers
-            }
+            # Prepare parameters for stored procedure (as alternating name/value pairs)
+            params = [
+                "OptionID", str(option_id),
+                "UserGuid", str(user_guid),
+                "KeepPolicyNumbers", "1" if keep_policy_numbers else "0",
+                "KeepAffidavitNumbers", "1" if keep_affidavit_numbers else "0"
+            ]
             
             # Call the stored procedure
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_UnbindPolicy_WS",
+                procedure_name="Triton_UnbindPolicy",
                 parameters=params
             )
             
