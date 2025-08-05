@@ -73,18 +73,20 @@ async def process_transaction(payload: Dict[str, Any]):
             error_message = result.get('message', 'Transaction processing failed')
             logger.error(f"Failed to process transaction: {payload.get('transaction_id')} - {error_message}")
             
-            # Determine appropriate error code based on the error message
+            # For Triton integration, return 200 OK with error details in response body
+            # Only raise HTTPException for true system errors
             if "Authentication failed" in error_message:
+                # This is a system configuration error, not a business logic error
                 raise HTTPException(status_code=401, detail=error_message)
-            elif "validation failed" in error_message or "requires" in error_message:
-                raise HTTPException(status_code=400, detail=error_message)
-            elif "not found" in error_message or "Failed to find" in error_message:
-                raise HTTPException(status_code=404, detail=error_message)
-            elif "already exists" in error_message:
-                raise HTTPException(status_code=409, detail=error_message)
             else:
-                # For bind failures, quote failures, etc. - unprocessable entity
-                raise HTTPException(status_code=422, detail=error_message)
+                # Business logic errors should return 200 with error details
+                # The TransactionResponse model expects: success, message, data, error
+                return TransactionResponse(
+                    success=False,
+                    message=error_message,
+                    data=result.get('data', {}),
+                    error=error_message
+                )
         
     except Exception as e:
         logger.error(f"Error processing transaction: {str(e)}", exc_info=True)

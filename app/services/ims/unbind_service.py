@@ -214,49 +214,51 @@ class IMSUnbindService(BaseIMSService):
             # Parse the XML
             root = ET.fromstring(result_xml)
             
-            # Find the first Table element (single row result)
-            table = root.find('.//Table')
-            if table is None:
-                logger.warning("No Table element found in unbind result")
-                return None
+            # Check all Table elements, as the result might be in Table2 or later
+            tables = root.findall('.//Table2')  # Check Table2 first
+            if not tables:
+                tables = root.findall('.//Table')  # Fall back to Table
             
-            # First, try to extract structured fields
-            result_data = {}
+            for table in tables:
+                # Try to extract structured fields
+                result_data = {}
+                
+                # Extract Result (0 or 1)
+                result_elem = table.find('Result')
+                if result_elem is not None and result_elem.text:
+                    result_data['Result'] = result_elem.text.strip()
+                
+                # Extract Message
+                message_elem = table.find('Message')
+                if message_elem is not None and message_elem.text:
+                    result_data['Message'] = message_elem.text.strip()
+                
+                # Extract QuoteGuid
+                quote_guid_elem = table.find('QuoteGuid')
+                if quote_guid_elem is not None and quote_guid_elem.text:
+                    result_data['QuoteGuid'] = quote_guid_elem.text.strip()
+                
+                # Extract PolicyNumber
+                policy_num_elem = table.find('PolicyNumber')
+                if policy_num_elem is not None and policy_num_elem.text:
+                    result_data['PolicyNumber'] = policy_num_elem.text.strip()
+                
+                # If we got structured data with Result field, return it
+                if 'Result' in result_data:
+                    logger.debug(f"Parsed structured unbind result: {result_data}")
+                    return result_data
             
-            # Extract Result (0 or 1)
-            result_elem = table.find('Result')
-            if result_elem is not None and result_elem.text:
-                result_data['Result'] = result_elem.text.strip()
-            
-            # Extract Message
-            message_elem = table.find('Message')
-            if message_elem is not None and message_elem.text:
-                result_data['Message'] = message_elem.text.strip()
-            
-            # Extract QuoteGuid
-            quote_guid_elem = table.find('QuoteGuid')
-            if quote_guid_elem is not None and quote_guid_elem.text:
-                result_data['QuoteGuid'] = quote_guid_elem.text.strip()
-            
-            # Extract PolicyNumber
-            policy_num_elem = table.find('PolicyNumber')
-            if policy_num_elem is not None and policy_num_elem.text:
-                result_data['PolicyNumber'] = policy_num_elem.text.strip()
-            
-            # If we got structured data, return it
-            if 'Result' in result_data:
-                logger.debug(f"Parsed structured unbind result: {result_data}")
-                return result_data
-            
-            # Otherwise, check for simple numeric result (legacy format)
-            # Look for any child element with text content "1"
-            for child in table:
-                if child.text and child.text.strip() == "1":
-                    logger.debug("Found simple numeric result: 1")
-                    return {
-                        'Result': '1',
-                        'Message': 'Policy unbound successfully'
-                    }
+            # If no Table2, check all tables for simple numeric result
+            all_tables = root.findall('.//*[starts-with(local-name(), "Table")]')
+            for table in all_tables:
+                # Check for simple numeric result (legacy format)
+                for child in table:
+                    if child.text and child.text.strip() == "1":
+                        logger.debug("Found simple numeric result: 1")
+                        return {
+                            'Result': '1',
+                            'Message': 'Policy unbound successfully'
+                        }
             
             # If no recognized format, log what we found
             logger.warning(f"Unrecognized result format. XML: {result_xml}")
