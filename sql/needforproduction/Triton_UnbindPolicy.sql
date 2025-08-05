@@ -44,8 +44,8 @@ BEGIN
 
         IF @UserID IS NULL
         BEGIN
-            RAISERROR('The provided user could not be found.', 16, 1);
-            SELECT 0 AS Result, 'Invalid UserGuid' AS Message;
+            -- RAISERROR('The provided user could not be found.', 16, 1);
+            SELECT 0 AS Result, 'The provided user could not be found.' AS Message;
             ROLLBACK TRANSACTION;
             RETURN;
         END
@@ -63,8 +63,8 @@ BEGIN
         -- Validate quote was found
         IF @QuoteID IS NULL
         BEGIN
-            RAISERROR('No quote found for the provided QuoteGuid: %s', 16, 1, @QuoteGuid);
-            SELECT 0 AS Result, 'Quote not found' AS Message;
+            -- RAISERROR('No quote found for the provided QuoteGuid: %s', 16, 1, @QuoteGuid);
+            SELECT 0 AS Result, 'No quote found for the provided QuoteGuid' AS Message;
             ROLLBACK TRANSACTION;
             RETURN;
         END
@@ -77,8 +77,8 @@ BEGIN
                 AND [DateBound] IS NOT NULL
         )
         BEGIN
-            RAISERROR('The quote is not bound, so it cannot be unbound. QuoteGuid: %s', 16, 1, @QuoteGuid);
-            SELECT 0 AS Result, 'Quote is not bound' AS Message;
+            -- RAISERROR('The quote is not bound, so it cannot be unbound. QuoteGuid: %s', 16, 1, @QuoteGuid);
+            SELECT 0 AS Result, 'The quote is not bound, so it cannot be unbound.' AS Message;
             ROLLBACK TRANSACTION;
             RETURN;
         END
@@ -91,8 +91,8 @@ BEGIN
                 AND [MaxQuoteID] = @QuoteID
         )
         BEGIN
-            RAISERROR('The quote does not represent the most recent transaction on this policy.', 16, 1);
-            SELECT 0 AS Result, 'Not the most recent transaction' AS Message;
+            -- RAISERROR('The quote does not represent the most recent transaction on this policy.', 16, 1);
+            SELECT 0 AS Result, 'The quote does not represent the most recent transaction on this policy.' AS Message;
             ROLLBACK TRANSACTION;
             RETURN;
         END
@@ -161,8 +161,8 @@ BEGIN
             BEGIN
                 CLOSE InvoiceCursor;
                 DEALLOCATE InvoiceCursor;
-                RAISERROR('Cannot unbind transaction - invoice billed in a closed underwriting period month.', 16, 55);
-                SELECT 0 AS Result, 'Invoice in closed underwriting period' AS Message;
+                -- RAISERROR('Cannot unbind transaction - invoice billed in a closed underwriting period month.', 16, 55);
+                SELECT 0 AS Result, 'Cannot unbind transaction - invoice billed in a closed underwriting period month.' AS Message;
                 ROLLBACK TRANSACTION;
                 RETURN;
             END
@@ -172,8 +172,8 @@ BEGIN
             BEGIN
                 CLOSE InvoiceCursor;
                 DEALLOCATE InvoiceCursor;
-                RAISERROR('Cannot unbind transaction - invoice billed in a closed accounting month.', 16, 55);
-                SELECT 0 AS Result, 'Invoice in closed accounting period' AS Message;
+                -- RAISERROR('Cannot unbind transaction - invoice billed in a closed accounting month.', 16, 55);
+                SELECT 0 AS Result, 'Cannot unbind transaction - invoice billed in a closed accounting month.' AS Message;
                 ROLLBACK TRANSACTION;
                 RETURN;
             END
@@ -185,7 +185,7 @@ BEGIN
             BEGIN
                 CLOSE InvoiceCursor;
                 DEALLOCATE InvoiceCursor;
-                RAISERROR('Error voiding invoice %d', 16, 1, @InvoiceNum);
+                -- RAISERROR('Error voiding invoice %d', 16, 1, @InvoiceNum);
                 SELECT 0 AS Result, 'Error voiding invoice' AS Message;
                 ROLLBACK TRANSACTION;
                 RETURN;
