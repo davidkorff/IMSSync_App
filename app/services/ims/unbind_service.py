@@ -199,6 +199,7 @@ class IMSUnbindService(BaseIMSService):
     def _parse_unbind_procedure_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
         """
         Parse the result from Triton_UnbindPolicy_WS stored procedure.
+        Handles both simple numeric results and structured results.
         
         Args:
             result_xml: The XML result from ExecuteDataSet
@@ -219,7 +220,7 @@ class IMSUnbindService(BaseIMSService):
                 logger.warning("No Table element found in unbind result")
                 return None
             
-            # Extract the fields
+            # First, try to extract structured fields
             result_data = {}
             
             # Extract Result (0 or 1)
@@ -242,8 +243,24 @@ class IMSUnbindService(BaseIMSService):
             if policy_num_elem is not None and policy_num_elem.text:
                 result_data['PolicyNumber'] = policy_num_elem.text.strip()
             
-            logger.debug(f"Parsed unbind result: {result_data}")
-            return result_data
+            # If we got structured data, return it
+            if 'Result' in result_data:
+                logger.debug(f"Parsed structured unbind result: {result_data}")
+                return result_data
+            
+            # Otherwise, check for simple numeric result (legacy format)
+            # Look for any child element with text content "1"
+            for child in table:
+                if child.text and child.text.strip() == "1":
+                    logger.debug("Found simple numeric result: 1")
+                    return {
+                        'Result': '1',
+                        'Message': 'Policy unbound successfully'
+                    }
+            
+            # If no recognized format, log what we found
+            logger.warning(f"Unrecognized result format. XML: {result_xml}")
+            return None
             
         except ET.ParseError as e:
             logger.error(f"Failed to parse unbind procedure result XML: {str(e)}")
