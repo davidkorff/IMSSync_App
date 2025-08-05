@@ -9,7 +9,7 @@ GO
 
 CREATE OR ALTER PROCEDURE [dbo].[Triton_UnbindPolicy]
 (
-    @OptionID INT,
+    @QuoteGuid UNIQUEIDENTIFIER,
     @UserGuid UNIQUEIDENTIFIER,
     @KeepPolicyNumbers BIT = 1,
     @KeepAffidavitNumbers BIT = 1
@@ -19,7 +19,6 @@ BEGIN
     SET NOCOUNT ON;
     
     DECLARE 
-        @QuoteGuid UNIQUEIDENTIFIER,
         @QuoteID INT,
         @ControlNo INT,
         @PolicyNumber VARCHAR(50),
@@ -51,24 +50,21 @@ BEGIN
             RETURN;
         END
 
-        -- Get QuoteGuid and related info from OptionID
-        SELECT TOP 1 
-            @QuoteGuid = q.QuoteGUID,
+        -- Get quote info from QuoteGuid
+        SELECT
             @QuoteID = q.QuoteID,
             @ControlNo = q.ControlNo,
             @PolicyNumber = q.PolicyNumber,
             @CurrentQuoteStatus = q.QuoteStatusID,
             @IsEndorsement = IIF(q.TransactionTypeID IS NULL, 0, 1)
         FROM [dbo].[tblQuotes] q
-        INNER JOIN [dbo].[tblQuoteOptions] qo ON q.QuoteGUID = qo.QuoteGUID
-        WHERE qo.QuoteOptionID = @OptionID
-        ORDER BY qo.CreatedDate DESC;
+        WHERE q.QuoteGUID = @QuoteGuid;
 
         -- Validate quote was found
-        IF @QuoteGuid IS NULL
+        IF @QuoteID IS NULL
         BEGIN
-            RAISERROR('No quote found for the provided OptionID: %d', 16, 1, @OptionID);
-            SELECT 0 AS Result, 'Quote not found for OptionID' AS Message;
+            RAISERROR('No quote found for the provided QuoteGuid: %s', 16, 1, @QuoteGuid);
+            SELECT 0 AS Result, 'Quote not found' AS Message;
             ROLLBACK TRANSACTION;
             RETURN;
         END
@@ -143,7 +139,7 @@ BEGIN
         )
         VALUES (
             @UserID,
-            'Unbound Policy #' + ISNULL(@PolicyNumber, '') + ' - Control #' + CAST(@ControlNo AS VARCHAR) + ' via Triton_UnbindPolicy - OptionID: ' + CAST(@OptionID AS VARCHAR),
+            'Unbound Policy #' + ISNULL(@PolicyNumber, '') + ' - Control #' + CAST(@ControlNo AS VARCHAR) + ' via Triton_UnbindPolicy',
             @QuoteGuid
         );
 
@@ -245,8 +241,7 @@ BEGIN
             @QuoteGuid,
             @UserID,
             GETDATE(),
-            'Unbind via Triton integration. OptionID: ' + CAST(@OptionID AS VARCHAR(20)) + 
-            ', PolicyNumber: ' + ISNULL(@PolicyNumber, 'NULL') + 
+            'Unbind via Triton integration. PolicyNumber: ' + ISNULL(@PolicyNumber, 'NULL') + 
             ', NewStatus: ' + CAST(@NewQuoteStatus AS VARCHAR(3))
         );
 

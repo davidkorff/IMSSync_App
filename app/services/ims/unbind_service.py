@@ -28,7 +28,7 @@ class IMSUnbindService(BaseIMSService):
     
     def unbind_policy(self, quote_guid: str, keep_policy_numbers: bool = True, keep_affidavit_numbers: bool = True) -> Tuple[bool, str]:
         """
-        Unbind a policy using SOAP web service.
+        Unbind a policy using DataAccess stored procedure.
         
         Args:
             quote_guid: The GUID of the quote to unbind
@@ -39,72 +39,45 @@ class IMSUnbindService(BaseIMSService):
             Tuple[bool, str]: (success, message)
         """
         try:
-            # Get auth token and user guid
-            token = self.auth_service.token
+            # Get user guid from auth service
             user_guid = self.auth_service.user_guid
             
-            if not token or not user_guid:
-                return False, "Authentication required"
-            
-            # Build SOAP request
-            soap_request = self._build_unbind_request(quote_guid, user_guid, keep_policy_numbers, keep_affidavit_numbers, token)
-            
-            # Make the request
-            url = f"{self.base_url}{self.services_env}{self.endpoint}"
-            headers = {
-                "Content-Type": "text/xml; charset=utf-8",
-                "SOAPAction": "http://tempuri.org/IMSWebServices/QuoteFunctions/UnbindPolicy"
-            }
+            if not user_guid:
+                return False, "Authentication required - no user GUID available"
             
             logger.info(f"Unbinding policy for quote: {quote_guid}")
-            logger.debug(f"SOAP Request URL: {url}")
-            logger.debug(f"SOAP Request:\n{soap_request}")
             
-            # Store request details for error reporting
-            self._last_url = url
-            self._last_soap_request = soap_request
+            # Prepare parameters for stored procedure (as alternating name/value pairs)
+            params = [
+                "QuoteGuid", str(quote_guid),
+                "UserGuid", str(user_guid),
+                "KeepPolicyNumbers", "1" if keep_policy_numbers else "0",
+                "KeepAffidavitNumbers", "1" if keep_affidavit_numbers else "0"
+            ]
             
-            try:
-                response = requests.post(
-                    url,
-                    data=soap_request,
-                    headers=headers,
-                    timeout=self.timeout
-                )
-                
-                # Store response for error reporting
-                self._last_soap_response = response.text
-                
-                # Check HTTP status
-                response.raise_for_status()
-                
-                # Parse the response
-                success, message = self._parse_unbind_response(response.text)
-                
-                if success:
-                    logger.info(f"Successfully unbound policy for quote {quote_guid}")
-                    return True, "Policy unbound successfully"
-                else:
-                    logger.error(f"Failed to unbind policy for quote {quote_guid}: {message}")
-                    return False, message
-                    
-            except requests.exceptions.RequestException as e:
-                error_msg = f"HTTP request failed: {str(e)}"
-                logger.error(error_msg)
-                # Build detailed error message with SOAP details
-                detailed_msg = error_msg
-                if self._last_url:
-                    detailed_msg += f"\n\nRequest URL: {self._last_url}"
-                if self._last_soap_request:
-                    detailed_msg += f"\n\nSOAP Request Sent:\n{self._last_soap_request}"
-                if hasattr(e, 'response') and e.response is not None:
-                    detailed_msg += f"\n\nHTTP Response Status: {e.response.status_code}"
-                    detailed_msg += f"\n\nHTTP Response Body:\n{e.response.text}"
-                return False, detailed_msg
+            # Call the stored procedure
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="Triton_UnbindPolicy",
+                parameters=params
+            )
+            
+            if not success:
+                return False, f"Failed to execute unbind procedure: {message}"
+            
+            # Parse the result
+            result_data = self._parse_unbind_procedure_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "1":
+                logger.info(f"Successfully unbound policy for quote {quote_guid}")
+                return True, result_data.get("Message", "Policy unbound successfully")
+            else:
+                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to unbind policy: {error_msg}")
+                return False, error_msg
                 
         except Exception as e:
             error_msg = f"Error unbinding policy: {str(e)}"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             return False, error_msg
     
     def unbind_policy_by_option_id(self, option_id: int, keep_policy_numbers: bool = True, keep_affidavit_numbers: bool = True) -> Tuple[bool, Dict[str, Any], str]:
