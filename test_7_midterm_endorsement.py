@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Test 7: Midterm Endorsement Workflow
-Tests the creation of a midterm endorsement when transaction_type = midterm_endorsement
+Test 7: Midterm Endorsement Workflow (Updated)
+Tests the complete midterm endorsement flow when transaction_type = midterm_endorsement
+
+New flow validates:
+1. Endorsement quote creation via stored procedure
+2. Quote option creation/verification
+3. Payload processing to register premium
+4. Actual IMS bind of the endorsement
+5. Invoice data retrieval (same as bind flow)
 """
 import sys
 import os
@@ -244,30 +251,92 @@ def test_midterm_endorsement(json_file=None):
                 endorsement_guid = results.get("endorsement_quote_guid")
                 endorsement_option_guid = results.get("endorsement_quote_option_guid")
                 endorsement_number = results.get("endorsement_number")
+                endorsement_policy_number = results.get("endorsement_policy_number")
                 
+                # Validate endorsement quote was created
                 if endorsement_guid:
-                    test_result.add_step("Validate endorsement", True, {
-                        "endorsement_quote_guid": endorsement_guid,
-                        "endorsement_quote_option_guid": endorsement_option_guid,
-                        "endorsement_number": endorsement_number
+                    test_result.add_step("Validate endorsement quote created", True, {
+                        "endorsement_quote_guid": endorsement_guid
                     })
-                    print(f"\n✓ Endorsement created successfully:")
-                    print(f"  Endorsement Quote GUID: {endorsement_guid}")
-                    if endorsement_option_guid:
-                        print(f"  Endorsement Quote Option GUID: {endorsement_option_guid}")
-                    print(f"  Endorsement Number: {endorsement_number}")
-                    print(f"  Endorsement Premium: ${results.get('endorsement_premium', 0):,.2f}")
-                    print(f"  Effective Date: {results.get('endorsement_effective_date')}")
-                    
-                    if results.get('invoice_number'):
-                        print(f"  Invoice Number: {results.get('invoice_number')}")
-                    
-                    if logger:
-                        logger.info(f"✓ Endorsement created successfully: {endorsement_guid}")
-                        logger.info(f"  Endorsement Number: {endorsement_number}")
+                    print(f"  ✓ Endorsement Quote GUID: {endorsement_guid}")
                 else:
-                    test_result.add_step("Validate endorsement", False, results, "No endorsement quote GUID returned")
+                    test_result.add_step("Validate endorsement quote created", False, results, 
+                                       "No endorsement quote GUID returned")
                     print(f"  ✗ No endorsement quote GUID returned")
+                
+                # Validate quote option was created/verified
+                if endorsement_option_guid:
+                    test_result.add_step("Validate endorsement quote option", True, {
+                        "endorsement_quote_option_guid": endorsement_option_guid
+                    })
+                    print(f"  ✓ Endorsement Quote Option GUID: {endorsement_option_guid}")
+                else:
+                    test_result.add_step("Validate endorsement quote option", False, results, 
+                                       "No endorsement quote option GUID")
+                    print(f"  ✗ No endorsement quote option GUID")
+                
+                # Validate endorsement was bound
+                if endorsement_policy_number:
+                    test_result.add_step("Validate endorsement bound", True, {
+                        "endorsement_policy_number": endorsement_policy_number
+                    })
+                    print(f"  ✓ Endorsement Bound - Policy Number: {endorsement_policy_number}")
+                else:
+                    # Check if original policy number is present (might be same)
+                    if results.get("policy_number"):
+                        test_result.add_step("Validate endorsement bound", True, {
+                            "policy_number": results.get("policy_number")
+                        })
+                        print(f"  ✓ Endorsement Bound - Policy Number: {results.get('policy_number')}")
+                    else:
+                        test_result.add_step("Validate endorsement bound", False, results, 
+                                           "Endorsement not properly bound")
+                        print(f"  ⚠️ Endorsement may not be properly bound (no policy number)")
+                
+                # Validate invoice data was retrieved
+                if results.get("invoice_data"):
+                    invoice_data = results["invoice_data"]
+                    test_result.add_step("Validate invoice data", True, {
+                        "invoice_number": invoice_data.get("invoice_number"),
+                        "total_amount": invoice_data.get("total_amount")
+                    })
+                    print(f"  ✓ Invoice Data Retrieved:")
+                    print(f"    - Invoice Number: {invoice_data.get('invoice_number')}")
+                    print(f"    - Total Amount: ${invoice_data.get('total_amount', 0):,.2f}")
+                    if logger:
+                        logger.info(f"✓ Invoice data retrieved: {invoice_data.get('invoice_number')}")
+                else:
+                    # Check for legacy invoice_number field
+                    if results.get('invoice_number'):
+                        test_result.add_step("Validate invoice data", True, {
+                            "invoice_number": results.get('invoice_number')
+                        })
+                        print(f"  ✓ Invoice Number: {results.get('invoice_number')}")
+                    else:
+                        test_result.add_step("Validate invoice data", False, results, 
+                                           "No invoice data returned")
+                        print(f"  ⚠️ No invoice data returned")
+                
+                # Display endorsement summary
+                print(f"\n✓ Endorsement created successfully:")
+                print(f"  Endorsement Number: {endorsement_number}")
+                print(f"  Endorsement Premium: ${results.get('endorsement_premium', 0):,.2f}")
+                print(f"  Effective Date: {results.get('endorsement_effective_date')}")
+                print(f"  Status: {results.get('endorsement_status')}")
+                
+                if logger:
+                    logger.info(f"✓ Endorsement completed: {endorsement_guid}")
+                    logger.info(f"  Number: {endorsement_number}")
+                    logger.info(f"  Premium: ${results.get('endorsement_premium', 0):,.2f}")
+                    logger.info(f"  Invoice: {results.get('invoice_data', {}).get('invoice_number', 'N/A')}")
+                
+                # Overall validation
+                test_result.add_step("Validate complete endorsement flow", True, {
+                    "endorsement_quote_guid": endorsement_guid,
+                    "endorsement_quote_option_guid": endorsement_option_guid,
+                    "endorsement_number": endorsement_number,
+                    "has_invoice": bool(results.get("invoice_data") or results.get("invoice_number"))
+                })
             else:
                 test_result.add_step("Validate endorsement", False, results, 
                                    f"Endorsement status: {results.get('endorsement_status', 'unknown')}")

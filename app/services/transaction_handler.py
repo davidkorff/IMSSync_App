@@ -246,10 +246,20 @@ class TransactionHandler:
                     endorsement_quote_guid = endorsement_result.get("EndorsementQuoteGuid")
                     endorsement_quote_option_guid = endorsement_result.get("QuoteOptionGuid")
                     
+                    # If quote option wasn't created by stored procedure, create it now
+                    if endorsement_quote_guid and not endorsement_quote_option_guid:
+                        logger.info(f"Quote option not returned from stored procedure, creating for endorsement quote {endorsement_quote_guid}")
+                        success, option_info, message = self.quote_options_service.auto_add_quote_options(endorsement_quote_guid)
+                        if success:
+                            endorsement_quote_option_guid = option_info.get("QuoteOptionGuid")
+                            logger.info(f"Successfully created quote option: {endorsement_quote_option_guid}")
+                        else:
+                            logger.warning(f"Failed to create quote option for endorsement: {message}")
+                    
                     results["endorsement_quote_guid"] = endorsement_quote_guid
                     results["endorsement_quote_option_guid"] = endorsement_quote_option_guid
                     results["endorsement_number"] = endorsement_result.get("EndorsementNumber")
-                    results["endorsement_status"] = "completed"
+                    results["endorsement_status"] = "processing"
                     results["endorsement_premium"] = endorsement_premium
                     results["endorsement_effective_date"] = effective_date
                     
@@ -265,7 +275,30 @@ class TransactionHandler:
                         if not success:
                             logger.warning(f"Failed to process endorsement payload: {message}")
                     
-                    # Include invoice data if available
+                    # Actually bind the endorsement through IMS (not just mark as bound in DB)
+                    if endorsement_quote_guid:
+                        logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
+                        success, bind_result, message = self.bind_service.bind_quote(endorsement_quote_guid)
+                        if success:
+                            results["endorsement_policy_number"] = bind_result.get("policy_number")
+                            results["endorsement_status"] = "completed"
+                            logger.info(f"Successfully bound endorsement: {bind_result.get('policy_number')}")
+                        else:
+                            logger.error(f"Failed to bind endorsement: {message}")
+                            return False, results, f"Endorsement bind failed: {message}"
+                    
+                    # Get invoice data after successful endorsement (same as bind flow)
+                    if endorsement_quote_guid:
+                        logger.info(f"Retrieving invoice data for endorsement quote {endorsement_quote_guid}")
+                        invoice_success, invoice_data, invoice_message = self.data_service.get_invoice_data(endorsement_quote_guid)
+                        
+                        if invoice_success:
+                            results["invoice_data"] = invoice_data
+                            logger.info(f"Successfully retrieved invoice data for endorsement")
+                        else:
+                            logger.warning(f"Failed to retrieve invoice data for endorsement: {invoice_message}")
+                    
+                    # Include invoice number if available (backward compatibility)
                     if endorsement_result.get("InvoiceNumber"):
                         results["invoice_number"] = endorsement_result["InvoiceNumber"]
                     
