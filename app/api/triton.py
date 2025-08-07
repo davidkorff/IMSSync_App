@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import logging
 
 from app.api.process_transaction import process_triton_transaction
+from app.services.ims.invoice_service import get_invoice_service
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,64 @@ async def get_transaction_types():
             "reinstatement"
         ]
     }
+
+
+@router.get("/invoice")
+async def get_invoice(
+    invoice_num: Optional[int] = Query(None, description="Invoice number"),
+    quote_guid: Optional[str] = Query(None, description="Quote GUID"),
+    policy_number: Optional[str] = Query(None, description="Policy number"),
+    opportunity_id: Optional[str] = Query(None, description="Opportunity ID")
+):
+    """
+    Retrieve invoice data for a policy.
+    
+    Provide one of the following parameters:
+    - invoice_num: The invoice number
+    - quote_guid: The quote GUID
+    - policy_number: The policy number
+    - opportunity_id: The opportunity ID (option_id)
+    
+    Returns the full invoice dataset as JSON.
+    """
+    try:
+        # Validate that at least one parameter is provided
+        if not any([invoice_num, quote_guid, policy_number, opportunity_id]):
+            raise HTTPException(
+                status_code=400, 
+                detail="At least one parameter must be provided: invoice_num, quote_guid, policy_number, or opportunity_id"
+            )
+        
+        # Get the invoice service
+        invoice_service = get_invoice_service()
+        
+        # Call the service to get invoice data
+        success, invoice_data, message = invoice_service.get_invoice_by_params(
+            invoice_num=invoice_num,
+            quote_guid=quote_guid,
+            policy_number=policy_number,
+            opportunity_id=opportunity_id
+        )
+        
+        if success:
+            logger.info(f"Successfully retrieved invoice data")
+            return {
+                "success": True,
+                "message": message,
+                "invoice_data": invoice_data
+            }
+        else:
+            logger.error(f"Failed to retrieve invoice data: {message}")
+            if "not found" in message.lower():
+                raise HTTPException(status_code=404, detail=message)
+            else:
+                raise HTTPException(status_code=422, detail=message)
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving invoice: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status")
