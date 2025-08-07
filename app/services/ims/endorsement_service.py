@@ -174,8 +174,10 @@ class IMSEndorsementService(BaseIMSService):
             # Parse the XML
             root = ET.fromstring(result_xml)
             
-            # Check all Table elements, as the result might be in Table2 or later
-            tables = root.findall('.//Table2')  # Check Table2 first
+            # Check all Table elements - look for Table1 first (common for endorsements)
+            tables = root.findall('.//Table1')
+            if not tables:
+                tables = root.findall('.//Table2')  # Then Table2
             if not tables:
                 tables = root.findall('.//Table')  # Fall back to Table
             
