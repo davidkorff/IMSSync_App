@@ -45,7 +45,10 @@ BEGIN
     DECLARE @LineGuid UNIQUEIDENTIFIER
     DECLARE @CompanyLocationID INT
     DECLARE @QuoteStatusID INT
+    DECLARE @QuoteStatusReasonID INT = 20  -- Default reason ID for endorsements
     DECLARE @DateBound DATETIME = NULL
+    DECLARE @PolicyEffectiveDate DATETIME
+    DECLARE @PolicyExpirationDate DATETIME
     
     BEGIN TRY
         BEGIN TRANSACTION
@@ -73,7 +76,9 @@ BEGIN
                 @OriginalQuoteGuid = tq.QuoteGuid,
                 @PolicyNumber = tq.policy_number,
                 @QuoteOptionGuid = tq.QuoteOptionGuid,
-                @ControlNumber = q.ControlNo
+                @ControlNumber = q.ControlNo,
+                @PolicyEffectiveDate = q.EffectiveDate,
+                @PolicyExpirationDate = q.ExpirationDate
             FROM tblTritonQuoteData tq
             INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
             WHERE tq.opportunity_id = @OpportunityID
@@ -87,7 +92,9 @@ BEGIN
             
             SELECT TOP 1 
                 @PolicyNumber = PolicyNumber,
-                @ControlNumber = ControlNo
+                @ControlNumber = ControlNo,
+                @PolicyEffectiveDate = EffectiveDate,
+                @PolicyExpirationDate = ExpirationDate
             FROM tblQuotes
             WHERE QuoteGUID = @QuoteGuid
             
@@ -104,13 +111,29 @@ BEGIN
             GOTO ReturnResult
         END
         
+        -- Validate endorsement effective date is within policy period
+        -- The CHECK constraint requires endorsement date to be within the policy term
+        IF @PolicyEffectiveDate IS NOT NULL AND @TransEffDateTime < @PolicyEffectiveDate
+        BEGIN
+            -- If endorsement date is before policy effective, use policy effective date
+            SET @TransEffDateTime = @PolicyEffectiveDate
+        END
+        
+        IF @PolicyExpirationDate IS NOT NULL AND @TransEffDateTime > @PolicyExpirationDate
+        BEGIN
+            -- If endorsement date is after expiration, that's an error
+            SET @Result = 0
+            SET @Message = 'Endorsement effective date cannot be after policy expiration date'
+            GOTO ReturnResult
+        END
+        
         -- Step 2: Use spCopyQuote to create the endorsement (like Ascot does)
         -- This native IMS procedure handles all the complexity
         EXEC spCopyQuote
             @QuoteGuid = @OriginalQuoteGuid,
             @TransactionTypeID = 'E',  -- Endorsement
             @QuoteStatusID = @QuoteStatusID,
-            @QuoteStatusReasonID = NULL,
+            @QuoteStatusReasonID = @QuoteStatusReasonID,  -- Required for endorsements
             @EndorsementEffective = @TransEffDateTime,
             @EndtRequestDate = @DateBound,
             @EndorsementComment = @Comment,

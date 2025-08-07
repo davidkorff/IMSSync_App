@@ -197,8 +197,25 @@ class TransactionHandler:
                     
                     # Get endorsement details from payload
                     endorsement_premium = payload.get("gross_premium", 0)
-                    effective_date = payload.get("midterm_endt_effective_from") or payload.get("effective_date")
+                    
+                    # Use transaction_date as the endorsement effective date
+                    # Convert from ISO format to MM/DD/YYYY
+                    transaction_date_str = payload.get("transaction_date")
+                    if transaction_date_str:
+                        try:
+                            # Parse ISO format date (e.g., "2025-08-06T19:24:24+00:00")
+                            from dateutil import parser
+                            transaction_dt = parser.parse(transaction_date_str)
+                            effective_date = transaction_dt.strftime("%m/%d/%Y")
+                        except:
+                            # Fallback to current date if parsing fails
+                            effective_date = datetime.now().strftime("%m/%d/%Y")
+                    else:
+                        effective_date = datetime.now().strftime("%m/%d/%Y")
+                    
                     endorsement_comment = payload.get("midterm_endt_description", "Midterm Endorsement")
+                    
+                    logger.info(f"Using endorsement effective date: {effective_date} (from transaction_date: {transaction_date_str})")
                     
                     # Create the endorsement
                     if option_id:
