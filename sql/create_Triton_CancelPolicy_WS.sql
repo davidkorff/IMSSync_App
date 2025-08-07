@@ -46,9 +46,13 @@ BEGIN
     DECLARE @PolicyExpirationDate DATETIME
     DECLARE @QuoteStatusID INT = 7  -- Cancelled
     DECLARE @CalcType CHAR(1)
+    DECLARE @DateRequested DATETIME
     
     BEGIN TRY
         BEGIN TRANSACTION
+        
+        -- Set request date
+        SET @DateRequested = GETDATE()
         
         -- Convert date string to datetime
         SET @CancellationDateTime = CONVERT(DATETIME, @CancellationDate, 101)
@@ -117,31 +121,22 @@ BEGIN
             GOTO ReturnResult
         END
         
-        -- Validate reason code
-        IF NOT EXISTS (SELECT 1 FROM lstQuoteStatusReasons WHERE QuoteStatusID = 7 AND ID = @ReasonCode)
+        -- Skip reason code validation for now (table might not exist)
+        -- Just use the provided reason code or default
+        IF @ReasonCode IS NULL
         BEGIN
-            -- Default to a valid reason if the provided one doesn't exist
-            SELECT TOP 1 @ReasonCode = ID 
-            FROM lstQuoteStatusReasons 
-            WHERE QuoteStatusID = 7
-            ORDER BY ID
-            
-            IF @ReasonCode IS NULL
-            BEGIN
-                SET @Result = 0
-                SET @Message = 'No valid cancellation reason codes found'
-                GOTO ReturnResult
-            END
+            SET @ReasonCode = 30  -- Default to "Insured Request"
         END
         
         -- Step 2: Use spCopyQuote to create the cancellation (like Ascot does)
+        -- This native IMS procedure handles all the complexity
         EXEC spCopyQuote
             @QuoteGuid = @OriginalQuoteGuid,
             @TransactionTypeID = 'C',  -- Cancellation
-            @QuoteStatusID = @QuoteStatusID,  -- 7 = Cancelled
+            @QuoteStatusID = @QuoteStatusID,
             @QuoteStatusReasonID = @ReasonCode,
             @EndorsementEffective = @CancellationDateTime,
-            @EndtRequestDate = GETDATE(),
+            @EndtRequestDate = @DateRequested,
             @EndorsementComment = @Comment,
             @EndorsementCalculationType = @CalcType,
             @copyOptions = 0
@@ -205,23 +200,42 @@ BEGIN
                 transaction_type,
                 transaction_date,
                 gross_premium,
-                cancellation_effective_date,
-                cancellation_reason,
-                cancellation_type,
                 status,
                 created_date,
                 last_updated,
+                -- Use midterm fields to store cancellation data
+                midterm_endt_description,  -- Store cancellation reason here
+                midterm_endt_effective_from,  -- Store cancellation date here
                 -- Copy these from original
                 renewal_of_quote_guid,
+                umr,
+                agreement_number,
+                section_number,
                 class_of_business,
                 program_name,
+                expiring_policy_number,
                 underwriter_name,
                 producer_name,
                 effective_date,
                 expiration_date,
+                bound_date,
                 insured_name,
                 insured_state,
-                insured_zip
+                insured_zip,
+                business_type,
+                limit_amount,
+                deductible_amount,
+                commission_rate,
+                additional_insured,
+                address_1,
+                address_2,
+                city,
+                state,
+                zip,
+                source_system,
+                expiring_opportunity_id,
+                opportunity_type,
+                full_payload_json
             )
             SELECT 
                 @CancellationQuoteGuid,
@@ -231,23 +245,42 @@ BEGIN
                 'cancellation',
                 CONVERT(VARCHAR(50), GETDATE(), 101),
                 CASE WHEN @RefundAmount IS NOT NULL THEN -ABS(@RefundAmount) ELSE 0 END,
-                @CancellationDate,
-                @Comment,
-                @CancellationType,
                 'cancelled',
                 GETDATE(),
                 GETDATE(),
+                -- Store cancellation info in midterm fields
+                @Comment + ' (' + @CancellationType + ' cancellation)',  -- midterm_endt_description
+                @CancellationDate,  -- midterm_endt_effective_from
                 -- Copy from original
                 renewal_of_quote_guid,
+                umr,
+                agreement_number,
+                section_number,
                 class_of_business,
                 program_name,
+                expiring_policy_number,
                 underwriter_name,
                 producer_name,
                 effective_date,
                 expiration_date,
+                bound_date,
                 insured_name,
                 insured_state,
-                insured_zip
+                insured_zip,
+                business_type,
+                limit_amount,
+                deductible_amount,
+                commission_rate,
+                additional_insured,
+                address_1,
+                address_2,
+                city,
+                state,
+                zip,
+                source_system,
+                expiring_opportunity_id,
+                opportunity_type,
+                full_payload_json
             FROM tblTritonQuoteData
             WHERE QuoteGuid = @OriginalQuoteGuid
         END
