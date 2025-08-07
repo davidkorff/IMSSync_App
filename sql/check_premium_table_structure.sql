@@ -1,0 +1,10 @@
+-- Check the structure of tblQuoteOptionPremiums table
+SELECT 
+    c.COLUMN_NAME,
+    c.DATA_TYPE,
+    c.CHARACTER_MAXIMUM_LENGTH,
+    c.IS_NULLABLE,
+    c.COLUMN_DEFAULT
+FROM INFORMATION_SCHEMA.COLUMNS c
+WHERE c.TABLE_NAME = 'tblQuoteOptionPremiums'
+ORDER BY c.ORDINAL_POSITION;
