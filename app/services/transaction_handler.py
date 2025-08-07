@@ -227,7 +227,7 @@ class TransactionHandler:
                             endorsement_premium=endorsement_premium,
                             effective_date=effective_date,
                             comment=endorsement_comment,
-                            bind_endorsement=True  # Auto-bind endorsement
+                            bind_endorsement=False  # Don't auto-bind - we'll bind after processing payload
                         )
                     else:
                         # Fall back to using quote_guid
@@ -236,7 +236,7 @@ class TransactionHandler:
                             endorsement_premium=endorsement_premium,
                             effective_date=effective_date,
                             comment=endorsement_comment,
-                            bind_endorsement=True  # Auto-bind endorsement
+                            bind_endorsement=False  # Don't auto-bind - we'll bind after processing payload
                         )
                     
                     if not success:
