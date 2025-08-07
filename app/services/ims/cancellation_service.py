@@ -1,0 +1,277 @@
+import logging
+import xml.etree.ElementTree as ET
+from typing import Optional, Tuple, Dict, Any
+from datetime import datetime
+
+from app.services.ims.base_service import BaseIMSService
+from app.services.ims.auth_service import get_auth_service
+from app.services.ims.data_access_service import get_data_access_service
+from config import IMS_CONFIG
+
+logger = logging.getLogger(__name__)
+
+
+class IMSCancellationService(BaseIMSService):
+    """Service for processing policy cancellations in IMS."""
+    
+    def __init__(self):
+        super().__init__()
+        self.base_url = IMS_CONFIG["base_url"]
+        self.services_env = IMS_CONFIG.get("environments", {}).get("services", "/ims_one")
+        self.endpoint = IMS_CONFIG["endpoints"]["quote_functions"]
+        self.timeout = IMS_CONFIG["timeout"]
+        self.auth_service = get_auth_service()
+        self.data_service = get_data_access_service()
+        self._last_soap_request = None
+        self._last_soap_response = None
+        self._last_url = None
+    
+    def cancel_policy_by_opportunity_id(
+        self, 
+        opportunity_id: int,
+        cancellation_type: str = "flat",  # "flat" or "earned"
+        effective_date: str = None,
+        reason_code: int = None,
+        comment: str = "Policy Cancellation",
+        refund_amount: float = None
+    ) -> Tuple[bool, Dict[str, Any], str]:
+        """
+        Cancel a policy using opportunity ID via stored procedure.
+        
+        Args:
+            opportunity_id: The opportunity ID to cancel
+            cancellation_type: Type of cancellation ("flat" for full refund, "earned" for pro-rata)
+            effective_date: The effective date of the cancellation (MM/DD/YYYY format)
+            reason_code: The cancellation reason code (required)
+            comment: Description of the cancellation
+            refund_amount: Amount to refund (for flat cancellations)
+            
+        Returns:
+            Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
+        """
+        try:
+            # Get user guid from auth service
+            user_guid = self.auth_service.user_guid
+            
+            if not user_guid:
+                return False, {}, "Authentication required - no user GUID available"
+            
+            # Default effective date to today if not provided
+            if not effective_date:
+                effective_date = datetime.now().strftime("%m/%d/%Y")
+            
+            # Default reason code if not provided (typically there's a default cancellation reason)
+            if reason_code is None:
+                reason_code = 30  # Common default for "Insured Request"
+            
+            logger.info(f"Cancelling policy for opportunity ID: {opportunity_id}")
+            logger.info(f"Cancellation details - Type: {cancellation_type}, Effective: {effective_date}, Reason: {reason_code}")
+            
+            # Prepare parameters for stored procedure (as alternating name/value pairs)
+            params = [
+                "OpportunityID", str(opportunity_id),
+                "UserGuid", str(user_guid),
+                "CancellationType", cancellation_type,
+                "CancellationDate", effective_date,
+                "ReasonCode", str(reason_code),
+                "Comment", comment
+            ]
+            
+            # Add refund amount if provided (for flat cancellations)
+            if refund_amount is not None and cancellation_type == "flat":
+                params.extend(["RefundAmount", str(refund_amount)])
+            
+            # Call the stored procedure (IMS adds _WS suffix automatically)
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="Triton_CancelPolicy",
+                parameters=params
+            )
+            
+            if not success:
+                return False, {}, f"Failed to execute cancellation procedure: {message}"
+            
+            # Parse the result
+            result_data = self._parse_cancellation_procedure_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "1":
+                logger.info(f"Successfully cancelled policy. CancellationQuoteGuid: {result_data.get('CancellationQuoteGuid')}")
+                return True, result_data, result_data.get("Message", "Policy cancelled successfully")
+            else:
+                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to cancel policy: {error_msg}")
+                return False, result_data or {}, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error cancelling policy: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return False, {}, error_msg
+    
+    def cancel_policy_by_quote_guid(
+        self,
+        quote_guid: str,
+        cancellation_type: str = "flat",
+        effective_date: str = None,
+        reason_code: int = None,
+        comment: str = "Policy Cancellation",
+        refund_amount: float = None
+    ) -> Tuple[bool, Dict[str, Any], str]:
+        """
+        Cancel a policy using quote GUID via stored procedure.
+        
+        Args:
+            quote_guid: The GUID of the quote to cancel
+            cancellation_type: Type of cancellation ("flat" for full refund, "earned" for pro-rata)
+            effective_date: The effective date of the cancellation (MM/DD/YYYY format)
+            reason_code: The cancellation reason code (required)
+            comment: Description of the cancellation
+            refund_amount: Amount to refund (for flat cancellations)
+            
+        Returns:
+            Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
+        """
+        try:
+            # Get user guid from auth service
+            user_guid = self.auth_service.user_guid
+            
+            if not user_guid:
+                return False, {}, "Authentication required - no user GUID available"
+            
+            # Default effective date to today if not provided
+            if not effective_date:
+                effective_date = datetime.now().strftime("%m/%d/%Y")
+            
+            # Default reason code if not provided
+            if reason_code is None:
+                reason_code = 30  # Common default for "Insured Request"
+            
+            logger.info(f"Cancelling policy for quote: {quote_guid}")
+            
+            # Prepare parameters for stored procedure (as alternating name/value pairs)
+            params = [
+                "QuoteGuid", str(quote_guid),
+                "UserGuid", str(user_guid),
+                "CancellationType", cancellation_type,
+                "CancellationDate", effective_date,
+                "ReasonCode", str(reason_code),
+                "Comment", comment
+            ]
+            
+            # Add refund amount if provided (for flat cancellations)
+            if refund_amount is not None and cancellation_type == "flat":
+                params.extend(["RefundAmount", str(refund_amount)])
+            
+            # Call the stored procedure (IMS adds _WS suffix automatically)
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="Triton_CancelPolicy",
+                parameters=params
+            )
+            
+            if not success:
+                return False, {}, f"Failed to execute cancellation procedure: {message}"
+            
+            # Parse the result
+            result_data = self._parse_cancellation_procedure_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "1":
+                logger.info(f"Successfully cancelled policy. New QuoteGuid: {result_data.get('CancellationQuoteGuid')}")
+                return True, result_data, result_data.get("Message", "Policy cancelled successfully")
+            else:
+                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to cancel policy: {error_msg}")
+                return False, result_data or {}, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error cancelling policy: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return False, {}, error_msg
+    
+    def _parse_cancellation_procedure_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse the result from Triton_CancelPolicy_WS stored procedure.
+        
+        Args:
+            result_xml: The XML result from ExecuteDataSet
+            
+        Returns:
+            Dict containing the result data or None if parsing fails
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Check all Table elements - look for Table1 first (common for cancellations)
+            tables = root.findall('.//Table1')
+            if not tables:
+                tables = root.findall('.//Table2')  # Then Table2
+            if not tables:
+                tables = root.findall('.//Table')  # Fall back to Table
+            
+            for table in tables:
+                # Try to extract structured fields
+                result_data = {}
+                
+                # Extract Result (0 or 1)
+                result_elem = table.find('Result')
+                if result_elem is not None and result_elem.text:
+                    result_data['Result'] = result_elem.text.strip()
+                
+                # Extract Message
+                message_elem = table.find('Message')
+                if message_elem is not None and message_elem.text:
+                    result_data['Message'] = message_elem.text.strip()
+                
+                # Extract CancellationQuoteGuid (the new quote created for cancellation)
+                cancellation_guid_elem = table.find('CancellationQuoteGuid')
+                if cancellation_guid_elem is not None and cancellation_guid_elem.text:
+                    result_data['CancellationQuoteGuid'] = cancellation_guid_elem.text.strip()
+                
+                # Extract OriginalQuoteGuid
+                original_guid_elem = table.find('OriginalQuoteGuid')
+                if original_guid_elem is not None and original_guid_elem.text:
+                    result_data['OriginalQuoteGuid'] = original_guid_elem.text.strip()
+                
+                # Extract PolicyNumber
+                policy_num_elem = table.find('PolicyNumber')
+                if policy_num_elem is not None and policy_num_elem.text:
+                    result_data['PolicyNumber'] = policy_num_elem.text.strip()
+                
+                # Extract RefundAmount if available
+                refund_elem = table.find('RefundAmount')
+                if refund_elem is not None and refund_elem.text:
+                    result_data['RefundAmount'] = refund_elem.text.strip()
+                
+                # Extract QuoteOptionGuid if available
+                option_guid_elem = table.find('QuoteOptionGuid')
+                if option_guid_elem is not None and option_guid_elem.text:
+                    result_data['QuoteOptionGuid'] = option_guid_elem.text.strip()
+                
+                # If we got structured data with Result field, return it
+                if 'Result' in result_data:
+                    logger.debug(f"Parsed structured cancellation result: {result_data}")
+                    return result_data
+            
+            # If no recognized format, log what we found
+            logger.warning(f"Unrecognized cancellation result format. XML: {result_xml}")
+            return None
+            
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse cancellation procedure result XML: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error parsing cancellation procedure result: {str(e)}")
+            return None
+
+
+# Singleton instance
+_cancellation_service = None
+
+
+def get_cancellation_service() -> IMSCancellationService:
+    """Get singleton instance of cancellation service."""
+    global _cancellation_service
+    if _cancellation_service is None:
+        _cancellation_service = IMSCancellationService()
+    return _cancellation_service

@@ -13,6 +13,7 @@ from app.services.ims.bind_service import get_bind_service
 from app.services.ims.issue_service import get_issue_service
 from app.services.ims.unbind_service import get_unbind_service
 from app.services.ims.endorsement_service import get_endorsement_service
+from app.services.ims.cancellation_service import get_cancellation_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class TransactionHandler:
         self.issue_service = get_issue_service()
         self.unbind_service = get_unbind_service()
         self.endorsement_service = get_endorsement_service()
+        self.cancellation_service = get_cancellation_service()
     
     def process_transaction(self, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], str]:
         """
@@ -131,8 +133,8 @@ class TransactionHandler:
                 
                 # No existing quote - continue with normal flow to create new quote
             
-            # For issue, unbind, and midterm_endorsement transactions, we need to find the existing quote
-            elif transaction_type in ["issue", "unbind", "midterm_endorsement"]:
+            # For issue, unbind, midterm_endorsement, and cancellation transactions, we need to find the existing quote
+            elif transaction_type in ["issue", "unbind", "midterm_endorsement", "cancellation"]:
                 # First try to find by option_id if provided
                 option_id = payload.get("opportunity_id") or payload.get("option_id")
                 policy_number = payload.get("policy_number")
@@ -272,6 +274,72 @@ class TransactionHandler:
                     
                     logger.info(f"Successfully created endorsement #{endorsement_result.get('EndorsementNumber')} for policy {results.get('policy_number', policy_number)}")
                 
+                elif transaction_type == "cancellation":
+                    # Process the cancellation
+                    logger.info(f"Processing cancellation for quote {quote_guid}")
+                    
+                    # Get cancellation details from payload
+                    cancellation_type = payload.get("cancellation_type", "flat")
+                    
+                    # Use transaction_date as the cancellation effective date
+                    transaction_date_str = payload.get("transaction_date")
+                    if transaction_date_str:
+                        try:
+                            # Parse ISO format date
+                            from dateutil import parser
+                            transaction_dt = parser.parse(transaction_date_str)
+                            effective_date = transaction_dt.strftime("%m/%d/%Y")
+                        except:
+                            effective_date = datetime.now().strftime("%m/%d/%Y")
+                    else:
+                        effective_date = datetime.now().strftime("%m/%d/%Y")
+                    
+                    # Get cancellation specifics
+                    reason_code = payload.get("cancellation_reason_code", 30)  # Default to "Insured Request"
+                    cancellation_comment = payload.get("cancellation_reason", "Policy Cancellation")
+                    refund_amount = payload.get("refund_amount")
+                    
+                    logger.info(f"Cancellation details - Type: {cancellation_type}, Effective: {effective_date}, Reason: {reason_code}")
+                    
+                    # Create the cancellation
+                    if option_id:
+                        # Use opportunity_id if available
+                        success, cancellation_result, message = self.cancellation_service.cancel_policy_by_opportunity_id(
+                            opportunity_id=int(option_id),
+                            cancellation_type=cancellation_type,
+                            effective_date=effective_date,
+                            reason_code=reason_code,
+                            comment=cancellation_comment,
+                            refund_amount=refund_amount
+                        )
+                    else:
+                        # Fall back to using quote_guid
+                        success, cancellation_result, message = self.cancellation_service.cancel_policy_by_quote_guid(
+                            quote_guid=quote_guid,
+                            cancellation_type=cancellation_type,
+                            effective_date=effective_date,
+                            reason_code=reason_code,
+                            comment=cancellation_comment,
+                            refund_amount=refund_amount
+                        )
+                    
+                    if not success:
+                        return False, results, f"Cancellation failed: {message}"
+                    
+                    # Update results with cancellation information
+                    cancellation_quote_guid = cancellation_result.get("CancellationQuoteGuid")
+                    
+                    results["cancellation_quote_guid"] = cancellation_quote_guid
+                    results["cancellation_type"] = cancellation_type
+                    results["cancellation_status"] = "completed"
+                    results["cancellation_effective_date"] = effective_date
+                    results["refund_amount"] = cancellation_result.get("RefundAmount")
+                    
+                    results["end_time"] = datetime.utcnow().isoformat()
+                    results["status"] = "completed"
+                    
+                    logger.info(f"Successfully cancelled policy {results.get('policy_number', policy_number)}")
+                
                 summary_msg = self._build_summary_message(results, payload)
                 return True, results, summary_msg
             
@@ -400,6 +468,12 @@ class TransactionHandler:
             msg_parts.append(f"Endorsement Number: {results.get('endorsement_number')}")
             msg_parts.append(f"Endorsement Premium: ${results.get('endorsement_premium', 0):,.2f}")
             msg_parts.append(f"Effective Date: {results.get('endorsement_effective_date')}")
+        elif transaction_type == "cancellation" and results.get("cancellation_status") == "completed":
+            msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
+            msg_parts.append(f"Cancellation Type: {results.get('cancellation_type')}")
+            msg_parts.append(f"Effective Date: {results.get('cancellation_effective_date')}")
+            if results.get("refund_amount"):
+                msg_parts.append(f"Refund Amount: ${abs(float(results.get('refund_amount', 0))):,.2f}")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         
