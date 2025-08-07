@@ -12,6 +12,7 @@ from app.services.ims.payload_processor_service import get_payload_processor_ser
 from app.services.ims.bind_service import get_bind_service
 from app.services.ims.issue_service import get_issue_service
 from app.services.ims.unbind_service import get_unbind_service
+from app.services.ims.endorsement_service import get_endorsement_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class TransactionHandler:
         self.bind_service = get_bind_service()
         self.issue_service = get_issue_service()
         self.unbind_service = get_unbind_service()
+        self.endorsement_service = get_endorsement_service()
     
     def process_transaction(self, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], str]:
         """
@@ -129,8 +131,8 @@ class TransactionHandler:
                 
                 # No existing quote - continue with normal flow to create new quote
             
-            # For issue and unbind transactions, we need to find the existing quote
-            elif transaction_type in ["issue", "unbind"]:
+            # For issue, unbind, and midterm_endorsement transactions, we need to find the existing quote
+            elif transaction_type in ["issue", "unbind", "midterm_endorsement"]:
                 # First try to find by option_id if provided
                 option_id = payload.get("opportunity_id") or payload.get("option_id")
                 policy_number = payload.get("policy_number")
@@ -188,6 +190,70 @@ class TransactionHandler:
                     results["status"] = "completed"
                     
                     logger.info(f"Successfully unbound policy {results.get('policy_number', policy_number)}")
+                
+                elif transaction_type == "midterm_endorsement":
+                    # Process the endorsement
+                    logger.info(f"Processing midterm endorsement for quote {quote_guid}")
+                    
+                    # Get endorsement details from payload
+                    endorsement_premium = payload.get("gross_premium", 0)
+                    effective_date = payload.get("midterm_endt_effective_from") or payload.get("effective_date")
+                    endorsement_comment = payload.get("midterm_endt_description", "Midterm Endorsement")
+                    
+                    # Create the endorsement
+                    if option_id:
+                        # Use opportunity_id if available
+                        success, endorsement_result, message = self.endorsement_service.endorse_policy_by_opportunity_id(
+                            opportunity_id=int(option_id),
+                            endorsement_premium=endorsement_premium,
+                            effective_date=effective_date,
+                            comment=endorsement_comment,
+                            bind_endorsement=True  # Auto-bind endorsement
+                        )
+                    else:
+                        # Fall back to using quote_guid
+                        success, endorsement_result, message = self.endorsement_service.endorse_policy_by_quote_guid(
+                            quote_guid=quote_guid,
+                            endorsement_premium=endorsement_premium,
+                            effective_date=effective_date,
+                            comment=endorsement_comment,
+                            bind_endorsement=True  # Auto-bind endorsement
+                        )
+                    
+                    if not success:
+                        return False, results, f"Endorsement failed: {message}"
+                    
+                    # Update results with endorsement information
+                    endorsement_quote_guid = endorsement_result.get("EndorsementQuoteGuid")
+                    endorsement_quote_option_guid = endorsement_result.get("QuoteOptionGuid")
+                    
+                    results["endorsement_quote_guid"] = endorsement_quote_guid
+                    results["endorsement_quote_option_guid"] = endorsement_quote_option_guid
+                    results["endorsement_number"] = endorsement_result.get("EndorsementNumber")
+                    results["endorsement_status"] = "completed"
+                    results["endorsement_premium"] = endorsement_premium
+                    results["endorsement_effective_date"] = effective_date
+                    
+                    # Process the payload to register premium (like in bind flow)
+                    # This calls spProcessTritonPayload which will call UpdatePremiumHistoricV3
+                    if endorsement_quote_guid and endorsement_quote_option_guid:
+                        logger.info("Processing endorsement payload to register premium")
+                        success, process_result, message = self.payload_processor.process_payload(
+                            payload=payload,
+                            quote_guid=endorsement_quote_guid,
+                            quote_option_guid=endorsement_quote_option_guid
+                        )
+                        if not success:
+                            logger.warning(f"Failed to process endorsement payload: {message}")
+                    
+                    # Include invoice data if available
+                    if endorsement_result.get("InvoiceNumber"):
+                        results["invoice_number"] = endorsement_result["InvoiceNumber"]
+                    
+                    results["end_time"] = datetime.utcnow().isoformat()
+                    results["status"] = "completed"
+                    
+                    logger.info(f"Successfully created endorsement #{endorsement_result.get('EndorsementNumber')} for policy {results.get('policy_number', policy_number)}")
                 
                 summary_msg = self._build_summary_message(results, payload)
                 return True, results, summary_msg
@@ -312,6 +378,11 @@ class TransactionHandler:
         elif transaction_type == "unbind" and results.get("unbind_status") == "completed":
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
             msg_parts.append("Status: Successfully unbound")
+        elif transaction_type == "midterm_endorsement" and results.get("endorsement_status") == "completed":
+            msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
+            msg_parts.append(f"Endorsement Number: {results.get('endorsement_number')}")
+            msg_parts.append(f"Endorsement Premium: ${results.get('endorsement_premium', 0):,.2f}")
+            msg_parts.append(f"Effective Date: {results.get('endorsement_effective_date')}")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         

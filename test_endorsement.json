@@ -1,0 +1,53 @@
+{
+  "transaction_id": "ENDT_20250806_001",
+  "transaction_type": "midterm_endorsement",
+  "transaction_date": "08/06/2025",
+  "source_system": "Triton",
+  "status": "pending",
+  
+  "comment": "Midterm Endorsement - Coverage Modification",
+  
+  "opportunity_id": 12345,
+  "policy_number": "POL-2025-001",
+  
+  "midterm_endt_effective_from": "08/06/2025",
+  "midterm_endt_description": "Add additional insured and increase coverage limits",
+  "midterm_endt_id": 1,
+  
+  "gross_premium": 1500.00,
+  "net_premium": 1350.00,
+  "commission_rate": 10.0,
+  "commission_amount": 150.00,
+  
+  "insured_name": "Test Company LLC",
+  "insured_state": "CA",
+  "insured_zip": "90210",
+  
+  "producer_name": "Test Producer Agency",
+  "underwriter_name": "John Smith",
+  
+  "class_of_business": "General Liability",
+  "program_name": "Standard GL Program",
+  
+  "effective_date": "08/06/2025",
+  "expiration_date": "08/06/2026",
+  
+  "limit_amount": "2000000",
+  "deductible_amount": "5000",
+  
+  "additional_insured": [
+    {
+      "name": "Additional Insured Corp",
+      "address": "456 Additional St",
+      "city": "Los Angeles",
+      "state": "CA",
+      "zip": "90001"
+    }
+  ],
+  
+  "address_1": "123 Main Street",
+  "address_2": "Suite 100",
+  "city": "Beverly Hills",
+  "state": "CA",
+  "zip": "90210"
+}
