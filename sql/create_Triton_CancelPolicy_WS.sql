@@ -47,6 +47,10 @@ BEGIN
     DECLARE @QuoteStatusID INT = 7  -- Cancelled
     DECLARE @CalcType CHAR(1)
     DECLARE @DateRequested DATETIME
+    DECLARE @OriginalPremium MONEY
+    DECLARE @CalculatedRefund MONEY
+    DECLARE @DaysInPolicy INT
+    DECLARE @DaysElapsed INT
     
     BEGIN TRY
         BEGIN TRANSACTION
@@ -106,6 +110,14 @@ BEGIN
             GOTO ReturnResult
         END
         
+        -- Get the original premium from the policy
+        SELECT @OriginalPremium = SUM(ISNULL(qop.Premium, 0))
+        FROM tblQuoteOptionPremiums qop
+        INNER JOIN tblQuoteOptions qo ON qo.QuoteOptionGUID = qop.QuoteOptionGuid
+        INNER JOIN tblFin_PolicyCharges pc ON pc.ChargeCode = qop.ChargeCode
+        WHERE qo.QuoteGUID = @OriginalQuoteGuid
+        AND pc.ChargeID = 'PREM'  -- Only get premium charges
+        
         -- Validate cancellation date
         -- Can't cancel before effective date
         IF @CancellationDateTime < @PolicyEffectiveDate
@@ -126,6 +138,35 @@ BEGIN
         IF @ReasonCode IS NULL
         BEGIN
             SET @ReasonCode = 30  -- Default to "Insured Request"
+        END
+        
+        -- Calculate refund based on cancellation type
+        IF @CancellationType = 'flat'
+        BEGIN
+            -- Flat cancellation = full refund
+            SET @CalculatedRefund = @OriginalPremium
+        END
+        ELSE
+        BEGIN
+            -- Pro-rata cancellation = calculate based on time elapsed
+            SET @DaysInPolicy = DATEDIFF(day, @PolicyEffectiveDate, @PolicyExpirationDate)
+            SET @DaysElapsed = DATEDIFF(day, @PolicyEffectiveDate, @CancellationDateTime)
+            
+            -- Calculate unearned premium (refund)
+            IF @DaysInPolicy > 0
+            BEGIN
+                SET @CalculatedRefund = @OriginalPremium * ((@DaysInPolicy - @DaysElapsed) * 1.0 / @DaysInPolicy)
+            END
+            ELSE
+            BEGIN
+                SET @CalculatedRefund = 0
+            END
+        END
+        
+        -- Override with provided refund amount if specified
+        IF @RefundAmount IS NOT NULL
+        BEGIN
+            SET @CalculatedRefund = @RefundAmount
         END
         
         -- Step 2: Use spCopyQuote to create the cancellation (like Ascot does)
@@ -156,8 +197,8 @@ BEGIN
         FROM tblQuoteOptions
         WHERE QuoteGUID = @CancellationQuoteGuid
         
-        -- Step 3: Handle refund amount for flat cancellations
-        IF @CancellationType = 'flat' AND @RefundAmount IS NOT NULL AND @NewQuoteOptionGuid IS NOT NULL
+        -- Step 3: Insert the refund amount as negative premium
+        IF @CalculatedRefund IS NOT NULL AND @CalculatedRefund > 0 AND @NewQuoteOptionGuid IS NOT NULL
         BEGIN
             -- Get the charge code for premium
             DECLARE @PremiumChargeCode INT
@@ -181,15 +222,21 @@ BEGIN
                     @NewQuoteOptionGuid,
                     @PremiumChargeCode,
                     1,  -- Default office ID
-                    -ABS(@RefundAmount),  -- Ensure negative for refund
-                    -ABS(@RefundAmount),  -- Annual = total for cancellation
+                    -ABS(@CalculatedRefund),  -- Ensure negative for refund
+                    -ABS(@CalculatedRefund),  -- Annual = total for cancellation
                     1,  -- Commissionable
                     GETDATE()
                 )
             END
         END
         
-        -- Step 4: Update tblTritonQuoteData for the cancellation
+        -- Step 4: Bind the cancellation to finalize it
+        UPDATE tblQuotes
+        SET DateBound = GETDATE(),
+            BoundByUserID = 1  -- System user
+        WHERE QuoteGUID = @CancellationQuoteGuid
+        
+        -- Step 5: Update tblTritonQuoteData for the cancellation
         IF @OpportunityID IS NOT NULL
         BEGIN
             INSERT INTO tblTritonQuoteData (
@@ -244,7 +291,7 @@ BEGIN
                 policy_number,
                 'cancellation',
                 CONVERT(VARCHAR(50), GETDATE(), 101),
-                CASE WHEN @RefundAmount IS NOT NULL THEN -ABS(@RefundAmount) ELSE 0 END,
+                CASE WHEN @CalculatedRefund IS NOT NULL THEN -ABS(@CalculatedRefund) ELSE 0 END,
                 'cancelled',
                 GETDATE(),
                 GETDATE(),
@@ -308,7 +355,7 @@ ReturnResult:
         @CancellationQuoteGuid AS CancellationQuoteGuid,
         @OriginalQuoteGuid AS OriginalQuoteGuid,
         @PolicyNumber AS PolicyNumber,
-        @RefundAmount AS RefundAmount,
+        @CalculatedRefund AS RefundAmount,
         @NewQuoteOptionGuid AS QuoteOptionGuid
 END
 GO
