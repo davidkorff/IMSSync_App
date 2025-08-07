@@ -53,12 +53,14 @@ BEGIN
         -- Step 1: Find the original quote
         IF @OpportunityID IS NOT NULL
         BEGIN
-            -- Find by opportunity_id
+            -- Find by opportunity_id - join with tblQuotes to ensure quote exists
             SELECT TOP 1 
                 @OriginalQuoteGuid = tq.QuoteGuid,
                 @PolicyNumber = tq.policy_number,
-                @QuoteOptionGuid = tq.QuoteOptionGuid
+                @QuoteOptionGuid = tq.QuoteOptionGuid,
+                @ControlNumber = q.ControlNo
             FROM tblTritonQuoteData tq
+            INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
             WHERE tq.opportunity_id = @OpportunityID
             AND tq.status = 'bound'  -- Only endorse bound policies
             ORDER BY tq.created_date DESC
@@ -92,6 +94,16 @@ BEGIN
             @PolicyNumber = PolicyNumber
         FROM tblQuotes
         WHERE QuoteGUID = @OriginalQuoteGuid
+        
+        -- Validate ControlNumber - if NULL, we need to handle it
+        IF @ControlNumber IS NULL
+        BEGIN
+            -- Try to get a control number from the control table or generate a new one
+            -- For now, we'll fail with a clear error message
+            SET @Result = 0
+            SET @Message = 'Original quote does not have a ControlNo - cannot create endorsement'
+            GOTO ReturnResult
+        END
         
         -- Get the next endorsement number
         SELECT @NextEndorsementNumber = ISNULL(MAX(EndorsementNum), 0) + 1
