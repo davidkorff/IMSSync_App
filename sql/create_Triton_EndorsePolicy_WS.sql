@@ -39,6 +39,7 @@ BEGIN
     DECLARE @TransEffDateTime DATETIME
     DECLARE @NextEndorsementNumber INT
     DECLARE @ControlNumber INT
+    DECLARE @ControlGuid UNIQUEIDENTIFIER
     DECLARE @QuoteOptionGuid UNIQUEIDENTIFIER
     DECLARE @NewQuoteOptionGuid UNIQUEIDENTIFIER
     DECLARE @LineGuid UNIQUEIDENTIFIER
@@ -58,7 +59,8 @@ BEGIN
                 @OriginalQuoteGuid = tq.QuoteGuid,
                 @PolicyNumber = tq.policy_number,
                 @QuoteOptionGuid = tq.QuoteOptionGuid,
-                @ControlNumber = q.ControlNo
+                @ControlNumber = q.ControlNo,
+                @ControlGuid = q.ControlGuid
             FROM tblTritonQuoteData tq
             INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
             WHERE tq.opportunity_id = @OpportunityID
@@ -71,7 +73,8 @@ BEGIN
             SELECT TOP 1 
                 @OriginalQuoteGuid = q.QuoteGUID,
                 @PolicyNumber = q.PolicyNumber,
-                @ControlNumber = q.ControlNo
+                @ControlNumber = q.ControlNo,
+                @ControlGuid = q.ControlGuid
             FROM tblQuotes q
             WHERE q.QuoteGUID = @QuoteGuid
             
@@ -91,6 +94,7 @@ BEGIN
         -- Get control number and other info from original quote
         SELECT 
             @ControlNumber = ControlNo,
+            @ControlGuid = ControlGuid,
             @PolicyNumber = PolicyNumber
         FROM tblQuotes
         WHERE QuoteGUID = @OriginalQuoteGuid
@@ -117,6 +121,7 @@ BEGIN
             QuoteGUID,
             OriginalQuoteGUID,
             ControlNo,
+            ControlGuid,
             EndorsementNum,
             EndorsementEffective,
             EndorsementComment,
@@ -149,6 +154,7 @@ BEGIN
             @EndorsementQuoteGuid,              -- New GUID
             @OriginalQuoteGuid,                 -- Link to original
             ControlNo,                           -- Same control number
+            ControlGuid,                         -- Same control GUID
             @NextEndorsementNumber,              -- New endorsement number
             @TransEffDateTime,                   -- Endorsement effective date
             @Comment,                            -- Endorsement comment
