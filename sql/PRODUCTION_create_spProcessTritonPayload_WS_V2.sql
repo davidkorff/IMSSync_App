@@ -324,11 +324,18 @@ BEGIN
         END
         
         -- 4. Update commission rates in tblQuoteDetails
+        -- Convert whole number percentages to decimals (20 -> 0.20) if needed
         IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
         BEGIN
             UPDATE tblQuoteDetails 
-            SET ProducerCommission = @commission_rate,
-                CompanyCommission = @commission_percent
+            SET ProducerCommission = CASE 
+                    WHEN @commission_rate > 1 THEN @commission_rate / 100.0
+                    ELSE @commission_rate
+                END,
+                CompanyCommission = CASE 
+                    WHEN @commission_percent > 1 THEN @commission_percent / 100.0
+                    ELSE @commission_percent
+                END
             WHERE QuoteGuid = @QuoteGuid;
             
             PRINT 'Updated commission rates in tblQuoteDetails';
@@ -344,9 +351,10 @@ BEGIN
                 @PremiumField           = 'gross_premium';
         END
         
-        -- 6. Auto apply fees ONLY if stamping_fee AND surplus_lines_tax are blank/null
-        -- This allows Triton to provide fees when they have them, otherwise IMS will calculate
-        IF (@stamping_fee IS NULL OR @stamping_fee = '') AND (@surplus_lines_tax IS NULL OR @surplus_lines_tax = '')
+        -- 6. Auto apply fees ONLY if stamping_fee OR surplus_lines_tax have values
+        -- If Triton provides ANY fee values, we use auto-apply to calculate the rest
+        -- If all fees are blank/null, skip auto-apply (Triton has no fees for this policy)
+        IF (@stamping_fee IS NOT NULL AND @stamping_fee != '') OR (@surplus_lines_tax IS NOT NULL AND @surplus_lines_tax != '')
         BEGIN
             -- Check if the stored procedure exists before calling
             IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
@@ -354,12 +362,12 @@ BEGIN
                 EXEC dbo.spAutoApplyFees
                     @quoteOptionGuid = @QuoteOptionGuid;
                     
-                PRINT 'Auto-applied fees because stamping_fee and surplus_lines_tax were blank';
+                PRINT 'Auto-applied fees because stamping_fee or surplus_lines_tax were provided';
             END
         END
         ELSE
         BEGIN
-            PRINT 'Skipped auto-apply fees because stamping_fee or surplus_lines_tax were provided';
+            PRINT 'Skipped auto-apply fees because stamping_fee and surplus_lines_tax were both blank/null';
         END
         
         -- 7. Apply Policy Fee from Triton if present
