@@ -56,21 +56,58 @@ BEGIN
                     AND ChargeCode = @Policy_FeeCode
                 )
                 BEGIN
-                    -- Apply the Policy Fee using SetManualFlatRateFee
-                    EXEC dbo.SetManualFlatRateFee 
-                        @quoteOptionGuid = @QuoteOptionGuid,
-                        @chargeCode = @Policy_FeeCode,
-                        @flatRate = @Policy_Fee,
-                        @forceUpdate = 1;  -- This will update the fee every time
+                    -- Update existing charge with the new fee value
+                    UPDATE tblQuoteOptionCharges
+                    SET FlatRate = @Policy_Fee,
+                        CompanyFeeID = 37277712,  -- Ensure correct CompanyFeeID
+                        Payable = 1,
+                        AutoApplied = 0
+                    WHERE QuoteOptionGUID = @QuoteOptionGuid 
+                    AND ChargeCode = @Policy_FeeCode;
                     
-                    PRINT 'Applied Policy Fee of $' + CAST(@Policy_Fee AS VARCHAR(20)) + 
-                          ' to QuoteOption ' + CAST(@QuoteOptionGuid AS VARCHAR(50));
+                    PRINT 'Updated Policy Fee to $' + CAST(@Policy_Fee AS VARCHAR(20)) + 
+                          ' for QuoteOption ' + CAST(@QuoteOptionGuid AS VARCHAR(50));
                 END
                 ELSE
                 BEGIN
-                    PRINT 'Warning: Charge code ' + CAST(@Policy_FeeCode AS VARCHAR(10)) + 
-                          ' not found for QuoteOption ' + CAST(@QuoteOptionGuid AS VARCHAR(50)) + 
-                          '. Fee not applied.';
+                    -- Get the OfficeID from the quote
+                    DECLARE @OfficeID INT, @CompanyFeeID INT;
+                    
+                    SELECT @OfficeID = o.OfficeID
+                    FROM tblQuotes q
+                    INNER JOIN tblQuoteOptions qo ON q.QuoteGuid = qo.QuoteGuid
+                    INNER JOIN tblOffices o ON q.QuotingLocationGuid = o.OfficeGuid
+                    WHERE qo.QuoteOptionGuid = @QuoteOptionGuid;
+                    
+                    -- Always use the specific CompanyFeeID for Triton Policy Fee
+                    SET @CompanyFeeID = 37277712;  -- Triton Policy Fee CompanyFeeID
+                    
+                    -- Insert new charge record for the policy fee
+                    INSERT INTO tblQuoteOptionCharges (
+                        QuoteOptionGuid,
+                        CompanyFeeID,
+                        ChargeCode,
+                        OfficeID,
+                        FeeTypeID,
+                        Payable,
+                        FlatRate,
+                        Splittable,
+                        AutoApplied
+                    )
+                    VALUES (
+                        @QuoteOptionGuid,
+                        @CompanyFeeID,
+                        @Policy_FeeCode,
+                        ISNULL(@OfficeID, 1),  -- Default to 1 if not found
+                        2,  -- Flat fee type
+                        1,  -- Payable
+                        @Policy_Fee,
+                        0,  -- Not splittable
+                        0   -- Not auto-applied (manual)
+                    );
+                    
+                    PRINT 'Inserted Policy Fee of $' + CAST(@Policy_Fee AS VARCHAR(20)) + 
+                          ' for QuoteOption ' + CAST(@QuoteOptionGuid AS VARCHAR(50));
                 END
                 
                 FETCH NEXT FROM option_cursor INTO @QuoteOptionGuid;
