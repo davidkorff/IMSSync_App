@@ -32,7 +32,9 @@ class IMSEndorsementService(BaseIMSService):
         endorsement_premium: float,
         effective_date: str,
         comment: str = "Midterm Endorsement",
-        bind_endorsement: bool = True
+        bind_endorsement: bool = True,
+        terrorism_premium: float = 0,
+        endorsement_calc_type: str = "F"
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Create a policy endorsement using opportunity ID via stored procedure.
@@ -63,7 +65,9 @@ class IMSEndorsementService(BaseIMSService):
                 "UserGuid", str(user_guid),
                 "TransEffDate", effective_date,
                 "EndorsementPremium", str(endorsement_premium),
+                "TerrorismPremium", str(terrorism_premium),
                 "Comment", comment,
+                "EndorsementCalcType", endorsement_calc_type,
                 "BindEndorsement", "1" if bind_endorsement else "0"
             ]
             

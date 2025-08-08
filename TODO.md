@@ -13,3 +13,6 @@
 ## Endorsement Improvements (from before)
 - [ ] Add endorsement_premium and endorsement_effective_date fields to payload/database
 - [ ] Use dedicated fields instead of overloading gross_premium and transaction_date
+
+## Invoice Get Request
+- [ ] allow for transactionID to be passed and retreive an invoice

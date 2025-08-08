@@ -2,8 +2,8 @@
 -- Author:      RSG Integration
 -- Create date: 2025-08-07
 -- Description: Creates a midterm endorsement for Triton policies
---              V5: Use Ascot's approach - direct INSERT into tblQuoteOptionPremiums
---                  This bypasses the CantModifyPremiumOnBoundPolicy trigger
+--              V6: Full Ascot approach - iterate through ALL premium records
+--                  Handles multiple charge types (PREM, TERR, fees, etc.)
 -- =============================================
 
 USE [IMS_DEV]
@@ -50,9 +50,6 @@ BEGIN
     DECLARE @DateBound DATETIME = NULL
     DECLARE @PolicyEffectiveDate DATETIME
     DECLARE @PolicyExpirationDate DATETIME
-    DECLARE @ChargeCode INT
-    DECLARE @OfficeID INT
-    DECLARE @Commissionable BIT = 1
     
     BEGIN TRY
         BEGIN TRANSACTION
@@ -60,7 +57,7 @@ BEGIN
         -- Convert date string to datetime
         SET @TransEffDateTime = CONVERT(DATETIME, @TransEffDate, 101)
         
-        -- V5: We'll create as BOUND but handle premium differently
+        -- Set quote status based on bind flag
         SET @QuoteStatusID = 3  -- Bound
         IF @BindEndorsement = 1
         BEGIN
@@ -70,7 +67,7 @@ BEGIN
         -- Step 1: Find the original quote
         IF @OpportunityID IS NOT NULL
         BEGIN
-            -- Find by opportunity_id - join with tblQuotes to ensure quote exists
+            -- Find by opportunity_id
             SELECT TOP 1 
                 @OriginalQuoteGuid = tq.QuoteGuid,
                 @PolicyNumber = tq.policy_number,
@@ -81,7 +78,7 @@ BEGIN
             FROM tblTritonQuoteData tq
             INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
             WHERE tq.opportunity_id = @OpportunityID
-            AND tq.status = 'bound'  -- Only endorse bound policies
+            AND tq.status = 'bound'
             ORDER BY tq.created_date DESC
         END
         ELSE IF @QuoteGuid IS NOT NULL
@@ -102,51 +99,68 @@ BEGIN
             FROM tblQuoteOptions
             WHERE QuoteGUID = @QuoteGuid
         END
+        ELSE
+        BEGIN
+            SET @Result = 0
+            SET @Message = 'Either OpportunityID or QuoteGuid must be provided'
+            GOTO ReturnResult
+        END
         
+        -- Validate we found the quote
         IF @OriginalQuoteGuid IS NULL
         BEGIN
             SET @Result = 0
-            SET @Message = 'No bound policy found for endorsement'
+            SET @Message = 'Original quote not found'
             GOTO ReturnResult
         END
         
-        -- Validate endorsement effective date is within policy period
-        IF @PolicyEffectiveDate IS NOT NULL AND @TransEffDateTime < @PolicyEffectiveDate
-        BEGIN
-            SET @TransEffDateTime = @PolicyEffectiveDate
-        END
+        -- Get next endorsement number
+        SELECT @NextEndorsementNumber = ISNULL(MAX(CAST(
+            CASE 
+                WHEN ISNUMERIC(EndorsementNumber) = 1 THEN EndorsementNumber 
+                ELSE '0' 
+            END AS INT)), 0) + 1
+        FROM tblQuotes
+        WHERE ControlNo = @ControlNumber
+        AND TransactionTypeID = 'E'
         
-        IF @PolicyExpirationDate IS NOT NULL AND @TransEffDateTime > @PolicyExpirationDate
-        BEGIN
-            SET @Result = 0
-            SET @Message = 'Endorsement effective date cannot be after policy expiration date'
-            GOTO ReturnResult
-        END
+        -- Step 2: Create the endorsement quote using spCopyQuote
+        DECLARE @NewQuoteTable TABLE (NewQuoteGuid UNIQUEIDENTIFIER)
         
-        -- Step 2: Use spCopyQuote to create the endorsement
-        EXEC spCopyQuote
+        INSERT INTO @NewQuoteTable
+        EXEC dbo.spCopyQuote
             @QuoteGuid = @OriginalQuoteGuid,
-            @TransactionTypeID = 'E',  -- Endorsement
-            @QuoteStatusID = @QuoteStatusID,  -- 3 = Bound
+            @TransactionTypeID = 'E',
+            @QuoteStatusID = @QuoteStatusID,
             @QuoteStatusReasonID = @QuoteStatusReasonID,
             @EndorsementEffective = @TransEffDateTime,
             @EndtRequestDate = @DateBound,
             @EndorsementComment = @Comment,
-            @EndorsementCalculationType = 'F',  -- Fixed
+            @EndorsementCalculationType = 'F',  -- Flat endorsement
             @copyOptions = 0
         
-        -- Get the newly created endorsement quote
-        SELECT TOP 1 
-            @EndorsementQuoteGuid = QuoteGUID,
-            @EndorsementQuoteID = QuoteID,
-            @NextEndorsementNumber = EndorsementNum
-        FROM tblQuotes
-        WHERE ControlNo = @ControlNumber
-        AND TransactionTypeID = 'E'
-        ORDER BY QuoteID DESC
+        SELECT TOP 1 @EndorsementQuoteGuid = NewQuoteGuid FROM @NewQuoteTable
         
-        -- Step 3: Create quote option (following Ascot's approach)
-        -- Get the quote option that was created by spCopyQuote
+        IF @EndorsementQuoteGuid IS NULL
+        BEGIN
+            SET @Result = 0
+            SET @Message = 'Failed to create endorsement quote'
+            GOTO ReturnResult
+        END
+        
+        -- Update endorsement details
+        UPDATE tblQuotes
+        SET EndorsementNumber = @NextEndorsementNumber,
+            UserGuid = @UserGuid,
+            DateBound = @DateBound
+        WHERE QuoteGUID = @EndorsementQuoteGuid
+        
+        -- Get the endorsement quote ID
+        SELECT @EndorsementQuoteID = QuoteID
+        FROM tblQuotes
+        WHERE QuoteGUID = @EndorsementQuoteGuid
+        
+        -- Step 3: Create or get quote option for the endorsement
         SELECT TOP 1 
             @NewQuoteOptionGuid = QuoteOptionGUID,
             @LineGuid = LineGUID,
@@ -165,8 +179,8 @@ BEGIN
                 QuoteGUID,
                 LineGUID,
                 CompanyLocationID,
-                DateCreated,  -- Changed from 'Added' to 'DateCreated'
-                Bound,  -- Set to 1 following Ascot's approach
+                DateCreated,
+                Bound,
                 Quote
             )
             SELECT 
@@ -176,101 +190,127 @@ BEGIN
                 LineGUID,
                 CompanyLocationID,
                 GETDATE(),
-                1,  -- Bound = 1 (Ascot's approach)
+                1,  -- Bound
                 0
             FROM tblQuoteOptions
             WHERE QuoteGUID = @OriginalQuoteGuid
         END
         ELSE
         BEGIN
-            -- Update existing quote option to be bound (Ascot's approach)
+            -- Update existing quote option to be bound
             UPDATE tblQuoteOptions
             SET Bound = 1
             WHERE QuoteGUID = @EndorsementQuoteGuid
         END
         
-        -- Step 4: Insert premium directly (bypassing the trigger like Ascot does)
-        -- First, look up the proper ChargeCode for base premium from tblFin_PolicyCharges
-        SELECT TOP 1 @ChargeCode = ChargeCode
-        FROM tblFin_PolicyCharges
-        WHERE ChargeID = 'PREM'  -- Base premium charge ID
-        ORDER BY ChargeCode  -- Get the first one if multiple exist
+        -- Step 4: Apply premiums using Ascot's approach - iterate through ALL premium records
+        -- This handles multiple charge types (PREM, TERR, fees, etc.)
         
-        -- If PREM charge code not found, try to get from original quote
-        IF @ChargeCode IS NULL
+        PRINT 'Processing endorsement premiums using full Ascot approach'
+        
+        -- Variables for cursor
+        DECLARE @CursorQuoteOptionGuid UNIQUEIDENTIFIER
+        DECLARE @CursorChargeCode INT
+        DECLARE @CursorOfficeID INT
+        DECLARE @CursorPremium MONEY
+        DECLARE @CursorCommissionable BIT
+        DECLARE @ChargeID VARCHAR(10)
+        DECLARE @OriginalPremium MONEY
+        DECLARE @PremiumToInsert MONEY
+        
+        -- Create cursor to iterate through ALL premium records from original quote
+        DECLARE EndorsePremiumCursor CURSOR FAST_FORWARD FOR
+        SELECT 
+            @NewQuoteOptionGuid AS NewQuoteOptionGuid,
+            qop.ChargeCode,
+            qop.OfficeID,
+            qop.Premium AS OriginalPremium,
+            qop.Commissionable,
+            pc.ChargeID
+        FROM tblQuoteOptions qo
+        INNER JOIN tblQuoteOptionPremiums qop ON qo.QuoteOptionGUID = qop.QuoteOptionGuid
+        LEFT JOIN tblFin_PolicyCharges pc ON pc.ChargeCode = qop.ChargeCode
+        WHERE qo.QuoteGUID = @OriginalQuoteGuid
+        ORDER BY pc.ChargeID, qop.ChargeCode
+        
+        OPEN EndorsePremiumCursor
+        FETCH NEXT FROM EndorsePremiumCursor INTO 
+            @CursorQuoteOptionGuid, @CursorChargeCode, @CursorOfficeID, 
+            @OriginalPremium, @CursorCommissionable, @ChargeID
+        
+        WHILE @@FETCH_STATUS = 0
         BEGIN
-            SELECT TOP 1 
-                @ChargeCode = qop.ChargeCode
-            FROM tblQuoteOptionPremiums qop
-            INNER JOIN tblFin_PolicyCharges pc ON pc.ChargeCode = qop.ChargeCode
-            WHERE qop.QuoteOptionGUID = @QuoteOptionGuid
-            AND pc.ChargeID = 'PREM'  -- Only get base premium charge
-        END
-        
-        -- Get office ID from the original quote
-        SELECT TOP 1 
-            @OfficeID = ISNULL(qop.OfficeID, 1)
-        FROM tblQuoteOptionPremiums qop
-        WHERE qop.QuoteOptionGUID = @QuoteOptionGuid
-        
-        -- If no premium records found, use defaults
-        IF @ChargeCode IS NULL
-            SET @ChargeCode = 1
-        IF @OfficeID IS NULL
-            SET @OfficeID = 1
-        
-        -- Log the premium insertion for debugging
-        PRINT 'Inserting endorsement premium:'
-        PRINT '  QuoteOptionGuid: ' + CAST(@NewQuoteOptionGuid AS VARCHAR(50))
-        PRINT '  ChargeCode: ' + CAST(@ChargeCode AS VARCHAR(10))
-        PRINT '  OfficeID: ' + CAST(@OfficeID AS VARCHAR(10))
-        PRINT '  Premium: ' + CAST(@EndorsementPremium AS VARCHAR(20))
-        
-        -- Only insert premium if it's not zero
-        IF @EndorsementPremium <> 0
-        BEGIN
-            -- Delete any existing premium record for this quote option (in case of retry)
-            DELETE FROM tblQuoteOptionPremiums
-            WHERE QuoteOptionGuid = @NewQuoteOptionGuid
-            AND ChargeCode = @ChargeCode
-            
-            -- Insert the endorsement premium directly into tblQuoteOptionPremiums
-            -- This bypasses the CantModifyPremiumOnBoundPolicy trigger
-            INSERT INTO tblQuoteOptionPremiums (
-                QuoteOptionGuid,
-                ChargeCode,
-                OfficeID,
-                Premium,
-                AnnualPremium,
-                Commissionable
-                -- Added has a default of GETDATE() so we don't need to include it
-            )
-            VALUES (
-                @NewQuoteOptionGuid,
-                @ChargeCode,
-                @OfficeID,
-                @EndorsementPremium,
-                @EndorsementPremium,
-                @Commissionable
-            )
-            
-            -- Verify the insert succeeded
-            IF @@ROWCOUNT = 0
+            -- Determine the premium amount based on charge type
+            IF @ChargeID = 'PREM'  -- Base premium
             BEGIN
-                SET @Message = 'Failed to insert endorsement premium into tblQuoteOptionPremiums'
-                RAISERROR(@Message, 16, 1)
+                SET @PremiumToInsert = @EndorsementPremium
+                PRINT 'Inserting base premium (PREM): ' + CAST(@PremiumToInsert AS VARCHAR(20))
+            END
+            ELSE IF @ChargeID = 'TERR'  -- Terrorism premium
+            BEGIN
+                -- For terrorism, you might want to calculate as a percentage of base premium
+                -- For now, we'll skip it unless you have specific terrorism premium
+                SET @PremiumToInsert = 0
+                PRINT 'Skipping terrorism premium (TERR) - no value provided'
+            END
+            ELSE IF @ChargeID IS NOT NULL
+            BEGIN
+                -- For other charges (fees, taxes), copy the original amount
+                -- You could also prorate these based on the endorsement
+                SET @PremiumToInsert = @OriginalPremium
+                PRINT 'Copying original amount for ' + @ChargeID + ': ' + CAST(@PremiumToInsert AS VARCHAR(20))
             END
             ELSE
             BEGIN
-                PRINT 'Successfully inserted endorsement premium'
+                -- Unknown charge type, copy original
+                SET @PremiumToInsert = @OriginalPremium
+                PRINT 'Unknown charge type, copying original: ' + CAST(@PremiumToInsert AS VARCHAR(20))
             END
-        END
-        ELSE
-        BEGIN
-            PRINT 'Warning: Endorsement premium is 0, skipping premium insertion'
+            
+            -- Only insert if premium is not zero (or if it's a credit)
+            IF @PremiumToInsert <> 0 OR @OriginalPremium <> 0
+            BEGIN
+                -- Delete any existing record first (in case of retry)
+                DELETE FROM tblQuoteOptionPremiums
+                WHERE QuoteOptionGuid = @CursorQuoteOptionGuid
+                AND ChargeCode = @CursorChargeCode
+                
+                -- Insert the premium record
+                INSERT INTO tblQuoteOptionPremiums (
+                    QuoteOptionGuid,
+                    ChargeCode,
+                    OfficeID,
+                    Premium,
+                    AnnualPremium,
+                    Commissionable
+                )
+                VALUES (
+                    @CursorQuoteOptionGuid,
+                    @CursorChargeCode,
+                    @CursorOfficeID,
+                    @PremiumToInsert,
+                    @PremiumToInsert,
+                    @CursorCommissionable
+                )
+                
+                IF @@ROWCOUNT > 0
+                BEGIN
+                    PRINT '  Successfully inserted premium for ChargeCode ' + CAST(@CursorChargeCode AS VARCHAR(10))
+                END
+            END
+            
+            FETCH NEXT FROM EndorsePremiumCursor INTO 
+                @CursorQuoteOptionGuid, @CursorChargeCode, @CursorOfficeID, 
+                @OriginalPremium, @CursorCommissionable, @ChargeID
         END
         
-        -- Step 5: Update tblTritonQuoteData for the endorsement
+        CLOSE EndorsePremiumCursor
+        DEALLOCATE EndorsePremiumCursor
+        
+        -- Step 5: Handle additional premium types if needed
+        -- If you have specific terrorism premium or other charges, handle them here
+        
+        -- Step 6: Update tblTritonQuoteData for the endorsement
         IF @OpportunityID IS NOT NULL
         BEGIN
             INSERT INTO tblTritonQuoteData (
@@ -328,7 +368,7 @@ BEGIN
             WHERE QuoteGuid = @OriginalQuoteGuid
         END
         
-        -- Step 6: Auto apply fees if applicable
+        -- Step 7: Auto apply fees if applicable
         IF @NewQuoteOptionGuid IS NOT NULL AND EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
         BEGIN
             EXEC dbo.spAutoApplyFees
@@ -339,7 +379,7 @@ BEGIN
         
         -- Return success result
         SET @Result = 1
-        SET @Message = 'Endorsement created successfully with premium applied'
+        SET @Message = 'Endorsement created successfully with all premiums applied'
         
         ReturnResult:
         
@@ -358,7 +398,7 @@ BEGIN
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION
-            
+        
         SET @Result = 0
         SET @Message = ERROR_MESSAGE()
         
