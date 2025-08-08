@@ -70,14 +70,20 @@ BEGIN
                 END
                 ELSE
                 BEGIN
-                    -- Get the OfficeID from the quote
-                    DECLARE @OfficeID INT, @CompanyFeeID INT;
+                    -- Get the OfficeID and CompanyLineGuid from the quote
+                    DECLARE @OfficeID INT, @CompanyFeeID INT, @CompanyLineGuid UNIQUEIDENTIFIER;
                     
-                    SELECT @OfficeID = o.OfficeID
+                    -- Get OfficeID from the quote
+                    SELECT @OfficeID = tblClientOffices.OfficeID
                     FROM tblQuotes q
                     INNER JOIN tblQuoteOptions qo ON q.QuoteGuid = qo.QuoteGuid
-                    INNER JOIN tblOffices o ON q.QuotingLocationGuid = o.OfficeGuid
+                    INNER JOIN tblClientOffices ON q.QuotingLocationGuid = tblClientOffices.OfficeGuid
                     WHERE qo.QuoteOptionGuid = @QuoteOptionGuid;
+                    
+                    -- Get CompanyLineGuid from the quote
+                    SELECT @CompanyLineGuid = CompanyLineGuid
+                    FROM tblQuotes
+                    WHERE QuoteGuid = @QuoteGuid;
                     
                     -- Always use the specific CompanyFeeID for Triton Policy Fee
                     SET @CompanyFeeID = 37277712;  -- Triton Policy Fee CompanyFeeID
@@ -88,6 +94,7 @@ BEGIN
                         CompanyFeeID,
                         ChargeCode,
                         OfficeID,
+                        CompanyLineGuid,
                         FeeTypeID,
                         Payable,
                         FlatRate,
@@ -99,6 +106,7 @@ BEGIN
                         @CompanyFeeID,
                         @Policy_FeeCode,
                         ISNULL(@OfficeID, 1),  -- Default to 1 if not found
+                        @CompanyLineGuid,
                         2,  -- Flat fee type
                         1,  -- Payable
                         @Policy_Fee,
