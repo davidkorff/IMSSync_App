@@ -63,14 +63,14 @@ def test_producer_lookup_with_payload():
     data_service = get_data_access_service()
     
     # Capture request data
-    producer_name = payload.get('producer_name', 'N/A')
+    producer_email = payload.get('producer_email', 'N/A')
     
     success, producer_info, message = data_service.process_producer_from_payload(payload)
     
     if success and producer_info:
         # Success - show only extracted values
         print(f"\nAuthentication Token: {auth_service.token[:20]}...")
-        print(f"Producer Name: {producer_name}")
+        print(f"Producer Email: {producer_email}")
         print(f"ProducerContactGUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
         print(f"ProducerLocationGUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
         print(f"Status: FOUND")
@@ -82,8 +82,8 @@ def test_producer_lookup_with_payload():
         # Failure - show full request and response
         print(f"\n✗ Producer not found")
         print(f"\nFunction: ExecuteDataSet")
-        print(f"Stored Procedure: getProducerbyName")
-        print(f"Parameters: fullname = '{producer_name}'")
+        print(f"Stored Procedure: getProducerGuid")
+        print(f"Parameters: producer_email = '{producer_email}'")
         print(f"\nError Message:")
         print(f"{message}")
     
@@ -104,8 +104,8 @@ def test_specific_producers():
         print(f"\n✗ Failed to load payload: {e}")
         return False
     
-    # Use producer from TEST.json
-    test_producers = [payload.get('producer_name', 'N/A')]
+    # Use producer email from TEST.json
+    test_producers = [payload.get('producer_email', 'N/A')]
     
     # Authenticate once
     auth_service = get_auth_service()
@@ -121,17 +121,17 @@ def test_specific_producers():
     results = []
     successful_results = []
     
-    for producer_name in test_producers:
+    for producer_email in test_producers:
         request_data = {
-            "producer_name": producer_name,
-            "stored_procedure": "getProducerbyName"
+            "producer_email": producer_email,
+            "stored_procedure": "getProducerGuid"
         }
         
-        success, producer_info, message = data_service.get_producer_by_name(producer_name)
+        success, producer_info, message = data_service.get_producer_by_email(producer_email)
         
         if success and producer_info:
             successful_results.append({
-                "name": producer_name,
+                "email": producer_email,
                 "contact_guid": producer_info.get('ProducerContactGUID', 'N/A'),
                 "location_guid": producer_info.get('ProducerLocationGUID', 'N/A')
             })
@@ -143,13 +143,13 @@ def test_specific_producers():
             print(f"\nFull Response:")
             print(f"{message}")
         
-        results.append((producer_name, success))
+        results.append((producer_email, success))
     
     # Show successful results
     if successful_results:
         print("\nSuccessful Results:")
         for result in successful_results:
-            print(f"\nProducer Name: {result['name']}")
+            print(f"\nProducer Email: {result['email']}")
             print(f"Contact GUID: {result['contact_guid']}")
             print(f"Location GUID: {result['location_guid']}")
             print(f"Status: FOUND")
@@ -182,23 +182,23 @@ def test_execute_dataset_direct():
     
     # Execute stored procedure
     data_service = get_data_access_service()
-    producer_name = payload.get('producer_name', 'N/A')
+    producer_email = payload.get('producer_email', 'N/A')
     
     request_data = {
-        "stored_procedure": "getProducerbyName",
-        "parameters": ["fullname", producer_name]
+        "stored_procedure": "getProducerGuid",
+        "parameters": ["producer_email", producer_email]
     }
     
     success, result_xml, message = data_service.execute_dataset(
-        "getProducerbyName",
-        ["fullname", producer_name]
+        "getProducerGuid",
+        ["producer_email", producer_email]
     )
     
     if success and result_xml:
         # Success - show only key info
         print(f"\nAuthentication Token: {auth_service.token[:20]}...")
-        print(f"Stored Procedure: getProducerbyName")
-        print(f"Producer Name: {producer_name}")
+        print(f"Stored Procedure: getProducerGuid")
+        print(f"Producer Email: {producer_email}")
         print(f"Status: SUCCESS")
         print(f"Result Length: {len(result_xml)} characters")
     else:

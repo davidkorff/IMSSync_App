@@ -16,6 +16,7 @@ class TritonPayload(BaseModel):
     policy_number: str
     underwriter_name: str
     producer_name: str
+    producer_email: Optional[str] = None
     invoice_date: str
     policy_fee: float
     surplus_lines_tax: Optional[str] = ""

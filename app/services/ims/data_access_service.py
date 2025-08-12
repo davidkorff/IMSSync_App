@@ -168,12 +168,12 @@ class IMSDataAccessService:
             logger.error(error_msg)
             return False, None, error_msg
     
-    def get_producer_by_name(self, producer_name: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
+    def get_producer_by_email(self, producer_email: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """
-        Get producer information by name.
+        Get producer information by email.
         
         Args:
-            producer_name: Full name of the producer (e.g., "Mike Woodworth")
+            producer_email: Email address of the producer
             
         Returns:
             Tuple[bool, Optional[Dict], str]: (success, producer_info, message)
@@ -182,8 +182,8 @@ class IMSDataAccessService:
         try:
             # Execute the stored procedure
             success, result_xml, message = self.execute_dataset(
-                "getProducerbyName",
-                ["fullname", producer_name]
+                "getProducerGuid",
+                ["producer_email", producer_email]
             )
             
             if not success:
@@ -209,12 +209,12 @@ class IMSDataAccessService:
                         producer_info['ProducerLocationGUID'] = location_guid.text
                     
                     if producer_info:
-                        logger.info(f"Found producer '{producer_name}': {producer_info}")
-                        return True, producer_info, f"Found producer: {producer_name}"
+                        logger.info(f"Found producer with email '{producer_email}': {producer_info}")
+                        return True, producer_info, f"Found producer: {producer_email}"
                     else:
-                        return False, None, f"Producer '{producer_name}' not found"
+                        return False, None, f"Producer with email '{producer_email}' not found"
                 else:
-                    return False, None, f"No producer found with name: {producer_name}"
+                    return False, None, f"No producer found with email: {producer_email}"
             else:
                 return False, None, "No results returned"
                 
@@ -229,7 +229,7 @@ class IMSDataAccessService:
     
     def process_producer_from_payload(self, payload: Dict) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """
-        Extract producer name from payload and get producer information.
+        Extract producer email from payload and get producer information.
         
         Args:
             payload: The Triton transaction payload
@@ -237,12 +237,12 @@ class IMSDataAccessService:
         Returns:
             Tuple[bool, Optional[Dict], str]: (success, producer_info, message)
         """
-        producer_name = payload.get("producer_name", "")
+        producer_email = payload.get("producer_email", "")
         
-        if not producer_name:
-            return False, None, "No producer name found in payload"
+        if not producer_email:
+            return False, None, "No producer email found in payload"
         
-        success, info, message = self.get_producer_by_name(producer_name)
+        success, info, message = self.get_producer_by_email(producer_email)
         
         # If failed and we have debugging info, create detailed error message
         if not success:

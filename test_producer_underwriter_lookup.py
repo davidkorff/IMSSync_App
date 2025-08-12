@@ -144,15 +144,9 @@ def test_specific_lookups():
     # Test producers
     print("\nProducer Lookups:")
     print("-" * 40)
-    for name in test_cases[0]["names"]:
-        success, producer_info, message = data_service.get_producer_by_name(name)
-        
-        if success and producer_info:
-            print(f"{name}:")
-            print(f"  ✓ Contact GUID: {producer_info.get('ProducerContactGUID', 'N/A')}")
-            print(f"  ✓ Location GUID: {producer_info.get('ProducerLocationGUID', 'N/A')}")
-        else:
-            print(f"{name}: ✗ Not found")
+    # Note: Producer lookup now uses email addresses instead of names
+    print("Note: Producer lookup now uses email addresses instead of names")
+    print("Update test_cases to include email addresses to test this functionality")
     
     # Test underwriters
     print("\n\nUnderwriter Lookups:")
@@ -188,11 +182,12 @@ def test_stored_procedures():
     
     data_service = get_data_access_service()
     
-    # Test getProducerbyName_WS
-    print("1. Testing getProducerbyName stored procedure...")
+    # Test getProducerGuid_WS
+    print("1. Testing getProducerGuid stored procedure...")
+    # Note: Need an actual email address to test with
     success, result_xml, message = data_service.execute_dataset(
-        "getProducerbyName",
-        ["fullname", "Mike Woodworth"]
+        "getProducerGuid",
+        ["producer_email", "producer@example.com"]
     )
     
     if success and result_xml:

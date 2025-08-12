@@ -99,6 +99,7 @@ class TritonProcessor:
                 "program_name": payload.program_name,
                 "class_of_business": payload.class_of_business,
                 "producer_name": payload.producer_name,
+                "producer_email": payload.producer_email,
                 "underwriter_name": payload.underwriter_name,
                 # Quote data
                 "state": payload.state,

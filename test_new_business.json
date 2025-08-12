@@ -8,6 +8,7 @@
   "expiring_policy_number": null,
   "underwriter_name": "Shavonda Ellis",
   "producer_name": "Mike Woodworth",
+  "producer_email": "mike.woodworth@example.com",
   "invoice_date": "07/29/2025",
   "policy_fee": 250,
   "surplus_lines_tax": "",
