@@ -39,7 +39,8 @@
       "Bash(./run_test.sh:*)",
       "Bash(bash:*)",
       "Bash(cp:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

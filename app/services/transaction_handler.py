@@ -194,21 +194,55 @@ class TransactionHandler:
                     logger.info(f"Successfully unbound policy {results.get('policy_number', policy_number)}")
                 
                 elif transaction_type == "midterm_endorsement":
-                    # Process the endorsement
-                    logger.info(f"Processing midterm endorsement for quote {quote_guid}")
+                    # NEW FLOW: Use ProcessFlatEndorsement with proper quote chain handling
+                    logger.info(f"Processing midterm endorsement using new flow")
                     
-                    # Get endorsement details from payload
-                    endorsement_premium = payload.get("gross_premium", 0)
+                    # Step 1: Find the latest quote in the chain using opportunity_id
+                    if not option_id:
+                        return False, results, "Midterm endorsement requires opportunity_id"
                     
-                    # Use transaction_date as the endorsement effective date
-                    # Convert from ISO format to MM/DD/YYYY
-                    transaction_date_str = payload.get("transaction_date")
-                    if transaction_date_str:
+                    logger.info(f"Finding latest quote in chain for opportunity_id: {option_id}")
+                    success, latest_quote_info, message = self.data_service.get_latest_quote_by_opportunity_id(int(option_id))
+                    
+                    if not success or not latest_quote_info:
+                        return False, results, f"Failed to find latest quote: {message}"
+                    
+                    latest_quote_guid = latest_quote_info.get("QuoteGuid")
+                    control_no = latest_quote_info.get("ControlNo")
+                    chain_level = latest_quote_info.get("ChainLevel", 0)
+                    
+                    logger.info(f"Found latest quote {latest_quote_guid} at chain level {chain_level}")
+                    results["original_quote_guid"] = latest_quote_guid
+                    results["control_no"] = control_no
+                    
+                    # Step 2: Get total existing premium from all invoices
+                    logger.info(f"Calculating total existing premium for control_no: {control_no}")
+                    success, existing_premium, message = self.data_service.get_policy_premium_total(control_no)
+                    
+                    if not success:
+                        logger.warning(f"Failed to get existing premium, using 0: {message}")
+                        existing_premium = 0.0
+                    
+                    # Step 3: Calculate new total premium
+                    new_endorsement_premium = payload.get("midterm_endt_premium", payload.get("gross_premium", 0))
+                    total_premium = existing_premium + new_endorsement_premium
+                    
+                    logger.info(f"Premium calculation - Existing: ${existing_premium:,.2f}, "
+                              f"New endorsement: ${new_endorsement_premium:,.2f}, "
+                              f"Total: ${total_premium:,.2f}")
+                    
+                    # Step 4: Get endorsement effective date
+                    # First try midterm_endt_effective_from, then transaction_date
+                    effective_date_str = payload.get("midterm_endt_effective_from")
+                    if not effective_date_str:
+                        effective_date_str = payload.get("transaction_date")
+                    
+                    if effective_date_str:
                         try:
-                            # Parse ISO format date (e.g., "2025-08-06T19:24:24+00:00")
+                            # Parse ISO format date
                             from dateutil import parser
-                            transaction_dt = parser.parse(transaction_date_str)
-                            effective_date = transaction_dt.strftime("%m/%d/%Y")
+                            effective_dt = parser.parse(effective_date_str)
+                            effective_date = effective_dt.strftime("%m/%d/%Y")
                         except:
                             # Fallback to current date if parsing fails
                             effective_date = datetime.now().strftime("%m/%d/%Y")
@@ -217,56 +251,68 @@ class TransactionHandler:
                     
                     endorsement_comment = payload.get("midterm_endt_description", "Midterm Endorsement")
                     
-                    logger.info(f"Using endorsement effective date: {effective_date} (from transaction_date: {transaction_date_str})")
+                    logger.info(f"Using endorsement effective date: {effective_date}")
                     
-                    # Create the endorsement
-                    if option_id:
-                        # Use opportunity_id if available
-                        success, endorsement_result, message = self.endorsement_service.endorse_policy_by_opportunity_id(
-                            opportunity_id=int(option_id),
-                            endorsement_premium=endorsement_premium,
-                            effective_date=effective_date,
-                            comment=endorsement_comment,
-                            bind_endorsement=False  # Don't auto-bind - we'll bind after processing payload
-                        )
-                    else:
-                        # Fall back to using quote_guid
-                        success, endorsement_result, message = self.endorsement_service.endorse_policy_by_quote_guid(
-                            quote_guid=quote_guid,
-                            endorsement_premium=endorsement_premium,
-                            effective_date=effective_date,
-                            comment=endorsement_comment,
-                            bind_endorsement=False  # Don't auto-bind - we'll bind after processing payload
-                        )
+                    # Step 5: Create flat endorsement using ProcessFlatEndorsement
+                    logger.info("Creating flat endorsement using ProcessFlatEndorsement")
+                    success, endorsement_result, message = self.endorsement_service.create_flat_endorsement(
+                        original_quote_guid=latest_quote_guid,
+                        total_premium=total_premium,
+                        effective_date=effective_date,
+                        comment=endorsement_comment
+                    )
                     
                     if not success:
-                        return False, results, f"Endorsement failed: {message}"
+                        return False, results, f"Failed to create flat endorsement: {message}"
+                    
+                    # Extract the new endorsement quote guid
+                    endorsement_quote_guid = endorsement_result.get("NewQuoteGuid")
+                    if not endorsement_quote_guid:
+                        return False, results, "ProcessFlatEndorsement did not return NewQuoteGuid"
+                    
+                    logger.info(f"Created endorsement quote: {endorsement_quote_guid}")
                     
                     # Update results with endorsement information
-                    endorsement_quote_guid = endorsement_result.get("EndorsementQuoteGuid")
-                    endorsement_quote_option_guid = endorsement_result.get("QuoteOptionGuid")
-                    
-                    # If quote option wasn't created by stored procedure, create it now
-                    if endorsement_quote_guid and not endorsement_quote_option_guid:
-                        logger.info(f"Quote option not returned from stored procedure, creating for endorsement quote {endorsement_quote_guid}")
-                        success, option_info, message = self.quote_options_service.auto_add_quote_options(endorsement_quote_guid)
-                        if success:
-                            endorsement_quote_option_guid = option_info.get("QuoteOptionGuid")
-                            logger.info(f"Successfully created quote option: {endorsement_quote_option_guid}")
-                        else:
-                            logger.warning(f"Failed to create quote option for endorsement: {message}")
-                    
                     results["endorsement_quote_guid"] = endorsement_quote_guid
-                    results["endorsement_quote_option_guid"] = endorsement_quote_option_guid
                     results["endorsement_number"] = endorsement_result.get("EndorsementNumber")
-                    results["endorsement_status"] = "processing"
-                    results["endorsement_premium"] = endorsement_premium
+                    results["original_premium"] = endorsement_result.get("OriginalPremium")
+                    results["new_total_premium"] = endorsement_result.get("NewPremium")
+                    results["premium_change"] = endorsement_result.get("PremiumChange")
+                    results["endorsement_status"] = "unbound"
                     results["endorsement_effective_date"] = effective_date
                     
-                    # Process the payload to register premium (like in bind flow)
-                    # This calls spProcessTritonPayload which will call UpdatePremiumHistoricV3
+                    # Step 6: Get quote option for the endorsement (ProcessFlatEndorsement creates it)
+                    # But we may need to retrieve it
+                    logger.info(f"Getting quote option for endorsement quote {endorsement_quote_guid}")
+                    success, option_info, message = self.data_service.execute_dataset(
+                        "spGetQuoteOptions",
+                        ["QuoteGuid", str(endorsement_quote_guid)]
+                    )
+                    
+                    endorsement_quote_option_guid = None
+                    if success and option_info:
+                        # Parse to get QuoteOptionGuid
+                        import xml.etree.ElementTree as ET
+                        try:
+                            root = ET.fromstring(option_info)
+                            table = root.find('.//Table')
+                            if table:
+                                option_guid_elem = table.find('QuoteOptionGuid')
+                                if option_guid_elem is not None and option_guid_elem.text:
+                                    endorsement_quote_option_guid = option_guid_elem.text.strip()
+                        except:
+                            pass
+                    
+                    if endorsement_quote_option_guid:
+                        results["endorsement_quote_option_guid"] = endorsement_quote_option_guid
+                        logger.info(f"Found quote option: {endorsement_quote_option_guid}")
+                    
+                    # Step 7: Apply fees if needed (check criteria)
+                    # TODO: Add fee application logic here if needed
+                    
+                    # Step 8: Process the payload to register in Triton tables
                     if endorsement_quote_guid and endorsement_quote_option_guid:
-                        logger.info("Processing endorsement payload to register premium")
+                        logger.info("Processing endorsement payload to register in Triton tables")
                         success, process_result, message = self.payload_processor.process_payload(
                             payload=payload,
                             quote_guid=endorsement_quote_guid,
@@ -275,19 +321,19 @@ class TransactionHandler:
                         if not success:
                             logger.warning(f"Failed to process endorsement payload: {message}")
                     
-                    # Actually bind the endorsement through IMS (not just mark as bound in DB)
-                    if endorsement_quote_guid:
-                        logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
-                        success, bind_result, message = self.bind_service.bind_quote(endorsement_quote_guid)
-                        if success:
-                            results["endorsement_policy_number"] = bind_result.get("policy_number")
-                            results["endorsement_status"] = "completed"
-                            logger.info(f"Successfully bound endorsement: {bind_result.get('policy_number')}")
-                        else:
-                            logger.error(f"Failed to bind endorsement: {message}")
-                            return False, results, f"Endorsement bind failed: {message}"
+                    # Step 9: Bind the endorsement
+                    logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
+                    success, bind_result, message = self.bind_service.bind_quote(endorsement_quote_guid)
                     
-                    # Get invoice data after successful endorsement (same as bind flow)
+                    if success:
+                        results["endorsement_policy_number"] = bind_result.get("policy_number")
+                        results["endorsement_status"] = "completed"
+                        logger.info(f"Successfully bound endorsement: {bind_result.get('policy_number')}")
+                    else:
+                        logger.error(f"Failed to bind endorsement: {message}")
+                        return False, results, f"Endorsement bind failed: {message}"
+                    
+                    # Step 10: Get invoice data after successful endorsement
                     if endorsement_quote_guid:
                         logger.info(f"Retrieving invoice data for endorsement quote {endorsement_quote_guid}")
                         invoice_success, invoice_data, invoice_message = self.data_service.get_invoice_data(endorsement_quote_guid)
@@ -298,14 +344,12 @@ class TransactionHandler:
                         else:
                             logger.warning(f"Failed to retrieve invoice data for endorsement: {invoice_message}")
                     
-                    # Include invoice number if available (backward compatibility)
-                    if endorsement_result.get("InvoiceNumber"):
-                        results["invoice_number"] = endorsement_result["InvoiceNumber"]
-                    
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
                     
-                    logger.info(f"Successfully created endorsement #{endorsement_result.get('EndorsementNumber')} for policy {results.get('policy_number', policy_number)}")
+                    logger.info(f"Successfully created endorsement #{results.get('endorsement_number')} "
+                              f"for policy {results.get('policy_number', policy_number)} "
+                              f"with premium change of ${results.get('premium_change', 0):,.2f}")
                 
                 elif transaction_type == "cancellation":
                     # Process the cancellation
@@ -499,7 +543,8 @@ class TransactionHandler:
         elif transaction_type == "midterm_endorsement" and results.get("endorsement_status") == "completed":
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
             msg_parts.append(f"Endorsement Number: {results.get('endorsement_number')}")
-            msg_parts.append(f"Endorsement Premium: ${results.get('endorsement_premium', 0):,.2f}")
+            msg_parts.append(f"Premium Change: ${results.get('premium_change', 0):,.2f}")
+            msg_parts.append(f"New Total Premium: ${results.get('new_total_premium', 0):,.2f}")
             msg_parts.append(f"Effective Date: {results.get('endorsement_effective_date')}")
         elif transaction_type == "cancellation" and results.get("cancellation_status") == "completed":
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")

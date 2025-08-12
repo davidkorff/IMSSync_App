@@ -161,6 +161,124 @@ class IMSEndorsementService(BaseIMSService):
             logger.error(error_msg, exc_info=True)
             return False, {}, error_msg
     
+    def create_flat_endorsement(
+        self,
+        original_quote_guid: str,
+        total_premium: float,
+        effective_date: str,
+        comment: str = "Midterm Endorsement",
+        user_guid: Optional[str] = None
+    ) -> Tuple[bool, Dict[str, Any], str]:
+        """
+        Create a flat endorsement using ProcessFlatEndorsement stored procedure.
+        This creates an unbound endorsement that must be bound separately.
+        
+        Args:
+            original_quote_guid: The GUID of the quote to endorse (latest in chain)
+            total_premium: The TOTAL premium (existing + new) for the policy
+            effective_date: The effective date of the endorsement (MM/DD/YYYY format)
+            comment: Description of the endorsement
+            user_guid: Optional user GUID for the endorsement
+            
+        Returns:
+            Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
+            result_data contains NewQuoteGuid, EndorsementNumber, PremiumChange, etc.
+        """
+        try:
+            # Get user guid from auth service if not provided
+            if not user_guid:
+                user_guid = self.auth_service.user_guid
+            
+            logger.info(f"Creating flat endorsement for quote: {original_quote_guid}")
+            logger.info(f"Total premium: ${total_premium:,.2f}, Effective: {effective_date}")
+            
+            # Prepare parameters for stored procedure
+            params = [
+                "OriginalQuoteGuid", str(original_quote_guid),
+                "NewPremium", str(total_premium),
+                "EndorsementEffectiveDate", effective_date,
+                "EndorsementComment", comment
+            ]
+            
+            # Add user guid if available
+            if user_guid:
+                params.extend(["UserGuid", str(user_guid)])
+            
+            # Call the stored procedure
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="ProcessFlatEndorsement",
+                parameters=params
+            )
+            
+            if not success:
+                return False, {}, f"Failed to execute ProcessFlatEndorsement: {message}"
+            
+            # Parse the result
+            result_data = self._parse_flat_endorsement_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "Success":
+                new_quote_guid = result_data.get("NewQuoteGuid")
+                endorsement_num = result_data.get("EndorsementNumber")
+                premium_change = result_data.get("PremiumChange")
+                
+                logger.info(f"Successfully created flat endorsement. NewQuoteGuid: {new_quote_guid}, "
+                          f"Endorsement #{endorsement_num}, Premium change: ${premium_change}")
+                
+                return True, result_data, result_data.get("Instructions", "Endorsement created successfully")
+            else:
+                error_msg = result_data.get("ErrorMessage", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to create flat endorsement: {error_msg}")
+                return False, result_data or {}, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error creating flat endorsement: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return False, {}, error_msg
+    
+    def _parse_flat_endorsement_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse the result from ProcessFlatEndorsement stored procedure.
+        
+        Args:
+            result_xml: The XML result from ExecuteDataSet
+            
+        Returns:
+            Dict containing the result data or None if parsing fails
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Look for the result table
+            table = root.find('.//Table')
+            if table is None:
+                return None
+            
+            result_data = {}
+            
+            # Extract all fields from the result
+            for child in table:
+                if child.text is not None:
+                    result_data[child.tag] = child.text.strip()
+                else:
+                    result_data[child.tag] = None
+            
+            # Log the parsed result
+            if result_data:
+                logger.debug(f"Parsed ProcessFlatEndorsement result: {result_data}")
+            
+            return result_data
+            
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse ProcessFlatEndorsement result XML: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error parsing ProcessFlatEndorsement result: {str(e)}")
+            return None
+    
     def _parse_endorsement_procedure_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
         """
         Parse the result from Triton_EndorsePolicy_WS stored procedure.

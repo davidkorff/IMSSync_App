@@ -727,6 +727,80 @@ class IMSDataAccessService:
                 return None
         return None
     
+    def get_latest_quote_by_opportunity_id(self, opportunity_id: int) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+        """
+        Get the latest quote in a chain by opportunity_id.
+        First finds the most recent entry in tblTritonQuoteData,
+        then follows the quote chain to find the latest.
+        
+        Args:
+            opportunity_id: The opportunity ID to search for
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, quote_info, message)
+            quote_info contains QuoteGuid, ControlNo, PolicyNumber, QuoteStatusID, EndorsementNum, ChainLevel
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetLatestQuoteByOpportunityID",
+                ["OpportunityID", str(opportunity_id)]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict or not result_dict.get("QuoteGuid"):
+                return False, None, f"No quote found for opportunity_id: {opportunity_id}"
+            
+            logger.info(f"Found latest quote {result_dict.get('QuoteGuid')} for opportunity_id {opportunity_id} (chain level: {result_dict.get('ChainLevel', 0)})")
+            return True, result_dict, "Latest quote lookup successful"
+            
+        except Exception as e:
+            error_msg = f"Error looking up latest quote by opportunity_id: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def get_policy_premium_total(self, control_no: int) -> Tuple[bool, float, str]:
+        """
+        Get the total premium from all invoices for a policy.
+        
+        Args:
+            control_no: The control number of the policy
+            
+        Returns:
+            Tuple[bool, float, str]: (success, total_premium, message)
+        """
+        try:
+            # Execute the stored procedure
+            success, result_xml, message = self.execute_dataset(
+                "spGetPolicyPremiumTotal",
+                ["ControlNo", str(control_no)]
+            )
+            
+            if not success:
+                return False, 0.0, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return True, 0.0, "No invoices found for policy"
+            
+            total_premium = float(result_dict.get("TotalPremium", 0))
+            invoice_count = int(result_dict.get("InvoiceCount", 0))
+            
+            logger.info(f"Found {invoice_count} invoices with total premium ${total_premium:,.2f} for control_no {control_no}")
+            return True, total_premium, f"Found {invoice_count} invoices"
+            
+        except Exception as e:
+            error_msg = f"Error getting policy premium total: {str(e)}"
+            logger.error(error_msg)
+            return False, 0.0, error_msg
+    
     def _clean_xml_for_parsing(self, xml_string: str) -> str:
         """
         Clean XML string to handle common issues that cause parsing errors.
