@@ -168,6 +168,68 @@ class IMSDataAccessService:
             logger.error(error_msg)
             return False, None, error_msg
     
+    def get_producer_by_email_or_name(self, producer_email: str, producer_name: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
+        """
+        Get producer information by email first, then by name if email not found.
+        
+        Args:
+            producer_email: Email address of the producer
+            producer_name: Full name of the producer (fallback)
+            
+        Returns:
+            Tuple[bool, Optional[Dict], str]: (success, producer_info, message)
+            producer_info contains: ProducerContactGUID, ProducerLocationGUID
+        """
+        try:
+            # Execute the stored procedure with both parameters
+            success, result_xml, message = self.execute_dataset(
+                "getProducerGuid",
+                ["producer_email", producer_email or "", "producer_name", producer_name or ""]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result XML
+            if result_xml:
+                result_root = ET.fromstring(result_xml)
+                
+                # Find the Table element
+                table = result_root.find('.//Table')
+                if table is not None:
+                    producer_info = {}
+                    
+                    # Extract ProducerContactGUID
+                    contact_guid = table.find('ProducerContactGUID')
+                    if contact_guid is not None and contact_guid.text:
+                        producer_info['ProducerContactGUID'] = contact_guid.text
+                    
+                    # Extract ProducerLocationGUID
+                    location_guid = table.find('ProducerLocationGUID')
+                    if location_guid is not None and location_guid.text:
+                        producer_info['ProducerLocationGUID'] = location_guid.text
+                    
+                    if producer_info:
+                        lookup_method = "email" if producer_email else "name"
+                        lookup_value = producer_email if producer_email else producer_name
+                        logger.info(f"Found producer via {lookup_method} '{lookup_value}': {producer_info}")
+                        return True, producer_info, f"Found producer: {lookup_value}"
+                    else:
+                        return False, None, f"Producer not found by email '{producer_email}' or name '{producer_name}'"
+                else:
+                    return False, None, f"No producer found with email '{producer_email}' or name '{producer_name}'"
+            else:
+                return False, None, "No results returned"
+                
+        except ET.ParseError as e:
+            error_msg = f"Failed to parse producer results: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+        except Exception as e:
+            error_msg = f"Error getting producer: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
     def get_producer_by_email(self, producer_email: str) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """
         Get producer information by email.
@@ -229,7 +291,8 @@ class IMSDataAccessService:
     
     def process_producer_from_payload(self, payload: Dict) -> Tuple[bool, Optional[Dict[str, str]], str]:
         """
-        Extract producer email from payload and get producer information.
+        Extract producer email and name from payload and get producer information.
+        First tries email lookup, then falls back to name lookup.
         
         Args:
             payload: The Triton transaction payload
@@ -238,11 +301,13 @@ class IMSDataAccessService:
             Tuple[bool, Optional[Dict], str]: (success, producer_info, message)
         """
         producer_email = payload.get("producer_email", "")
+        producer_name = payload.get("producer_name", "")
         
-        if not producer_email:
-            return False, None, "No producer email found in payload"
+        if not producer_email and not producer_name:
+            return False, None, "No producer email or name found in payload"
         
-        success, info, message = self.get_producer_by_email(producer_email)
+        # Call the updated stored procedure with both email and name
+        success, info, message = self.get_producer_by_email_or_name(producer_email, producer_name)
         
         # If failed and we have debugging info, create detailed error message
         if not success:
