@@ -262,6 +262,11 @@ class TransactionHandler:
                     
                     endorsement_comment = payload.get("midterm_endt_description", "Midterm Endorsement")
                     
+                    # Get midterm_endt_id for duplicate check
+                    midterm_endt_id = payload.get("midterm_endt_id")
+                    if midterm_endt_id:
+                        logger.info(f"Midterm endorsement ID: {midterm_endt_id}")
+                    
                     logger.info(f"Using endorsement effective date: {effective_date}")
                     
                     # Step 5: Create endorsement using Triton_ProcessFlatEndorsement wrapper
@@ -270,7 +275,8 @@ class TransactionHandler:
                         opportunity_id=int(option_id),
                         endorsement_premium=new_endorsement_premium,
                         effective_date=effective_date,
-                        comment=endorsement_comment
+                        comment=endorsement_comment,
+                        midterm_endt_id=midterm_endt_id
                     )
                     
                     if not success:
@@ -358,9 +364,17 @@ class TransactionHandler:
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
                     
+                    # Convert premium_change to float for formatting
+                    premium_change_val = results.get('premium_change', 0)
+                    if isinstance(premium_change_val, str):
+                        try:
+                            premium_change_val = float(premium_change_val)
+                        except:
+                            premium_change_val = 0
+                    
                     logger.info(f"Successfully created endorsement #{results.get('endorsement_number')} "
                               f"for policy {results.get('policy_number', policy_number)} "
-                              f"with premium change of ${results.get('premium_change', 0):,.2f}")
+                              f"with premium change of ${premium_change_val:,.2f}")
                 
                 elif transaction_type == "cancellation":
                     # Process the cancellation
@@ -647,8 +661,24 @@ class TransactionHandler:
         elif transaction_type == "midterm_endorsement" and results.get("endorsement_status") == "completed":
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")
             msg_parts.append(f"Endorsement Number: {results.get('endorsement_number')}")
-            msg_parts.append(f"Premium Change: ${results.get('premium_change', 0):,.2f}")
-            msg_parts.append(f"New Total Premium: ${results.get('new_total_premium', 0):,.2f}")
+            
+            # Convert premium values to float for formatting
+            premium_change = results.get('premium_change', 0)
+            if isinstance(premium_change, str):
+                try:
+                    premium_change = float(premium_change)
+                except:
+                    premium_change = 0
+            
+            new_total_premium = results.get('new_total_premium', 0)
+            if isinstance(new_total_premium, str):
+                try:
+                    new_total_premium = float(new_total_premium)
+                except:
+                    new_total_premium = 0
+                    
+            msg_parts.append(f"Premium Change: ${premium_change:,.2f}")
+            msg_parts.append(f"New Total Premium: ${new_total_premium:,.2f}")
             msg_parts.append(f"Effective Date: {results.get('endorsement_effective_date')}")
         elif transaction_type == "cancellation" and results.get("cancellation_status") == "completed":
             msg_parts.append(f"Policy Number: {payload.get('policy_number')}")

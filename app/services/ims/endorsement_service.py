@@ -167,7 +167,8 @@ class IMSEndorsementService(BaseIMSService):
         endorsement_premium: float,
         effective_date: str,
         comment: str = "Midterm Endorsement",
-        user_guid: Optional[str] = None
+        user_guid: Optional[str] = None,
+        midterm_endt_id: Optional[int] = None
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Create an endorsement using Triton_ProcessFlatEndorsement wrapper procedure.
@@ -179,6 +180,7 @@ class IMSEndorsementService(BaseIMSService):
             effective_date: The effective date of the endorsement (MM/DD/YYYY format)
             comment: Description of the endorsement
             user_guid: Optional user GUID for the endorsement
+            midterm_endt_id: Optional midterm endorsement ID to check for duplicates
             
         Returns:
             Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
@@ -191,6 +193,8 @@ class IMSEndorsementService(BaseIMSService):
             
             logger.info(f"Creating endorsement for opportunity_id: {opportunity_id}")
             logger.info(f"Endorsement premium change: ${endorsement_premium:,.2f}, Effective: {effective_date}")
+            if midterm_endt_id:
+                logger.info(f"Checking for duplicate with midterm_endt_id: {midterm_endt_id}")
             
             # Prepare parameters for the wrapper stored procedure
             params = [
@@ -203,6 +207,10 @@ class IMSEndorsementService(BaseIMSService):
             # Add user guid if available
             if user_guid:
                 params.extend(["UserGuid", str(user_guid)])
+            
+            # Add midterm_endt_id for duplicate check
+            if midterm_endt_id:
+                params.extend(["MidtermEndtID", str(midterm_endt_id)])
             
             # Call the wrapper procedure (which calculates total and calls base procedure)
             success, result_xml, message = self.data_service.execute_dataset(

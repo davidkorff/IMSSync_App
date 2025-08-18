@@ -8,7 +8,8 @@ CREATE OR ALTER PROCEDURE [dbo].[Triton_ProcessFlatEndorsement_WS]
     @EndorsementPremium MONEY,
     @EndorsementEffectiveDate VARCHAR(50),
     @EndorsementComment VARCHAR(500) = 'Midterm Endorsement',
-    @UserGuid UNIQUEIDENTIFIER = NULL
+    @UserGuid UNIQUEIDENTIFIER = NULL,
+    @MidtermEndtID INT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -25,6 +26,23 @@ BEGIN
     BEGIN TRY
         -- Convert date string to datetime
         SET @EffectiveDateTime = CONVERT(DATETIME, @EndorsementEffectiveDate, 101)
+        
+        -- Check for duplicate endorsement
+        IF @MidtermEndtID IS NOT NULL
+        BEGIN
+            IF EXISTS (
+                SELECT 1 
+                FROM tblTritonQuoteData 
+                WHERE midterm_endt_id = @MidtermEndtID
+            )
+            BEGIN
+                SELECT 
+                    0 AS Result,
+                    'Midterm Endorsement Already Processed' AS Message,
+                    @MidtermEndtID AS MidtermEndtID
+                RETURN
+            END
+        END
         
         -- Step 1: Find the latest quote for this opportunity_id
         SELECT TOP 1 
