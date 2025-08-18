@@ -33,7 +33,7 @@
   "opportunity_id": 134205,
   "opportunity_type": "Renewal",
   "other_fee": "",
-  "policy_cancellation_date": "2025-08-15",
+  "policy_cancellation_date": "2025-12-15",
   "policy_cancellation_premium": 1125,
   "policy_fee": 250,
   "policy_number": "SPG0000089-2528",
@@ -49,9 +49,9 @@
   "umr": "",
   "terms": 45,
   "zip": "91765",
-  "prior_transaction_id": "a5f55582-2367-4853-aec1-7e371bc9d762",
-  "transaction_id": "dab1420a-62d3-4491-9269-56a6a9e41735",
+  "prior_transaction_id": "b3a6965a-e4b1-4643-9e38-578401cd7d58",
+  "transaction_id": "bc9e90ed-d616-4cec-9006-c2b18d0ccfb6",
   "transaction_type": "cancellation",
-  "transaction_date": "2025-08-18T17:53:53.998327+00:00",
+  "transaction_date": "2025-08-18T18:32:12.810178+00:00",
   "source_system": "triton"
 }

@@ -50,8 +50,8 @@
   "terms": 45,
   "zip": "91765",
   "prior_transaction_id": null,
-  "transaction_id": "00a8ed52-bf4b-4c04-9901-f0f42a0c9cc6",
+  "transaction_id": "be9870fd-dfba-4130-9aef-db8a0d95db0a",
   "transaction_type": "bind",
-  "transaction_date": "2025-08-18T17:53:52.063428+00:00",
+  "transaction_date": "2025-08-18T18:32:10.543051+00:00",
   "source_system": "triton"
 }
