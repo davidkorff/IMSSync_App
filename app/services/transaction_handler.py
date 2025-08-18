@@ -289,6 +289,11 @@ class TransactionHandler:
                     
                     logger.info(f"Created endorsement quote: {endorsement_quote_guid}")
                     
+                    # Check if QuoteOptionGuid was returned from the stored procedure
+                    endorsement_quote_option_guid = endorsement_result.get("NewQuoteOptionGuid")
+                    if endorsement_quote_option_guid:
+                        logger.info(f"Retrieved QuoteOptionGuid from stored procedure: {endorsement_quote_option_guid}")
+                    
                     # Update results with endorsement information
                     results["endorsement_quote_guid"] = endorsement_quote_guid
                     results["endorsement_number"] = endorsement_result.get("EndorsementNumber")
@@ -298,54 +303,54 @@ class TransactionHandler:
                     results["endorsement_status"] = "unbound"
                     results["endorsement_effective_date"] = effective_date
                     
-                    # Step 6: Get quote option for the endorsement
-                    # ProcessFlatEndorsement creates the quote option, so we just need to retrieve it
-                    logger.info(f"Getting quote option for endorsement quote {endorsement_quote_guid}")
-                    
-                    # Simple query to get the QuoteOptionGuid from tblQuoteOptions
-                    query = f"""
-                        SELECT TOP 1 QuoteOptionGUID 
-                        FROM tblQuoteOptions 
-                        WHERE QuoteGUID = '{endorsement_quote_guid}'
-                    """
-                    
-                    endorsement_quote_option_guid = None
-                    try:
-                        # Try using a simple query instead of the failing stored procedure
-                        success, result_xml, message = self.data_service.execute_dataset(
-                            "spExecuteSQL",  # Generic SQL execution procedure
+                    # Step 6: Get quote option for the endorsement (if not already provided)
+                    if not endorsement_quote_option_guid:
+                        # ProcessFlatEndorsement creates the quote option, so we just need to retrieve it
+                        logger.info(f"Getting quote option for endorsement quote {endorsement_quote_guid}")
+                        
+                        # Simple query to get the QuoteOptionGuid from tblQuoteOptions
+                        query = f"""
+                            SELECT TOP 1 QuoteOptionGUID 
+                            FROM tblQuoteOptions 
+                            WHERE QuoteGUID = '{endorsement_quote_guid}'
+                        """
+                        
+                        try:
+                            # Try using a simple query instead of the failing stored procedure
+                            success, result_xml, message = self.data_service.execute_dataset(
+                                "spExecuteSQL",  # Generic SQL execution procedure
                             ["SQL", query]
                         )
                         
-                        if success and result_xml:
-                            import xml.etree.ElementTree as ET
-                            root = ET.fromstring(result_xml)
-                            table = root.find('.//Table')
-                            if table:
-                                option_guid_elem = table.find('QuoteOptionGUID')
-                                if option_guid_elem is not None and option_guid_elem.text:
-                                    endorsement_quote_option_guid = option_guid_elem.text.strip()
-                                    logger.info(f"Found quote option: {endorsement_quote_option_guid}")
-                    except:
-                        # If that doesn't work, try the original method
-                        logger.warning("Could not retrieve quote option GUID via query, trying spGetQuoteOptions")
-                        success, option_info, message = self.data_service.execute_dataset(
-                            "spGetQuoteOptions",
-                            ["QuoteGuid", str(endorsement_quote_guid)]
-                        )
-                        
-                        if success and option_info:
-                            # Parse to get QuoteOptionGuid
-                            import xml.etree.ElementTree as ET
-                            try:
-                                root = ET.fromstring(option_info)
+                            if success and result_xml:
+                                import xml.etree.ElementTree as ET
+                                root = ET.fromstring(result_xml)
                                 table = root.find('.//Table')
                                 if table:
-                                    option_guid_elem = table.find('QuoteOptionGuid')
+                                    option_guid_elem = table.find('QuoteOptionGUID')
                                     if option_guid_elem is not None and option_guid_elem.text:
                                         endorsement_quote_option_guid = option_guid_elem.text.strip()
-                            except:
-                                pass
+                                        logger.info(f"Found quote option: {endorsement_quote_option_guid}")
+                        except:
+                            # If that doesn't work, try the original method
+                            logger.warning("Could not retrieve quote option GUID via query, trying spGetQuoteOptions")
+                            success, option_info, message = self.data_service.execute_dataset(
+                                "spGetQuoteOptions",
+                                ["QuoteGuid", str(endorsement_quote_guid)]
+                            )
+                            
+                            if success and option_info:
+                                # Parse to get QuoteOptionGuid
+                                import xml.etree.ElementTree as ET
+                                try:
+                                    root = ET.fromstring(option_info)
+                                    table = root.find('.//Table')
+                                    if table:
+                                        option_guid_elem = table.find('QuoteOptionGuid')
+                                        if option_guid_elem is not None and option_guid_elem.text:
+                                            endorsement_quote_option_guid = option_guid_elem.text.strip()
+                                except:
+                                    pass
                     
                     if endorsement_quote_option_guid:
                         results["endorsement_quote_option_guid"] = endorsement_quote_option_guid

@@ -406,6 +406,10 @@ class IMSEndorsementService(BaseIMSService):
                         result_data['PremiumChange'] = result_data['EndorsementPremium']
                         result_data['OriginalPremium'] = result_data['ExistingPremium']
                     
+                    # Log if we found the QuoteOptionGuid
+                    if 'NewQuoteOptionGuid' in result_data:
+                        logger.info(f"Found QuoteOptionGuid in result: {result_data['NewQuoteOptionGuid']}")
+                    
                     logger.debug(f"Found wrapper result set: {result_data}")
                     return result_data
             
