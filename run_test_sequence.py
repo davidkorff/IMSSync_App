@@ -228,6 +228,16 @@ class TestSequenceRunner:
             print(f"STEP {step_num}/{self.max_steps}: {name.upper()}")
             print(f"{'='*80}")
             
+            # Ask for confirmation before running each test
+            if i > 0:  # Don't ask for the first test
+                print(f"\n🔄 Ready to run: {name.upper()}")
+                print(f"   Script: {script}")
+                print(f"   Payload: {json_file}")
+                response = input("\nPress Enter to continue or 'q' to quit: ")
+                if response.lower() == 'q':
+                    print("\n⚠️ Test sequence stopped by user")
+                    break
+            
             success, output, duration = self.run_test(script, json_file)
             
             self.results.append({
@@ -250,11 +260,6 @@ class TestSequenceRunner:
                 break  # Always stop on failure
             else:
                 print(f"\n✅ Step {step_num} ({name}) completed successfully")
-            
-            # Small delay between tests
-            if i < self.max_steps - 1:
-                print("\nWaiting 2 seconds before next test...")
-                time.sleep(2)
         
         return all_passed
     
