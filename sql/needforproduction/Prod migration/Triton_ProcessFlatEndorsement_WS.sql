@@ -44,15 +44,40 @@ BEGIN
             END
         END
         
-        -- Step 1: Find the latest quote for this opportunity_id
+        -- Step 1: Find the latest quote in the chain for this opportunity_id
+        -- Find the quote that is NOT an OriginalQuoteGuid for any other quote (end of chain)
+        DECLARE @QuoteStatusID INT
+        
         SELECT TOP 1 
-            @LatestQuoteGuid = tq.QuoteGuid,
-            @ControlNo = q.ControlNo
-        FROM tblTritonQuoteData tq
-        INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
-        WHERE tq.opportunity_id = @OpportunityID
-        AND tq.status = 'bound'
-        ORDER BY q.QuoteID DESC  -- Get the latest quote
+            @LatestQuoteGuid = q.QuoteGUID,
+            @ControlNo = q.ControlNo,
+            @QuoteStatusID = q.QuoteStatusID
+        FROM tblQuotes q
+        WHERE q.ControlNo IN (
+            -- Find the control number for this opportunity
+            SELECT DISTINCT q2.ControlNo
+            FROM tblTritonQuoteData tq
+            INNER JOIN tblQuotes q2 ON q2.QuoteGUID = tq.QuoteGuid
+            WHERE tq.opportunity_id = @OpportunityID
+        )
+        AND NOT EXISTS (
+            -- Make sure this quote is not the original for another quote (find the end of the chain)
+            SELECT 1 
+            FROM tblQuotes q3 
+            WHERE q3.OriginalQuoteGUID = q.QuoteGUID
+        )
+        ORDER BY q.QuoteID DESC  -- If somehow multiple, get the most recent
+        
+        -- Check if the latest quote is bound
+        IF @QuoteStatusID <> 3  -- Not bound
+        BEGIN
+            SELECT 
+                0 AS Result,
+                'Cannot create endorsement - latest quote in chain is not bound' AS Message,
+                @LatestQuoteGuid AS LatestQuoteGuid,
+                @QuoteStatusID AS QuoteStatusID
+            RETURN
+        END
         
         IF @LatestQuoteGuid IS NULL
         BEGIN
