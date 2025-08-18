@@ -298,31 +298,60 @@ class TransactionHandler:
                     results["endorsement_status"] = "unbound"
                     results["endorsement_effective_date"] = effective_date
                     
-                    # Step 6: Get quote option for the endorsement (ProcessFlatEndorsement creates it)
-                    # But we may need to retrieve it
+                    # Step 6: Get quote option for the endorsement
+                    # ProcessFlatEndorsement creates the quote option, so we just need to retrieve it
                     logger.info(f"Getting quote option for endorsement quote {endorsement_quote_guid}")
-                    success, option_info, message = self.data_service.execute_dataset(
-                        "spGetQuoteOptions",
-                        ["QuoteGuid", str(endorsement_quote_guid)]
-                    )
+                    
+                    # Simple query to get the QuoteOptionGuid from tblQuoteOptions
+                    query = f"""
+                        SELECT TOP 1 QuoteOptionGUID 
+                        FROM tblQuoteOptions 
+                        WHERE QuoteGUID = '{endorsement_quote_guid}'
+                    """
                     
                     endorsement_quote_option_guid = None
-                    if success and option_info:
-                        # Parse to get QuoteOptionGuid
-                        import xml.etree.ElementTree as ET
-                        try:
-                            root = ET.fromstring(option_info)
+                    try:
+                        # Try using a simple query instead of the failing stored procedure
+                        success, result_xml, message = self.data_service.execute_dataset(
+                            "spExecuteSQL",  # Generic SQL execution procedure
+                            ["SQL", query]
+                        )
+                        
+                        if success and result_xml:
+                            import xml.etree.ElementTree as ET
+                            root = ET.fromstring(result_xml)
                             table = root.find('.//Table')
                             if table:
-                                option_guid_elem = table.find('QuoteOptionGuid')
+                                option_guid_elem = table.find('QuoteOptionGUID')
                                 if option_guid_elem is not None and option_guid_elem.text:
                                     endorsement_quote_option_guid = option_guid_elem.text.strip()
-                        except:
-                            pass
+                                    logger.info(f"Found quote option: {endorsement_quote_option_guid}")
+                    except:
+                        # If that doesn't work, try the original method
+                        logger.warning("Could not retrieve quote option GUID via query, trying spGetQuoteOptions")
+                        success, option_info, message = self.data_service.execute_dataset(
+                            "spGetQuoteOptions",
+                            ["QuoteGuid", str(endorsement_quote_guid)]
+                        )
+                        
+                        if success and option_info:
+                            # Parse to get QuoteOptionGuid
+                            import xml.etree.ElementTree as ET
+                            try:
+                                root = ET.fromstring(option_info)
+                                table = root.find('.//Table')
+                                if table:
+                                    option_guid_elem = table.find('QuoteOptionGuid')
+                                    if option_guid_elem is not None and option_guid_elem.text:
+                                        endorsement_quote_option_guid = option_guid_elem.text.strip()
+                            except:
+                                pass
                     
                     if endorsement_quote_option_guid:
                         results["endorsement_quote_option_guid"] = endorsement_quote_option_guid
-                        logger.info(f"Found quote option: {endorsement_quote_option_guid}")
+                        logger.info(f"Successfully retrieved quote option: {endorsement_quote_option_guid}")
+                    else:
+                        logger.warning("Could not retrieve quote option GUID - will use placeholder")
                     
                     # Step 7: Apply fees if needed (check criteria)
                     # TODO: Add fee application logic here if needed
@@ -330,17 +359,26 @@ class TransactionHandler:
                     # Step 8: Process the payload to register in Triton tables
                     if endorsement_quote_guid:
                         # Use the quote option GUID if we have it, otherwise use a placeholder
-                        option_guid_to_use = endorsement_quote_option_guid if endorsement_quote_option_guid else "00000000-0000-0000-0000-000000000000"
-                        logger.info(f"Processing endorsement payload to register in Triton tables (QuoteOptionGuid: {option_guid_to_use})")
+                        if not endorsement_quote_option_guid:
+                            endorsement_quote_option_guid = "00000000-0000-0000-0000-000000000000"
+                            logger.warning(f"No QuoteOptionGuid found, using placeholder: {endorsement_quote_option_guid}")
+                        
+                        logger.info(f"Processing endorsement payload to register in Triton tables")
+                        logger.info(f"  QuoteGuid: {endorsement_quote_guid}")
+                        logger.info(f"  QuoteOptionGuid: {endorsement_quote_option_guid}")
+                        
                         success, process_result, message = self.payload_processor.process_payload(
                             payload=payload,
                             quote_guid=endorsement_quote_guid,
-                            quote_option_guid=option_guid_to_use
+                            quote_option_guid=endorsement_quote_option_guid
                         )
                         if not success:
-                            logger.warning(f"Failed to process endorsement payload: {message}")
+                            logger.error(f"Failed to process endorsement payload: {message}")
+                            logger.warning("Endorsement data NOT stored in tblTritonQuoteData")
                         else:
                             logger.info("Successfully registered endorsement in Triton tables")
+                            if process_result:
+                                logger.debug(f"Payload processing result: {process_result}")
                     
                     # Step 9: Bind the endorsement
                     logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
