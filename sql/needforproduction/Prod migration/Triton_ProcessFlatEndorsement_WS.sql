@@ -138,6 +138,43 @@ BEGIN
             @UserGuid = @UserGuid,
             @NewQuoteGuid = @NewQuoteGuid OUTPUT
         
+        -- Store the midterm_endt_id if provided to track this endorsement
+        IF @MidtermEndtID IS NOT NULL AND @NewQuoteGuid IS NOT NULL
+        BEGIN
+            -- Check if record exists for this quote
+            IF EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @NewQuoteGuid)
+            BEGIN
+                -- Update existing record
+                UPDATE tblTritonQuoteData 
+                SET midterm_endt_id = @MidtermEndtID,
+                    transaction_type = 'midterm_endorsement',
+                    last_updated = GETDATE()
+                WHERE QuoteGuid = @NewQuoteGuid
+            END
+            ELSE
+            BEGIN
+                -- Insert minimal record for tracking
+                INSERT INTO tblTritonQuoteData (
+                    QuoteGuid,
+                    opportunity_id,
+                    midterm_endt_id,
+                    transaction_type,
+                    status,
+                    created_date,
+                    last_updated
+                )
+                VALUES (
+                    @NewQuoteGuid,
+                    @OpportunityID,
+                    @MidtermEndtID,
+                    'midterm_endorsement',
+                    'bound',
+                    GETDATE(),
+                    GETDATE()
+                )
+            END
+        END
+        
         -- Return success with the new quote guid
         SELECT 
             1 AS Result,
