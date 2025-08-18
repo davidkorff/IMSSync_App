@@ -94,12 +94,23 @@ class IMSCancellationService(BaseIMSService):
             # Parse the result
             result_data = self._parse_cancellation_procedure_result(result_xml)
             
-            if result_data and result_data.get("Result") == "1":
-                logger.info(f"Successfully cancelled policy. CancellationQuoteGuid: {result_data.get('CancellationQuoteGuid')}")
-                return True, result_data, result_data.get("Message", "Policy cancelled successfully")
+            # Log the raw result for debugging
+            if not result_data:
+                logger.error(f"Failed to parse cancellation result. Raw XML: {result_xml[:500] if result_xml else 'None'}")
+            else:
+                logger.debug(f"Parsed cancellation result: {result_data}")
+            
+            # Check for success - Result could be 1 (int), "1" (string), or "Success" (from base procedure)
+            result_str = str(result_data.get("Result", "")).lower() if result_data else ""
+            if result_data and (result_str == "1" or result_str == "success"):
+                cancellation_guid = result_data.get('CancellationQuoteGuid') or result_data.get('NewQuoteGuid')
+                logger.info(f"Successfully cancelled policy. CancellationQuoteGuid: {cancellation_guid}")
+                return True, result_data, result_data.get("Message", result_data.get("Instructions", "Policy cancelled successfully"))
             else:
                 error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
                 logger.error(f"Failed to cancel policy: {error_msg}")
+                if result_data:
+                    logger.error(f"Full result data: {result_data}")
                 return False, result_data or {}, error_msg
                 
         except Exception as e:
@@ -174,9 +185,18 @@ class IMSCancellationService(BaseIMSService):
             # Parse the result
             result_data = self._parse_cancellation_procedure_result(result_xml)
             
-            if result_data and result_data.get("Result") == "1":
-                logger.info(f"Successfully cancelled policy. New QuoteGuid: {result_data.get('CancellationQuoteGuid')}")
-                return True, result_data, result_data.get("Message", "Policy cancelled successfully")
+            # Log the raw result for debugging
+            if not result_data:
+                logger.error(f"Failed to parse cancellation result. Raw XML: {result_xml[:500] if result_xml else 'None'}")
+            else:
+                logger.debug(f"Parsed cancellation result: {result_data}")
+            
+            # Check for success - Result could be 1 (int), "1" (string), or "Success" (from base procedure)
+            result_str = str(result_data.get("Result", "")).lower() if result_data else ""
+            if result_data and (result_str == "1" or result_str == "success"):
+                cancellation_guid = result_data.get('CancellationQuoteGuid') or result_data.get('NewQuoteGuid')
+                logger.info(f"Successfully cancelled policy. CancellationQuoteGuid: {cancellation_guid}")
+                return True, result_data, result_data.get("Message", result_data.get("Instructions", "Policy cancelled successfully"))
             else:
                 error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
                 logger.error(f"Failed to cancel policy: {error_msg}")
@@ -225,10 +245,27 @@ class IMSCancellationService(BaseIMSService):
                 if message_elem is not None and message_elem.text:
                     result_data['Message'] = message_elem.text.strip()
                 
-                # Extract CancellationQuoteGuid (the new quote created for cancellation)
+                # Extract CancellationQuoteGuid or NewQuoteGuid (the new quote created for cancellation)
                 cancellation_guid_elem = table.find('CancellationQuoteGuid')
                 if cancellation_guid_elem is not None and cancellation_guid_elem.text:
                     result_data['CancellationQuoteGuid'] = cancellation_guid_elem.text.strip()
+                else:
+                    # Check for NewQuoteGuid (from Triton_ProcessFlatCancellation_WS)
+                    new_guid_elem = table.find('NewQuoteGuid')
+                    if new_guid_elem is not None and new_guid_elem.text:
+                        result_data['CancellationQuoteGuid'] = new_guid_elem.text.strip()
+                        result_data['NewQuoteGuid'] = new_guid_elem.text.strip()
+                
+                # Extract NewQuoteOptionGuid (from Triton_ProcessFlatCancellation_WS)
+                option_guid_elem = table.find('NewQuoteOptionGuid')
+                if option_guid_elem is not None and option_guid_elem.text:
+                    result_data['NewQuoteOptionGuid'] = option_guid_elem.text.strip()
+                
+                # Extract QuoteOptionGuid (alternative name)
+                if 'NewQuoteOptionGuid' not in result_data:
+                    option_guid_elem = table.find('QuoteOptionGuid')
+                    if option_guid_elem is not None and option_guid_elem.text:
+                        result_data['QuoteOptionGuid'] = option_guid_elem.text.strip()
                 
                 # Extract OriginalQuoteGuid
                 original_guid_elem = table.find('OriginalQuoteGuid')

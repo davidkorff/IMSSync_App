@@ -430,23 +430,43 @@ class TransactionHandler:
                     # Get cancellation details from payload
                     cancellation_type = payload.get("cancellation_type", "flat")
                     
-                    # Use transaction_date as the cancellation effective date
-                    transaction_date_str = payload.get("transaction_date")
-                    if transaction_date_str:
+                    # Use policy_cancellation_date if provided, otherwise use transaction_date
+                    cancellation_date_str = payload.get("policy_cancellation_date")
+                    if cancellation_date_str:
                         try:
-                            # Parse ISO format date
-                            from dateutil import parser
-                            transaction_dt = parser.parse(transaction_date_str)
-                            effective_date = transaction_dt.strftime("%m/%d/%Y")
+                            # Handle various date formats
+                            if '-' in cancellation_date_str:
+                                # ISO format (YYYY-MM-DD)
+                                from dateutil import parser
+                                cancellation_dt = parser.parse(cancellation_date_str)
+                                effective_date = cancellation_dt.strftime("%m/%d/%Y")
+                            else:
+                                # Assume already in MM/DD/YYYY format
+                                effective_date = cancellation_date_str
                         except:
                             effective_date = datetime.now().strftime("%m/%d/%Y")
                     else:
-                        effective_date = datetime.now().strftime("%m/%d/%Y")
+                        # Fall back to transaction_date
+                        transaction_date_str = payload.get("transaction_date")
+                        if transaction_date_str:
+                            try:
+                                # Parse ISO format date
+                                from dateutil import parser
+                                transaction_dt = parser.parse(transaction_date_str)
+                                effective_date = transaction_dt.strftime("%m/%d/%Y")
+                            except:
+                                effective_date = datetime.now().strftime("%m/%d/%Y")
+                        else:
+                            effective_date = datetime.now().strftime("%m/%d/%Y")
                     
                     # Get cancellation specifics
                     reason_code = payload.get("cancellation_reason_code", 30)  # Default to "Insured Request"
                     cancellation_comment = payload.get("cancellation_reason", "Policy Cancellation")
-                    refund_amount = payload.get("refund_amount")
+                    
+                    # Get refund amount - check both possible field names
+                    refund_amount = payload.get("refund_amount") or payload.get("policy_cancellation_premium")
+                    if refund_amount:
+                        logger.info(f"Using refund amount from payload: ${refund_amount:,.2f}")
                     
                     logger.info(f"Cancellation details - Type: {cancellation_type}, Effective: {effective_date}, Reason: {reason_code}")
                     
@@ -476,18 +496,56 @@ class TransactionHandler:
                         return False, results, f"Cancellation failed: {message}"
                     
                     # Update results with cancellation information
-                    cancellation_quote_guid = cancellation_result.get("CancellationQuoteGuid")
+                    # Handle both field names for the cancellation quote guid
+                    cancellation_quote_guid = cancellation_result.get("CancellationQuoteGuid") or cancellation_result.get("NewQuoteGuid")
+                    cancellation_quote_option_guid = cancellation_result.get("NewQuoteOptionGuid") or cancellation_result.get("QuoteOptionGuid")
+                    
+                    if not cancellation_quote_guid:
+                        logger.warning("No cancellation quote GUID returned from procedure")
+                    else:
+                        logger.info(f"Created cancellation quote: {cancellation_quote_guid}")
+                        if cancellation_quote_option_guid:
+                            logger.info(f"Cancellation QuoteOptionGuid: {cancellation_quote_option_guid}")
                     
                     results["cancellation_quote_guid"] = cancellation_quote_guid
+                    results["cancellation_quote_option_guid"] = cancellation_quote_option_guid
                     results["cancellation_type"] = cancellation_type
                     results["cancellation_status"] = "completed"
                     results["cancellation_effective_date"] = effective_date
-                    results["refund_amount"] = cancellation_result.get("RefundAmount")
+                    results["refund_amount"] = cancellation_result.get("RefundAmount") or cancellation_result.get("ReturnPremium")
+                    results["original_premium"] = cancellation_result.get("PolicyPremium") or cancellation_result.get("OriginalPremium")
+                    
+                    # Process the payload to register in Triton tables if we have the quote guid
+                    if cancellation_quote_guid:
+                        logger.info(f"Processing cancellation payload to register in Triton tables")
+                        logger.info(f"  QuoteGuid: {cancellation_quote_guid}")
+                        logger.info(f"  QuoteOptionGuid: {cancellation_quote_option_guid or '00000000-0000-0000-0000-000000000000'}")
+                        
+                        # Use the payload processor to store the cancellation data
+                        success, processing_result, processing_message = self.payload_processor.process_payload(
+                            payload=payload,
+                            quote_guid=cancellation_quote_guid,
+                            quote_option_guid=cancellation_quote_option_guid or "00000000-0000-0000-0000-000000000000"
+                        )
+                        
+                        if not success:
+                            logger.error(f"Failed to process cancellation payload: {processing_message}")
+                            logger.warning("Cancellation data NOT stored in tblTritonQuoteData")
+                        else:
+                            logger.info("Cancellation data stored in tblTritonQuoteData")
                     
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
                     
-                    logger.info(f"Successfully cancelled policy {results.get('policy_number', policy_number)}")
+                    refund_val = results.get('refund_amount', 0)
+                    if refund_val:
+                        try:
+                            refund_val = abs(float(refund_val))
+                        except:
+                            refund_val = 0
+                    
+                    logger.info(f"Successfully cancelled policy {results.get('policy_number', policy_number)} "
+                              f"with refund of ${refund_val:,.2f}")
                 
                 elif transaction_type == "reinstatement":
                     # Process the reinstatement
