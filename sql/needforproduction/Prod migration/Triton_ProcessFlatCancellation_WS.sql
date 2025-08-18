@@ -143,16 +143,27 @@ BEGIN
         END
         
         -- Step 3: Calculate refund based on cancellation type
+        PRINT 'Refund Calculation:'
+        PRINT '  @RefundAmount parameter: ' + ISNULL(CAST(@RefundAmount AS VARCHAR(20)), 'NULL')
+        PRINT '  @CancellationType: ' + @CancellationType
+        PRINT '  @PolicyPremium: $' + CAST(@PolicyPremium AS VARCHAR(20))
+        
         IF @RefundAmount IS NOT NULL
         BEGIN
             -- Use provided refund amount (from policy_cancellation_premium)
-            -- The ProcessFlatCancellation expects a positive value
-            SET @CalculatedRefund = ABS(@RefundAmount)
+            -- ProcessFlatCancellation expects a NEGATIVE value for refunds
+            -- Ensure it's negative (refund should be negative)
+            IF @RefundAmount > 0
+                SET @CalculatedRefund = -@RefundAmount  -- Make it negative if positive
+            ELSE
+                SET @CalculatedRefund = @RefundAmount   -- Already negative, use as-is
+            
+            PRINT '  Using provided RefundAmount: ' + CAST(@CalculatedRefund AS VARCHAR(20))
         END
         ELSE IF @CancellationType = 'flat'
         BEGIN
-            -- Flat cancellation = full refund of current premium
-            SET @CalculatedRefund = @PolicyPremium
+            -- Flat cancellation = full refund of current premium (negative value)
+            SET @CalculatedRefund = -ABS(@PolicyPremium)
         END
         ELSE  -- 'earned' or pro-rata
         BEGIN
@@ -166,7 +177,7 @@ BEGIN
                 -- Refund = Premium * (Days Remaining / Total Days)
                 DECLARE @DaysRemaining INT = @DaysInPolicy - @DaysElapsed
                 IF @DaysRemaining > 0
-                    SET @CalculatedRefund = @PolicyPremium * (@DaysRemaining * 1.0 / @DaysInPolicy)
+                    SET @CalculatedRefund = -ABS(@PolicyPremium * (@DaysRemaining * 1.0 / @DaysInPolicy))  -- Make negative
                 ELSE
                     SET @CalculatedRefund = 0
             END

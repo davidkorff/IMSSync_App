@@ -16,10 +16,12 @@ BEGIN
     
     -- Return just the QuoteGuid for the given option_id
     -- Look in tblTritonQuoteData for the opportunity_id
+    -- IMPORTANT: Exclude cancellation and reinstatement quotes
     SELECT TOP 1
         tqd.QuoteGuid
     FROM tblTritonQuoteData tqd
     WHERE tqd.opportunity_id = @OptionID
+    AND ISNULL(tqd.transaction_type, '') NOT IN ('cancellation', 'reinstatement')
     ORDER BY tqd.created_date DESC;  -- Get the most recent if multiple exist
 END
 GO

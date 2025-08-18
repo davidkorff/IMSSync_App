@@ -34,7 +34,7 @@
   "opportunity_type": "New",
   "other_fee": "",
   "policy_cancellation_date": "2025-08-18",
-  "policy_cancellation_premium": 1125,
+  "policy_cancellation_premium": -1125,
   "policy_fee": 250,
   "policy_number": "SPG0000091-251",
   "producer_name": "Mike Woodworth",
