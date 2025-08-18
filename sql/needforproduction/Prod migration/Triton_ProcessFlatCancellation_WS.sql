@@ -1,46 +1,28 @@
 -- =============================================
 -- Triton Wrapper for ProcessFlatCancellation
--- Follows same pattern as Triton_ProcessFlatEndorsement_WS
--- Retrieves QuoteOptionGuid and stores in tblTritonQuoteData
+-- Retrieves prior transaction's QuoteGuid and calls base procedure
+-- Returns QuoteGuid and QuoteOptionGuid for the cancellation
 -- =============================================
 
 CREATE OR ALTER PROCEDURE [dbo].[Triton_ProcessFlatCancellation_WS]
     @OpportunityID INT,
-    @CancellationType VARCHAR(20) = 'flat',  -- 'flat' or 'earned'
     @CancellationDate VARCHAR(50),
-    @ReasonCode INT = 30,  -- Default to "Insured Request"
-    @Comment VARCHAR(500) = 'Policy Cancellation',
-    @RefundAmount MONEY = NULL,
+    @ReturnPremium MONEY,
+    @CancellationReason VARCHAR(500) = 'Policy Cancellation',
     @UserGuid UNIQUEIDENTIFIER = NULL,
-    @CancellationID INT = NULL  -- Similar to MidtermEndtID for tracking
+    @CancellationID INT = NULL  -- Optional ID to track duplicate cancellations
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    -- Debug: Log input parameters
-    PRINT '==============================================='
-    PRINT 'Triton_ProcessFlatCancellation_WS Called with:'
-    PRINT '  @OpportunityID: ' + CAST(@OpportunityID AS VARCHAR(20))
-    PRINT '  @CancellationType: ' + @CancellationType
-    PRINT '  @CancellationDate: ' + @CancellationDate
-    PRINT '  @RefundAmount: ' + ISNULL(CAST(@RefundAmount AS VARCHAR(20)), 'NULL')
-    PRINT '  @ReasonCode: ' + CAST(@ReasonCode AS VARCHAR(10))
-    PRINT '  @Comment: ' + @Comment
-    PRINT '==============================================='
     
     DECLARE @Result INT = 0
     DECLARE @Message VARCHAR(MAX) = ''
     DECLARE @LatestQuoteGuid UNIQUEIDENTIFIER
     DECLARE @ControlNo INT
-    DECLARE @PolicyPremium MONEY = 0
-    DECLARE @CalculatedRefund MONEY
+    DECLARE @PolicyNumber VARCHAR(50)
     DECLARE @CancellationDateTime DATETIME
     DECLARE @NewQuoteGuid UNIQUEIDENTIFIER
     DECLARE @NewQuoteOptionGuid UNIQUEIDENTIFIER
-    DECLARE @PolicyEffectiveDate DATETIME
-    DECLARE @PolicyExpirationDate DATETIME
-    DECLARE @DaysInPolicy INT
-    DECLARE @DaysElapsed INT
     
     BEGIN TRY
         -- Convert date string to datetime
@@ -64,15 +46,14 @@ BEGIN
         END
         
         -- Step 1: Find the latest quote in the chain for this opportunity_id
-        -- Use the EXACT same logic as endorsements - find the end of the quote chain
+        -- Find the quote that is NOT an OriginalQuoteGuid for any other quote (end of chain)
         DECLARE @QuoteStatusID INT
         
         SELECT TOP 1 
             @LatestQuoteGuid = q.QuoteGUID,
             @ControlNo = q.ControlNo,
             @QuoteStatusID = q.QuoteStatusID,
-            @PolicyEffectiveDate = q.EffectiveDate,
-            @PolicyExpirationDate = q.ExpirationDate
+            @PolicyNumber = q.PolicyNumber
         FROM tblQuotes q
         WHERE q.ControlNo IN (
             -- Find the control number for this opportunity
@@ -89,17 +70,12 @@ BEGIN
         )
         ORDER BY q.QuoteID DESC  -- If somehow multiple, get the most recent
         
-        PRINT 'Quote Selection Debug:'
-        PRINT '  Found Quote GUID: ' + ISNULL(CAST(@LatestQuoteGuid AS VARCHAR(50)), 'NULL')
-        PRINT '  Quote Status ID: ' + ISNULL(CAST(@QuoteStatusID AS VARCHAR(10)), 'NULL')
-        PRINT '  Control No: ' + ISNULL(CAST(@ControlNo AS VARCHAR(10)), 'NULL')
-        
         -- Check if the latest quote is bound
-        IF @QuoteStatusID <> 3  -- Not bound
+        IF @QuoteStatusID NOT IN (3, 4)  -- Not bound or issued
         BEGIN
             SELECT 
                 0 AS Result,
-                'Cannot cancel - latest quote in chain is not bound' AS Message,
+                'Cannot create cancellation - latest quote in chain is not bound' AS Message,
                 @LatestQuoteGuid AS LatestQuoteGuid,
                 @QuoteStatusID AS QuoteStatusID
             RETURN
@@ -113,116 +89,31 @@ BEGIN
             RETURN
         END
         
-        -- Step 2: Get the premium from the LATEST quote (the one being cancelled)
-        DECLARE @LatestQuoteID INT
-        
-        -- Get the QuoteID of the latest quote
-        SELECT @LatestQuoteID = QuoteID
-        FROM tblQuotes
-        WHERE QuoteGUID = @LatestQuoteGuid
-        
-        -- Get the current premium from the latest quote's invoice
-        SELECT @PolicyPremium = ISNULL(AnnualPremium, 0)
-        FROM tblFin_Invoices
-        WHERE QuoteID = @LatestQuoteID
-        
-        PRINT 'Premium Lookup Debug:'
-        PRINT '  Latest Quote ID: ' + CAST(@LatestQuoteID AS VARCHAR(20))
-        PRINT '  Policy Premium from Invoice: $' + CAST(@PolicyPremium AS VARCHAR(20))
-        
-        -- If no invoice found, try to get premium from quote option premiums
-        IF @PolicyPremium = 0
-        BEGIN
-            SELECT @PolicyPremium = ISNULL(SUM(qop.Premium), 0)
-            FROM tblQuoteOptionPremiums qop
-            INNER JOIN tblQuoteOptions qo ON qop.QuoteOptionGuid = qo.QuoteOptionGuid
-            WHERE qo.QuoteGuid = @LatestQuoteGuid
-            AND qo.Bound = 1
-            
-            PRINT '  No invoice found, premium from QuoteOptionPremiums: $' + CAST(@PolicyPremium AS VARCHAR(20))
-        END
-        
-        -- Step 3: Calculate refund based on cancellation type
-        PRINT 'Refund Calculation:'
-        PRINT '  @RefundAmount parameter: ' + ISNULL(CAST(@RefundAmount AS VARCHAR(20)), 'NULL')
-        PRINT '  @CancellationType: ' + @CancellationType
-        PRINT '  @PolicyPremium: $' + CAST(@PolicyPremium AS VARCHAR(20))
-        
-        IF @RefundAmount IS NOT NULL
-        BEGIN
-            -- Use provided refund amount (from policy_cancellation_premium)
-            -- ProcessFlatCancellation expects a NEGATIVE value for refunds
-            -- Ensure it's negative (refund should be negative)
-            IF @RefundAmount > 0
-                SET @CalculatedRefund = -@RefundAmount  -- Make it negative if positive
-            ELSE
-                SET @CalculatedRefund = @RefundAmount   -- Already negative, use as-is
-            
-            PRINT '  Using provided RefundAmount: ' + CAST(@CalculatedRefund AS VARCHAR(20))
-        END
-        ELSE IF @CancellationType = 'flat'
-        BEGIN
-            -- Flat cancellation = full refund of current premium (negative value)
-            SET @CalculatedRefund = -ABS(@PolicyPremium)
-        END
-        ELSE  -- 'earned' or pro-rata
-        BEGIN
-            -- Calculate based on time elapsed
-            SET @DaysInPolicy = DATEDIFF(day, @PolicyEffectiveDate, @PolicyExpirationDate)
-            SET @DaysElapsed = DATEDIFF(day, @PolicyEffectiveDate, @CancellationDateTime)
-            
-            -- Calculate unearned premium (refund)
-            IF @DaysInPolicy > 0 AND @DaysElapsed >= 0
-            BEGIN
-                -- Refund = Premium * (Days Remaining / Total Days)
-                DECLARE @DaysRemaining INT = @DaysInPolicy - @DaysElapsed
-                IF @DaysRemaining > 0
-                    SET @CalculatedRefund = -ABS(@PolicyPremium * (@DaysRemaining * 1.0 / @DaysInPolicy))  -- Make negative
-                ELSE
-                    SET @CalculatedRefund = 0
-            END
-            ELSE
-            BEGIN
-                SET @CalculatedRefund = 0
-            END
-        END
-        
         PRINT 'Cancellation calculation:'
         PRINT '  Opportunity ID: ' + CAST(@OpportunityID AS VARCHAR(20))
         PRINT '  Latest Quote GUID: ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
-        PRINT '  Latest Quote ID: ' + CAST(@LatestQuoteID AS VARCHAR(20))
         PRINT '  Control No: ' + CAST(@ControlNo AS VARCHAR(20))
-        PRINT '  Current Policy Premium: $' + CAST(@PolicyPremium AS VARCHAR(20))
-        PRINT '  Cancellation Type: ' + @CancellationType
-        PRINT '  RefundAmount Parameter: $' + CAST(ISNULL(@RefundAmount, 0) AS VARCHAR(20))
-        PRINT '  Calculated Refund: $' + CAST(ABS(@CalculatedRefund) AS VARCHAR(20))
+        PRINT '  Policy Number: ' + ISNULL(@PolicyNumber, 'N/A')
         PRINT '  Cancellation Date: ' + @CancellationDate
+        PRINT '  Return Premium: $' + CAST(@ReturnPremium AS VARCHAR(20))
         
-        -- Log the exact call to ProcessFlatCancellation
-        PRINT ''
-        PRINT 'Calling ProcessFlatCancellation with:'
-        PRINT 'exec [dbo].[ProcessFlatCancellation]'
-        PRINT '    @OriginalQuoteGuid = ''' + CAST(@LatestQuoteGuid AS VARCHAR(50)) + ''','
-        PRINT '    @CancellationDate = ''' + CONVERT(VARCHAR(10), @CancellationDateTime, 120) + ''','
-        PRINT '    @ReturnPremium = ' + CAST(@CalculatedRefund AS VARCHAR(20))
-        PRINT ''
-        
-        -- Step 4: Call the base ProcessFlatCancellation procedure
+        -- Step 2: Call the base ProcessFlatCancellation procedure
         EXEC [dbo].[ProcessFlatCancellation]
             @OriginalQuoteGuid = @LatestQuoteGuid,
             @CancellationDate = @CancellationDateTime,
-            @ReturnPremium = @CalculatedRefund,
-            @CancellationReason = @Comment,
+            @ReturnPremium = @ReturnPremium,
+            @CancellationReason = @CancellationReason,
             @UserGuid = @UserGuid,
             @NewQuoteGuid = @NewQuoteGuid OUTPUT
         
-        -- Step 5: Retrieve the QuoteOptionGuid for the new cancellation quote
+        -- Step 3: Retrieve the QuoteOptionGuid for the new cancellation quote
+        -- The ProcessFlatCancellation procedure creates a new QuoteOption record
         SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
         FROM tblQuoteOptions
         WHERE QuoteGuid = @NewQuoteGuid
-        ORDER BY DateCreated DESC
+        ORDER BY DateCreated DESC  -- Get the most recently created one
         
-        -- Store the cancellation_id if provided to track this cancellation
+        -- Step 4: Store the cancellation_id if provided to track this cancellation
         IF @CancellationID IS NOT NULL AND @NewQuoteGuid IS NOT NULL
         BEGIN
             -- Check if record exists for this quote
@@ -233,7 +124,7 @@ BEGIN
                 SET cancellation_id = @CancellationID,
                     QuoteOptionGuid = @NewQuoteOptionGuid,
                     transaction_type = 'cancellation',
-                    gross_premium = -ABS(@CalculatedRefund),  -- Store as negative for refund
+                    status = 'cancelled',
                     last_updated = GETDATE()
                 WHERE QuoteGuid = @NewQuoteGuid
             END
@@ -246,7 +137,6 @@ BEGIN
                     opportunity_id,
                     cancellation_id,
                     transaction_type,
-                    gross_premium,
                     status,
                     created_date,
                     last_updated
@@ -257,7 +147,6 @@ BEGIN
                     @OpportunityID,
                     @CancellationID,
                     'cancellation',
-                    -ABS(@CalculatedRefund),  -- Store as negative for refund
                     'cancelled',
                     GETDATE(),
                     GETDATE()
@@ -273,9 +162,8 @@ BEGIN
             @NewQuoteOptionGuid AS NewQuoteOptionGuid,
             @LatestQuoteGuid AS OriginalQuoteGuid,
             @ControlNo AS ControlNo,
-            @PolicyPremium AS PolicyPremium,
-            ABS(@CalculatedRefund) AS RefundAmount,
-            @CancellationType AS CancellationType,
+            @PolicyNumber AS PolicyNumber,
+            @ReturnPremium AS ReturnPremium,
             @CancellationDateTime AS CancellationDate
             
     END TRY
@@ -288,3 +176,19 @@ BEGIN
     END CATCH
 END
 GO
+
+-- =============================================
+-- SAMPLE EXECUTION SCRIPT
+-- =============================================
+/*
+-- Test the procedure
+EXEC [dbo].[Triton_ProcessFlatCancellation_WS]
+    @OpportunityID = 106208,
+    @CancellationDate = '08/18/2025',
+    @ReturnPremium = 1125,
+    @CancellationReason = 'Policy Cancellation',
+    @CancellationID = 12345
+
+-- Expected result:
+-- Should return Result = 1 with NewQuoteGuid and NewQuoteOptionGuid
+*/

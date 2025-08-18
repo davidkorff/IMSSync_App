@@ -33,7 +33,8 @@ class IMSCancellationService(BaseIMSService):
         effective_date: str = None,
         reason_code: int = None,
         comment: str = "Policy Cancellation",
-        refund_amount: float = None
+        refund_amount: float = None,
+        cancellation_id: str = None
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Cancel a policy using opportunity ID via stored procedure.
@@ -45,6 +46,7 @@ class IMSCancellationService(BaseIMSService):
             reason_code: The cancellation reason code (required)
             comment: Description of the cancellation
             refund_amount: Amount to refund (for flat cancellations)
+            cancellation_id: Unique identifier for this cancellation (to prevent duplicates)
             
         Returns:
             Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
@@ -70,16 +72,22 @@ class IMSCancellationService(BaseIMSService):
             # Prepare parameters for stored procedure (as alternating name/value pairs)
             params = [
                 "OpportunityID", str(opportunity_id),
-                "UserGuid", str(user_guid),
-                "CancellationType", cancellation_type,
                 "CancellationDate", effective_date,
-                "ReasonCode", str(reason_code),
-                "Comment", comment
+                "ReturnPremium", str(refund_amount if refund_amount is not None else 0),
+                "CancellationReason", comment,
+                "UserGuid", str(user_guid)
             ]
             
-            # Add refund amount if provided
-            if refund_amount is not None:
-                params.extend(["RefundAmount", str(refund_amount)])
+            # Add cancellation ID if available to track duplicates
+            if cancellation_id:
+                # Convert to a hash for SQL INT compatibility if it's a GUID
+                if '-' in str(cancellation_id):
+                    # It's a GUID, use hash
+                    import hashlib
+                    hash_val = int(hashlib.md5(str(cancellation_id).encode()).hexdigest()[:8], 16)
+                    params.extend(["CancellationID", str(hash_val)])
+                else:
+                    params.extend(["CancellationID", str(cancellation_id)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
             # Using ProcessFlatCancellation wrapper for consistency with endorsements
@@ -158,24 +166,20 @@ class IMSCancellationService(BaseIMSService):
             
             logger.info(f"Cancelling policy for quote: {quote_guid}")
             
+            # When we have a quote_guid directly, call the base ProcessFlatCancellation
             # Prepare parameters for stored procedure (as alternating name/value pairs)
             params = [
-                "QuoteGuid", str(quote_guid),
-                "UserGuid", str(user_guid),
-                "CancellationType", cancellation_type,
+                "OriginalQuoteGuid", str(quote_guid),
                 "CancellationDate", effective_date,
-                "ReasonCode", str(reason_code),
-                "Comment", comment
+                "ReturnPremium", str(refund_amount if refund_amount is not None else 0),
+                "CancellationReason", comment,
+                "UserGuid", str(user_guid)
             ]
             
-            # Add refund amount if provided
-            if refund_amount is not None:
-                params.extend(["RefundAmount", str(refund_amount)])
-            
-            # Call the stored procedure (IMS adds _WS suffix automatically)
-            # Using ProcessFlatCancellation wrapper for consistency with endorsements
+            # Call the base stored procedure directly since we have the QuoteGuid
+            # (IMS adds _WS suffix automatically)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatCancellation",
+                procedure_name="ProcessFlatCancellation",
                 parameters=params
             )
             

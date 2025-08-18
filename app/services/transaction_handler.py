@@ -470,6 +470,9 @@ class TransactionHandler:
                     
                     logger.info(f"Cancellation details - Type: {cancellation_type}, Effective: {effective_date}, Reason: {reason_code}")
                     
+                    # Get transaction_id for duplicate tracking
+                    transaction_id = payload.get("transaction_id")
+                    
                     # Create the cancellation
                     if option_id:
                         # Use opportunity_id if available
@@ -479,7 +482,8 @@ class TransactionHandler:
                             effective_date=effective_date,
                             reason_code=reason_code,
                             comment=cancellation_comment,
-                            refund_amount=refund_amount
+                            refund_amount=refund_amount,
+                            cancellation_id=transaction_id
                         )
                     else:
                         # Fall back to using quote_guid
