@@ -72,6 +72,16 @@ def update_json_file(input_file, output_file, number_suffix):
     if "midterm_endt_id" in data and data["midterm_endt_id"]:
         data["midterm_endt_id"] = data["midterm_endt_id"] + (number_suffix * 100)
     
+    # Ensure midterm_endt_premium is properly formatted if present
+    if "midterm_endt_premium" in data and data["midterm_endt_premium"]:
+        # Convert to float then back to string to ensure consistent format
+        try:
+            premium_value = float(data["midterm_endt_premium"])
+            data["midterm_endt_premium"] = premium_value  # Store as number, not string
+        except (ValueError, TypeError):
+            # If conversion fails, leave as is
+            pass
+    
     # Write the updated file
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)

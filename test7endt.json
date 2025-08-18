@@ -28,7 +28,7 @@
   "midterm_endt_effective_from": "2025-08-05",
   "midterm_endt_number": "1",
   "midterm_endt_id": 2046,
-  "midterm_endt_premium": "100.0",
+  "midterm_endt_premium": 100.0,
   "net_premium": 1050,
   "opportunity_id": 113205,
   "opportunity_type": "Renewal",
@@ -49,9 +49,9 @@
   "umr": "",
   "terms": 45,
   "zip": "91765",
-  "prior_transaction_id": "bd8c3875-8332-49e7-a3c5-43a72cc4f9ee",
-  "transaction_id": "1a7553df-0b32-40cf-9fc9-d2aed26656b4",
+  "prior_transaction_id": "0dd109ee-430f-4c3e-b223-55f3390a1e54",
+  "transaction_id": "7617c5a3-6bd6-46bf-9dd7-de8a047e4ffe",
   "transaction_type": "midterm_endorsement",
-  "transaction_date": "2025-08-18T10:39:01.239248+00:00",
+  "transaction_date": "2025-08-18T11:00:05.512294+00:00",
   "source_system": "triton"
 }

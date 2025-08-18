@@ -49,9 +49,9 @@
   "umr": "",
   "terms": 45,
   "zip": "91765",
-  "prior_transaction_id": "27329df0-046a-4a7a-a980-6ffcaa93411e",
-  "transaction_id": "e438e893-3501-4b7a-b005-4c8344066c64",
+  "prior_transaction_id": "73ddc9b9-e4c0-4d9b-b175-59214132dd11",
+  "transaction_id": "23b5b0e2-7876-430e-a5f7-06882098a5c0",
   "transaction_type": "reinstatement",
-  "transaction_date": "2025-08-18T10:39:01.243052+00:00",
+  "transaction_date": "2025-08-18T11:00:05.514494+00:00",
   "source_system": "triton"
 }

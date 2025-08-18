@@ -226,7 +226,16 @@ class TransactionHandler:
                         existing_premium = 0.0
                     
                     # Step 3: Calculate new total premium
-                    new_endorsement_premium = payload.get("midterm_endt_premium", payload.get("gross_premium", 0))
+                    # Handle string or float values for premium
+                    midterm_premium = payload.get("midterm_endt_premium", payload.get("gross_premium", 0))
+                    if isinstance(midterm_premium, str):
+                        try:
+                            new_endorsement_premium = float(midterm_premium) if midterm_premium else 0.0
+                        except (ValueError, TypeError):
+                            new_endorsement_premium = 0.0
+                    else:
+                        new_endorsement_premium = float(midterm_premium) if midterm_premium else 0.0
+                    
                     total_premium = existing_premium + new_endorsement_premium
                     
                     logger.info(f"Premium calculation - Existing: ${existing_premium:,.2f}, "
