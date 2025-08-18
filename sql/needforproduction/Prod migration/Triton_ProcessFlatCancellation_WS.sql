@@ -28,29 +28,50 @@ BEGIN
         SET @CancellationDateTime = CONVERT(DATETIME, @CancellationDate, 101)
         
         -- Step 1: Find the latest quote in the chain for this opportunity_id
-        -- Find the quote that is NOT an OriginalQuoteGuid for any other quote (end of chain)
+        -- First find ANY quote to get the ControlNo
         DECLARE @QuoteStatusID INT
+        DECLARE @TransactionTypeID CHAR(1)
         
+        -- Get the ControlNo from any quote associated with this opportunity
+        SELECT TOP 1 @ControlNo = q.ControlNo
+        FROM tblTritonQuoteData tq
+        INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
+        WHERE tq.opportunity_id = @OpportunityID
+        
+        IF @ControlNo IS NULL
+        BEGIN
+            SELECT 
+                0 AS Result,
+                'No quotes found for opportunity_id ' + CAST(@OpportunityID AS VARCHAR(20)) AS Message
+            RETURN
+        END
+        
+        -- Now find the ACTUAL latest quote in the chain (including cancelled ones)
         SELECT TOP 1 
             @LatestQuoteGuid = q.QuoteGUID,
-            @ControlNo = q.ControlNo,
             @QuoteStatusID = q.QuoteStatusID,
-            @PolicyNumber = q.PolicyNumber
+            @PolicyNumber = q.PolicyNumber,
+            @TransactionTypeID = q.TransactionTypeID
         FROM tblQuotes q
-        WHERE q.ControlNo IN (
-            -- Find the control number for this opportunity
-            SELECT DISTINCT q2.ControlNo
-            FROM tblTritonQuoteData tq
-            INNER JOIN tblQuotes q2 ON q2.QuoteGUID = tq.QuoteGuid
-            WHERE tq.opportunity_id = @OpportunityID
-        )
+        WHERE q.ControlNo = @ControlNo
         AND NOT EXISTS (
             -- Make sure this quote is not the original for another quote (find the end of the chain)
             SELECT 1 
             FROM tblQuotes q3 
             WHERE q3.OriginalQuoteGUID = q.QuoteGUID
         )
-        ORDER BY q.QuoteID DESC  -- If somehow multiple, get the most recent
+        ORDER BY q.QuoteID DESC
+        
+        -- Check if already cancelled
+        IF @TransactionTypeID = 'C' OR @QuoteStatusID = 7
+        BEGIN
+            SELECT 
+                0 AS Result,
+                'Policy is already cancelled' AS Message,
+                @LatestQuoteGuid AS LatestQuoteGuid,
+                @PolicyNumber AS PolicyNumber
+            RETURN
+        END
         
         -- Check if the latest quote is bound
         IF @QuoteStatusID NOT IN (3, 4)  -- Not bound or issued
