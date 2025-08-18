@@ -214,7 +214,7 @@ class IMSEndorsementService(BaseIMSService):
             
             # Call the wrapper procedure (which calculates total and calls base procedure)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatEndorsement_WS",
+                procedure_name="Triton_ProcessFlatEndorsement",
                 parameters=params
             )
             
@@ -249,7 +249,7 @@ class IMSEndorsementService(BaseIMSService):
                 else:
                     # Base procedure was called but didn't return NewQuoteGuid
                     logger.error("Endorsement created but NewQuoteGuid not returned - likely base procedure was called directly")
-                    return False, result_data, "Stored procedure Triton_ProcessFlatEndorsement_WS not found - please deploy it to the database"
+                    return False, result_data, "Stored procedure Triton_ProcessFlatEndorsement not found - please deploy it to the database"
             else:
                 # Check for ErrorMessage field (from base procedure errors)
                 if result_data and result_data.get("ErrorMessage"):
@@ -315,7 +315,7 @@ class IMSEndorsementService(BaseIMSService):
             
             # Call the wrapper procedure (which will call the base procedure)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatEndorsement_WS",
+                procedure_name="Triton_ProcessFlatEndorsement",
                 parameters=params
             )
             
