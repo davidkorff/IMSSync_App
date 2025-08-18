@@ -510,10 +510,22 @@ class TransactionHandler:
                     results["cancellation_quote_guid"] = cancellation_quote_guid
                     results["cancellation_quote_option_guid"] = cancellation_quote_option_guid
                     results["cancellation_type"] = cancellation_type
-                    results["cancellation_status"] = "completed"
                     results["cancellation_effective_date"] = effective_date
                     results["refund_amount"] = cancellation_result.get("RefundAmount") or cancellation_result.get("ReturnPremium")
                     results["original_premium"] = cancellation_result.get("PolicyPremium") or cancellation_result.get("OriginalPremium")
+                    
+                    # Bind the cancellation quote
+                    if cancellation_quote_guid:
+                        logger.info(f"Binding cancellation quote {cancellation_quote_guid}")
+                        success, bind_result, message = self.bind_service.bind_quote(cancellation_quote_guid)
+                        
+                        if success:
+                            results["cancellation_policy_number"] = bind_result.get("policy_number")
+                            results["cancellation_status"] = "completed"
+                            logger.info(f"Successfully bound cancellation: {bind_result.get('policy_number')}")
+                        else:
+                            logger.error(f"Failed to bind cancellation: {message}")
+                            return False, results, f"Cancellation bind failed: {message}"
                     
                     # Process the payload to register in Triton tables if we have the quote guid
                     if cancellation_quote_guid:

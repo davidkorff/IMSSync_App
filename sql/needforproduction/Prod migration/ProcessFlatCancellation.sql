@@ -266,7 +266,7 @@ BEGIN
             @ProducerLocationID,
             @UnderwriterUserGuid,
             @RetailerGuid,
-            7,                           -- QuoteStatusID = 7 (Cancelled)
+            1,                           -- QuoteStatusID = 1 (Quote - not bound yet)
             @QuoteStatusReasonID,        -- Reason for cancellation
             @EffectiveDate,
             @CancellationDate,           -- Expiration becomes cancellation date
@@ -278,10 +278,10 @@ BEGIN
             'F',                         -- Flat calculation
             @CancellationReason,
             GETDATE(),
-            GETDATE(),                  -- Bind immediately
-            @UserID,
-            GETDATE(),
-            @UserID,
+            NULL,                        -- DateBound - NOT bound yet
+            NULL,                        -- BoundByUserID - NOT bound yet
+            NULL,                        -- DateIssued - NOT issued yet
+            NULL,                        -- IssuedByUserID - NOT issued yet
             @TACSRUserGuid,
             @BillingTypeID,
             @MinimumEarnedPercentage,
@@ -351,8 +351,8 @@ BEGIN
             @LineGuid,
             @CompanyLocationID,
             GETDATE(),
-            1,                           -- BOUND (cancellations are bound immediately)
-            0,
+            0,                           -- NOT BOUND (will be bound via BindQuote)
+            1,                           -- Quote = 1
             'Flat Cancellation - ' + @CancellationReason,
             @CompanyInstallmentID
         );
@@ -448,7 +448,7 @@ BEGIN
             @ReturnPremium AS ReturnPremium,
             @CancellationDate AS CancellationDate,
             @MainChargeCode AS ChargeCode,
-            'Cancellation created (Status 7). Invoice will be generated for return premium.' AS Instructions;
+            'Cancellation quote created (Status 1). Must be bound to complete cancellation.' AS Instructions;
             
     END TRY
     BEGIN CATCH
