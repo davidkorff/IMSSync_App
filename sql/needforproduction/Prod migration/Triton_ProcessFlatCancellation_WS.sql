@@ -17,6 +17,17 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
+    -- Debug: Log input parameters
+    PRINT '==============================================='
+    PRINT 'Triton_ProcessFlatCancellation_WS Called with:'
+    PRINT '  @OpportunityID: ' + CAST(@OpportunityID AS VARCHAR(20))
+    PRINT '  @CancellationType: ' + @CancellationType
+    PRINT '  @CancellationDate: ' + @CancellationDate
+    PRINT '  @RefundAmount: ' + ISNULL(CAST(@RefundAmount AS VARCHAR(20)), 'NULL')
+    PRINT '  @ReasonCode: ' + CAST(@ReasonCode AS VARCHAR(10))
+    PRINT '  @Comment: ' + @Comment
+    PRINT '==============================================='
+    
     DECLARE @Result INT = 0
     DECLARE @Message VARCHAR(MAX) = ''
     DECLARE @LatestQuoteGuid UNIQUEIDENTIFIER
@@ -55,27 +66,29 @@ BEGIN
         -- Step 1: Find the latest quote in the chain for this opportunity_id
         DECLARE @QuoteStatusID INT
         
+        -- First, find the most recent bound quote directly from tblTritonQuoteData
         SELECT TOP 1 
-            @LatestQuoteGuid = q.QuoteGUID,
+            @LatestQuoteGuid = tq.QuoteGuid,
             @ControlNo = q.ControlNo,
             @QuoteStatusID = q.QuoteStatusID,
             @PolicyEffectiveDate = q.EffectiveDate,
             @PolicyExpirationDate = q.ExpirationDate
-        FROM tblQuotes q
-        WHERE q.ControlNo IN (
-            -- Find the control number for this opportunity
-            SELECT DISTINCT q2.ControlNo
-            FROM tblTritonQuoteData tq
-            INNER JOIN tblQuotes q2 ON q2.QuoteGUID = tq.QuoteGuid
-            WHERE tq.opportunity_id = @OpportunityID
-        )
+        FROM tblTritonQuoteData tq
+        INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
+        WHERE tq.opportunity_id = @OpportunityID
+        AND tq.status = 'bound'  -- Only look at bound quotes
+        AND tq.transaction_type IN ('new_business', 'renewal', 'rebind', 'midterm_endorsement')  -- Exclude cancellations
         AND NOT EXISTS (
             -- Make sure this quote is not the original for another quote (find the end of the chain)
             SELECT 1 
             FROM tblQuotes q3 
             WHERE q3.OriginalQuoteGUID = q.QuoteGUID
         )
-        ORDER BY q.QuoteID DESC
+        ORDER BY tq.created_date DESC, q.QuoteID DESC
+        
+        PRINT 'Quote Selection Debug:'
+        PRINT '  Found Quote GUID: ' + ISNULL(CAST(@LatestQuoteGuid AS VARCHAR(50)), 'NULL')
+        PRINT '  Quote Status ID: ' + ISNULL(CAST(@QuoteStatusID AS VARCHAR(10)), 'NULL')
         
         -- Check if the latest quote is bound
         IF @QuoteStatusID <> 3  -- Not bound
@@ -108,6 +121,22 @@ BEGIN
         SELECT @PolicyPremium = ISNULL(AnnualPremium, 0)
         FROM tblFin_Invoices
         WHERE QuoteID = @LatestQuoteID
+        
+        PRINT 'Premium Lookup Debug:'
+        PRINT '  Latest Quote ID: ' + CAST(@LatestQuoteID AS VARCHAR(20))
+        PRINT '  Policy Premium from Invoice: $' + CAST(@PolicyPremium AS VARCHAR(20))
+        
+        -- If no invoice found, try to get premium from quote option premiums
+        IF @PolicyPremium = 0
+        BEGIN
+            SELECT @PolicyPremium = ISNULL(SUM(qop.Premium), 0)
+            FROM tblQuoteOptionPremiums qop
+            INNER JOIN tblQuoteOptions qo ON qop.QuoteOptionGuid = qo.QuoteOptionGuid
+            WHERE qo.QuoteGuid = @LatestQuoteGuid
+            AND qo.Bound = 1
+            
+            PRINT '  No invoice found, premium from QuoteOptionPremiums: $' + CAST(@PolicyPremium AS VARCHAR(20))
+        END
         
         -- Step 3: Calculate refund based on cancellation type
         IF @RefundAmount IS NOT NULL
@@ -150,8 +179,18 @@ BEGIN
         PRINT '  Control No: ' + CAST(@ControlNo AS VARCHAR(20))
         PRINT '  Current Policy Premium: $' + CAST(@PolicyPremium AS VARCHAR(20))
         PRINT '  Cancellation Type: ' + @CancellationType
-        PRINT '  Refund Amount: $' + CAST(ABS(@CalculatedRefund) AS VARCHAR(20))
+        PRINT '  RefundAmount Parameter: $' + CAST(ISNULL(@RefundAmount, 0) AS VARCHAR(20))
+        PRINT '  Calculated Refund: $' + CAST(ABS(@CalculatedRefund) AS VARCHAR(20))
         PRINT '  Cancellation Date: ' + @CancellationDate
+        
+        -- Log the exact call to ProcessFlatCancellation
+        PRINT ''
+        PRINT 'Calling ProcessFlatCancellation with:'
+        PRINT 'exec [dbo].[ProcessFlatCancellation]'
+        PRINT '    @OriginalQuoteGuid = ''' + CAST(@LatestQuoteGuid AS VARCHAR(50)) + ''','
+        PRINT '    @CancellationDate = ''' + CONVERT(VARCHAR(10), @CancellationDateTime, 120) + ''','
+        PRINT '    @ReturnPremium = ' + CAST(@CalculatedRefund AS VARCHAR(20))
+        PRINT ''
         
         -- Step 4: Call the base ProcessFlatCancellation procedure
         EXEC [dbo].[ProcessFlatCancellation]
