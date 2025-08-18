@@ -6,20 +6,8 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+-- FIXED VERSION: Skips UpdatePremiumHistoricV3 for endorsements and cancellations
+-- This avoids the tblQuoteRatingDetail NULL insertion error
 
 ALTER PROCEDURE [dbo].[spProcessTritonPayload_WS]
     -- Quote identifiers
@@ -329,17 +317,18 @@ BEGIN
             );
         END
        
-        -- 3. Update policy number in tblquotes
-        IF EXISTS (SELECT 1 FROM tblquotes WHERE QuoteGuid = @QuoteGuid)
+        -- 3. Update policy number in tblquotes (only for bind transactions)
+        IF @transaction_type = 'bind' AND EXISTS (SELECT 1 FROM tblquotes WHERE QuoteGuid = @QuoteGuid)
         BEGIN
             UPDATE tblquotes
             SET PolicyNumber = @policy_number
             WHERE QuoteGuid = @QuoteGuid;
+            PRINT 'Updated policy number in tblquotes';
         END
        
-        -- 4. Update commission rates in tblQuoteDetails
+        -- 4. Update commission rates in tblQuoteDetails (only for bind transactions)
         -- Convert whole number percentages to decimals (20 -> 0.20) if needed
-        IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
+        IF @transaction_type = 'bind' AND EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
         BEGIN
             UPDATE tblQuoteDetails
             SET ProducerCommission = CASE
@@ -355,71 +344,80 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid
+        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid (only for bind)
         -- This must happen before binding
         -- Market segment codes: RT (Retail) or WL (Wholesale)
-        DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
-       
-        -- Get the CompanyLineGuid from tblQuotes
-        SELECT @CompanyLineGuid = CompanyLineGuid
-        FROM tblQuotes
-        WHERE QuoteGuid = @QuoteGuid;
-       
-        -- Set ProgramID based on market segment and line combinations
-        IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
+        IF @transaction_type = 'bind'
         BEGIN
-            -- RT + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11615
-            IF @market_segment_code = 'RT' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+            DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
+           
+            -- Get the CompanyLineGuid from tblQuotes
+            SELECT @CompanyLineGuid = CompanyLineGuid
+            FROM tblQuotes
+            WHERE QuoteGuid = @QuoteGuid;
+           
+            -- Set ProgramID based on market segment and line combinations
+            IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
             BEGIN
-                UPDATE tblQuoteDetails
-                SET ProgramID = 11615
-                WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11615 (RT market segment, LineGuid 07564291)';
-            END
-            -- WL + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11613
-            ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
-            BEGIN
-                UPDATE tblQuoteDetails
-                SET ProgramID = 11613
-                WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11613 (WL market segment, LineGuid 07564291)';
-            END
-            -- RT + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11612
-            ELSE IF @market_segment_code = 'RT' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
-            BEGIN
-                UPDATE tblQuoteDetails
-                SET ProgramID = 11612
-                WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11612 (RT market segment, LineGuid 08798559)';
-            END
-            -- WL + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11614
-            ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
-            BEGIN
-                UPDATE tblQuoteDetails
-                SET ProgramID = 11614
-                WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11614 (WL market segment, LineGuid 08798559)';
-            END
-            ELSE
-            BEGIN
-                PRINT 'Warning: No matching ProgramID rule for market_segment_code ''' + ISNULL(@market_segment_code, 'NULL') + ''' and LineGuid ''' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50)) + '''';
+                -- RT + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11615
+                IF @market_segment_code = 'RT' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+                BEGIN
+                    UPDATE tblQuoteDetails
+                    SET ProgramID = 11615
+                    WHERE QuoteGuid = @QuoteGuid;
+                    PRINT 'Set ProgramID to 11615 (RT market segment, LineGuid 07564291)';
+                END
+                -- WL + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11613
+                ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+                BEGIN
+                    UPDATE tblQuoteDetails
+                    SET ProgramID = 11613
+                    WHERE QuoteGuid = @QuoteGuid;
+                    PRINT 'Set ProgramID to 11613 (WL market segment, LineGuid 07564291)';
+                END
+                -- RT + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11612
+                ELSE IF @market_segment_code = 'RT' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
+                BEGIN
+                    UPDATE tblQuoteDetails
+                    SET ProgramID = 11612
+                    WHERE QuoteGuid = @QuoteGuid;
+                    PRINT 'Set ProgramID to 11612 (RT market segment, LineGuid 08798559)';
+                END
+                -- WL + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11614
+                ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
+                BEGIN
+                    UPDATE tblQuoteDetails
+                    SET ProgramID = 11614
+                    WHERE QuoteGuid = @QuoteGuid;
+                    PRINT 'Set ProgramID to 11614 (WL market segment, LineGuid 08798559)';
+                END
+                ELSE
+                BEGIN
+                    PRINT 'Warning: No matching ProgramID rule for market_segment_code ''' + ISNULL(@market_segment_code, 'NULL') + ''' and LineGuid ''' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50)) + '''';
+                END
             END
         END
        
-        -- 6. Register the premium using UpdatePremiumHistoricV3
-        -- Check if the stored procedure exists before calling
-        IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'UpdatePremiumHistoricV3')
+        -- 6. SKIP UpdatePremiumHistoricV3 for endorsements and cancellations
+        -- This procedure tries to insert into tblQuoteRatingDetail which fails for these transaction types
+        -- Only run for bind transactions where rating data exists
+        IF @transaction_type = 'bind' AND EXISTS (SELECT * FROM sys.procedures WHERE name = 'UpdatePremiumHistoricV3')
         BEGIN
+            PRINT 'Processing premium for bind transaction';
             EXEC dbo.UpdatePremiumHistoricV3
                 @quoteOptionGuid        = @QuoteOptionGuid,
                 @RawPremiumHistoryTable = 'tblTritonQuoteData',
                 @PremiumField           = 'gross_premium';
         END
+        ELSE IF @transaction_type IN ('midterm_endorsement', 'cancellation', 'reinstatement')
+        BEGIN
+            PRINT 'Skipping UpdatePremiumHistoricV3 for ' + @transaction_type + ' (rating already handled by transaction-specific procedures)';
+        END
        
-        -- 7. Auto apply fees ONLY if stamping_fee OR surplus_lines_tax have values
+        -- 7. Auto apply fees ONLY if stamping_fee OR surplus_lines_tax have values (bind only)
         -- If Triton provides ANY fee values, we use auto-apply to calculate the rest
         -- If all fees are blank/null, skip auto-apply (Triton has no fees for this policy)
-        IF (@stamping_fee IS NOT NULL AND @stamping_fee != '') OR (@surplus_lines_tax IS NOT NULL AND @surplus_lines_tax != '')
+        IF @transaction_type = 'bind' AND ((@stamping_fee IS NOT NULL AND @stamping_fee != '') OR (@surplus_lines_tax IS NOT NULL AND @surplus_lines_tax != ''))
         BEGIN
             -- Check if the stored procedure exists before calling
             IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
@@ -430,14 +428,14 @@ BEGIN
                 PRINT 'Auto-applied fees because stamping_fee or surplus_lines_tax were provided';
             END
         END
-        ELSE
+        ELSE IF @transaction_type = 'bind'
         BEGIN
             PRINT 'Skipped auto-apply fees because stamping_fee and surplus_lines_tax were both blank/null';
         END
        
-        -- 8. Apply Policy Fee from Triton if present
+        -- 8. Apply Policy Fee from Triton if present (bind only)
         -- This applies the policy_fee to all quote options using charge code 12374
-        IF @policy_fee IS NOT NULL AND @policy_fee > 0
+        IF @transaction_type = 'bind' AND @policy_fee IS NOT NULL AND @policy_fee > 0
         BEGIN
             -- Check if the stored procedure exists before calling
             IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
@@ -448,7 +446,7 @@ BEGIN
                 PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20));
             END
         END
-       
+        
         -- 9. Other Fee from Triton is stored but NOT applied
         -- The other_fee value is captured in tblTritonQuoteData for reference only
         IF @other_fee IS NOT NULL AND @other_fee > 0
@@ -465,11 +463,14 @@ BEGIN
             @QuoteGuid AS QuoteGuid,
             @QuoteOptionGuid AS QuoteOptionGuid,
             @transaction_id AS TransactionId,
+            @transaction_type AS TransactionType,
             CASE
+                WHEN @transaction_type IN ('midterm_endorsement', 'cancellation', 'reinstatement')
+                THEN 'Skipped rating updates (handled by transaction-specific procedures)'
                 WHEN (@stamping_fee IS NULL OR @stamping_fee = '') AND (@surplus_lines_tax IS NULL OR @surplus_lines_tax = '')
                 THEN 'Fees auto-applied by IMS'
                 ELSE 'Fees provided by Triton'
-            END AS FeeSource;
+            END AS ProcessingNotes;
            
     END TRY
     BEGIN CATCH
@@ -485,8 +486,3 @@ BEGIN
             ERROR_PROCEDURE() AS ErrorProcedure;
     END CATCH
 END
-
-
-
-
-
