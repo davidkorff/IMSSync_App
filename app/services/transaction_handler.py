@@ -328,15 +328,19 @@ class TransactionHandler:
                     # TODO: Add fee application logic here if needed
                     
                     # Step 8: Process the payload to register in Triton tables
-                    if endorsement_quote_guid and endorsement_quote_option_guid:
-                        logger.info("Processing endorsement payload to register in Triton tables")
+                    if endorsement_quote_guid:
+                        # Use the quote option GUID if we have it, otherwise use a placeholder
+                        option_guid_to_use = endorsement_quote_option_guid if endorsement_quote_option_guid else "00000000-0000-0000-0000-000000000000"
+                        logger.info(f"Processing endorsement payload to register in Triton tables (QuoteOptionGuid: {option_guid_to_use})")
                         success, process_result, message = self.payload_processor.process_payload(
                             payload=payload,
                             quote_guid=endorsement_quote_guid,
-                            quote_option_guid=endorsement_quote_option_guid
+                            quote_option_guid=option_guid_to_use
                         )
                         if not success:
                             logger.warning(f"Failed to process endorsement payload: {message}")
+                        else:
+                            logger.info("Successfully registered endorsement in Triton tables")
                     
                     # Step 9: Bind the endorsement
                     logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
