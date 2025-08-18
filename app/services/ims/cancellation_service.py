@@ -82,8 +82,9 @@ class IMSCancellationService(BaseIMSService):
                 params.extend(["RefundAmount", str(refund_amount)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
+            # Using ProcessFlatCancellation wrapper for consistency with endorsements
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_CancelPolicy",
+                procedure_name="Triton_ProcessFlatCancellation",
                 parameters=params
             )
             
@@ -161,8 +162,9 @@ class IMSCancellationService(BaseIMSService):
                 params.extend(["RefundAmount", str(refund_amount)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
+            # Using ProcessFlatCancellation wrapper for consistency with endorsements
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_CancelPolicy",
+                procedure_name="Triton_ProcessFlatCancellation",
                 parameters=params
             )
             

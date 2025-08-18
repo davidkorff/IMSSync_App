@@ -214,7 +214,7 @@ class IMSEndorsementService(BaseIMSService):
             
             # Call the wrapper procedure (which calculates total and calls base procedure)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatEndorsement",
+                procedure_name="Triton_ProcessFlatEndorsement_WS",
                 parameters=params
             )
             
@@ -315,7 +315,7 @@ class IMSEndorsementService(BaseIMSService):
             
             # Call the wrapper procedure (which will call the base procedure)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatEndorsement",
+                procedure_name="Triton_ProcessFlatEndorsement_WS",
                 parameters=params
             )
             
