@@ -9,8 +9,7 @@ CREATE OR ALTER PROCEDURE [dbo].[Triton_ProcessFlatCancellation_WS]
     @CancellationDate VARCHAR(50),
     @ReturnPremium MONEY,
     @CancellationReason VARCHAR(500) = 'Policy Cancellation',
-    @UserGuid UNIQUEIDENTIFIER = NULL,
-    @CancellationID INT = NULL  -- Optional ID to track duplicate cancellations
+    @UserGuid UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -27,23 +26,6 @@ BEGIN
     BEGIN TRY
         -- Convert date string to datetime
         SET @CancellationDateTime = CONVERT(DATETIME, @CancellationDate, 101)
-        
-        -- Check for duplicate cancellation if CancellationID provided
-        IF @CancellationID IS NOT NULL
-        BEGIN
-            IF EXISTS (
-                SELECT 1 
-                FROM tblTritonQuoteData 
-                WHERE cancellation_id = @CancellationID
-            )
-            BEGIN
-                SELECT 
-                    0 AS Result,
-                    'Cancellation Already Processed' AS Message,
-                    @CancellationID AS CancellationID
-                RETURN
-            END
-        END
         
         -- Step 1: Find the latest quote in the chain for this opportunity_id
         -- Find the quote that is NOT an OriginalQuoteGuid for any other quote (end of chain)
@@ -113,16 +95,15 @@ BEGIN
         WHERE QuoteGuid = @NewQuoteGuid
         ORDER BY DateCreated DESC  -- Get the most recently created one
         
-        -- Step 4: Store the cancellation_id if provided to track this cancellation
-        IF @CancellationID IS NOT NULL AND @NewQuoteGuid IS NOT NULL
+        -- Step 4: Store the cancellation result in tblTritonQuoteData
+        IF @NewQuoteGuid IS NOT NULL
         BEGIN
             -- Check if record exists for this quote
             IF EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @NewQuoteGuid)
             BEGIN
                 -- Update existing record with QuoteOptionGuid
                 UPDATE tblTritonQuoteData 
-                SET cancellation_id = @CancellationID,
-                    QuoteOptionGuid = @NewQuoteOptionGuid,
+                SET QuoteOptionGuid = @NewQuoteOptionGuid,
                     transaction_type = 'cancellation',
                     status = 'cancelled',
                     last_updated = GETDATE()
@@ -135,7 +116,6 @@ BEGIN
                     QuoteGuid,
                     QuoteOptionGuid,
                     opportunity_id,
-                    cancellation_id,
                     transaction_type,
                     status,
                     created_date,
@@ -145,7 +125,6 @@ BEGIN
                     @NewQuoteGuid,
                     @NewQuoteOptionGuid,
                     @OpportunityID,
-                    @CancellationID,
                     'cancellation',
                     'cancelled',
                     GETDATE(),

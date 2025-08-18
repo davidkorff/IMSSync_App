@@ -33,8 +33,7 @@ class IMSCancellationService(BaseIMSService):
         effective_date: str = None,
         reason_code: int = None,
         comment: str = "Policy Cancellation",
-        refund_amount: float = None,
-        cancellation_id: str = None
+        refund_amount: float = None
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Cancel a policy using opportunity ID via stored procedure.
@@ -46,7 +45,6 @@ class IMSCancellationService(BaseIMSService):
             reason_code: The cancellation reason code (required)
             comment: Description of the cancellation
             refund_amount: Amount to refund (for flat cancellations)
-            cancellation_id: Unique identifier for this cancellation (to prevent duplicates)
             
         Returns:
             Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
@@ -77,17 +75,6 @@ class IMSCancellationService(BaseIMSService):
                 "CancellationReason", comment,
                 "UserGuid", str(user_guid)
             ]
-            
-            # Add cancellation ID if available to track duplicates
-            if cancellation_id:
-                # Convert to a hash for SQL INT compatibility if it's a GUID
-                if '-' in str(cancellation_id):
-                    # It's a GUID, use hash
-                    import hashlib
-                    hash_val = int(hashlib.md5(str(cancellation_id).encode()).hexdigest()[:8], 16)
-                    params.extend(["CancellationID", str(hash_val)])
-                else:
-                    params.extend(["CancellationID", str(cancellation_id)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
             # Using ProcessFlatCancellation wrapper for consistency with endorsements
