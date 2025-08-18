@@ -64,31 +64,35 @@ BEGIN
         END
         
         -- Step 1: Find the latest quote in the chain for this opportunity_id
+        -- Use the EXACT same logic as endorsements - find the end of the quote chain
         DECLARE @QuoteStatusID INT
         
-        -- First, find the most recent bound quote directly from tblTritonQuoteData
         SELECT TOP 1 
-            @LatestQuoteGuid = tq.QuoteGuid,
+            @LatestQuoteGuid = q.QuoteGUID,
             @ControlNo = q.ControlNo,
             @QuoteStatusID = q.QuoteStatusID,
             @PolicyEffectiveDate = q.EffectiveDate,
             @PolicyExpirationDate = q.ExpirationDate
-        FROM tblTritonQuoteData tq
-        INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
-        WHERE tq.opportunity_id = @OpportunityID
-        AND tq.status = 'bound'  -- Only look at bound quotes
-        AND tq.transaction_type IN ('new_business', 'renewal', 'rebind', 'midterm_endorsement')  -- Exclude cancellations
+        FROM tblQuotes q
+        WHERE q.ControlNo IN (
+            -- Find the control number for this opportunity
+            SELECT DISTINCT q2.ControlNo
+            FROM tblTritonQuoteData tq
+            INNER JOIN tblQuotes q2 ON q2.QuoteGUID = tq.QuoteGuid
+            WHERE tq.opportunity_id = @OpportunityID
+        )
         AND NOT EXISTS (
             -- Make sure this quote is not the original for another quote (find the end of the chain)
             SELECT 1 
             FROM tblQuotes q3 
             WHERE q3.OriginalQuoteGUID = q.QuoteGUID
         )
-        ORDER BY tq.created_date DESC, q.QuoteID DESC
+        ORDER BY q.QuoteID DESC  -- If somehow multiple, get the most recent
         
         PRINT 'Quote Selection Debug:'
         PRINT '  Found Quote GUID: ' + ISNULL(CAST(@LatestQuoteGuid AS VARCHAR(50)), 'NULL')
         PRINT '  Quote Status ID: ' + ISNULL(CAST(@QuoteStatusID AS VARCHAR(10)), 'NULL')
+        PRINT '  Control No: ' + ISNULL(CAST(@ControlNo AS VARCHAR(10)), 'NULL')
         
         -- Check if the latest quote is bound
         IF @QuoteStatusID <> 3  -- Not bound
