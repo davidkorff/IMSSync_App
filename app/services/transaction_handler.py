@@ -543,6 +543,8 @@ class TransactionHandler:
                             refund_val = abs(float(refund_val))
                         except:
                             refund_val = 0
+                    else:
+                        refund_val = 0
                     
                     logger.info(f"Successfully cancelled policy {results.get('policy_number', policy_number)} "
                               f"with refund of ${refund_val:,.2f}")

@@ -268,10 +268,16 @@ class IMSCancellationService(BaseIMSService):
                 if policy_num_elem is not None and policy_num_elem.text:
                     result_data['PolicyNumber'] = policy_num_elem.text.strip()
                 
-                # Extract RefundAmount if available
+                # Extract RefundAmount if available (check both RefundAmount and ReturnPremium)
                 refund_elem = table.find('RefundAmount')
                 if refund_elem is not None and refund_elem.text:
                     result_data['RefundAmount'] = refund_elem.text.strip()
+                else:
+                    # Also check for ReturnPremium (from Triton_ProcessFlatCancellation_WS)
+                    return_elem = table.find('ReturnPremium')
+                    if return_elem is not None and return_elem.text:
+                        result_data['RefundAmount'] = return_elem.text.strip()
+                        result_data['ReturnPremium'] = return_elem.text.strip()
                 
                 # Extract QuoteOptionGuid if available
                 option_guid_elem = table.find('QuoteOptionGuid')
