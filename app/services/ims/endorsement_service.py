@@ -220,17 +220,28 @@ class IMSEndorsementService(BaseIMSService):
             if not result_data:
                 logger.error(f"Failed to parse result. Raw XML: {result_xml[:500] if result_xml else 'None'}")
             
-            # Check for success - Result could be 1 (int) or "1" (string)
-            if result_data and str(result_data.get("Result")) == "1":
+            # Check for success - Result could be 1 (int), "1" (string), or "Success" (from base procedure)
+            result_str = str(result_data.get("Result", "")).lower() if result_data else ""
+            if result_data and (result_str == "1" or result_str == "success"):
+                # Handle both wrapper format and base procedure format
                 new_quote_guid = result_data.get("NewQuoteGuid")
                 control_no = result_data.get("ControlNo")
                 existing_premium = result_data.get("ExistingPremium")
                 total_premium = result_data.get("TotalPremium")
                 
-                logger.info(f"Successfully created endorsement. NewQuoteGuid: {new_quote_guid}, "
-                          f"ControlNo: {control_no}, Existing: ${existing_premium}, Total: ${total_premium}")
+                # If these fields don't exist (base procedure was called), map from base format
+                if not new_quote_guid and result_data.get("NewQuoteGuid"):
+                    new_quote_guid = result_data.get("NewQuoteGuid")
                 
-                return True, result_data, result_data.get("Message", "Endorsement created successfully")
+                if new_quote_guid:
+                    logger.info(f"Successfully created endorsement. NewQuoteGuid: {new_quote_guid}, "
+                              f"ControlNo: {control_no}, Existing: ${existing_premium}, Total: ${total_premium}")
+                    
+                    return True, result_data, result_data.get("Message", result_data.get("Instructions", "Endorsement created successfully"))
+                else:
+                    # Base procedure was called but didn't return NewQuoteGuid
+                    logger.error("Endorsement created but NewQuoteGuid not returned - likely base procedure was called directly")
+                    return False, result_data, "Stored procedure Triton_ProcessFlatEndorsement_WS not found - please deploy it to the database"
             else:
                 error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
                 if result_data:
@@ -323,6 +334,7 @@ class IMSEndorsementService(BaseIMSService):
     def _parse_triton_endorsement_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
         """
         Parse the result from Triton_ProcessFlatEndorsement wrapper procedure.
+        The wrapper returns TWO result sets - we need the second one.
         
         Args:
             result_xml: The XML result from ExecuteDataSet
@@ -337,44 +349,67 @@ class IMSEndorsementService(BaseIMSService):
             # Parse the XML
             root = ET.fromstring(result_xml)
             
-            # Look for the result table
-            table = root.find('.//Table')
-            if table is None:
-                return None
+            # The wrapper procedure returns multiple result sets
+            # First result set is from the base procedure (Result="Success")
+            # Second result set is from the wrapper (Result=1)
+            # We need to find the correct one
             
-            result_data = {}
+            tables = root.findall('.//Table')
             
-            # Extract all fields from the result
-            for child in table:
-                if child.text is not None:
-                    # Convert numeric fields
-                    if child.tag in ['Result', 'ControlNo']:
-                        try:
-                            result_data[child.tag] = str(int(child.text.strip()))
-                        except:
-                            result_data[child.tag] = child.text.strip()
-                    elif child.tag in ['ExistingPremium', 'EndorsementPremium', 'TotalPremium']:
-                        try:
-                            result_data[child.tag] = float(child.text.strip())
-                        except:
+            # Look for the table that has Result=1 and ControlNo (wrapper's result)
+            for table in tables:
+                result_data = {}
+                has_control_no = False
+                
+                # Extract all fields from this table
+                for child in table:
+                    if child.text is not None:
+                        # Check if this table has ControlNo (wrapper's signature field)
+                        if child.tag == 'ControlNo':
+                            has_control_no = True
+                        
+                        # Convert numeric fields
+                        if child.tag in ['Result', 'ControlNo']:
+                            try:
+                                result_data[child.tag] = str(int(child.text.strip()))
+                            except:
+                                result_data[child.tag] = child.text.strip()
+                        elif child.tag in ['ExistingPremium', 'EndorsementPremium', 'TotalPremium']:
+                            try:
+                                result_data[child.tag] = float(child.text.strip())
+                            except:
+                                result_data[child.tag] = child.text.strip()
+                        else:
                             result_data[child.tag] = child.text.strip()
                     else:
+                        result_data[child.tag] = None
+                
+                # If this table has ControlNo and Result=1, it's the wrapper's result
+                if has_control_no and str(result_data.get('Result')) == '1':
+                    # Map some fields for compatibility
+                    if 'TotalPremium' in result_data:
+                        result_data['NewPremium'] = result_data['TotalPremium']
+                    if 'EndorsementPremium' in result_data and 'ExistingPremium' in result_data:
+                        result_data['PremiumChange'] = result_data['EndorsementPremium']
+                        result_data['OriginalPremium'] = result_data['ExistingPremium']
+                    
+                    logger.debug(f"Found wrapper result set: {result_data}")
+                    return result_data
+            
+            # If we didn't find the wrapper result, try to use the first table (fallback)
+            if tables:
+                table = tables[0]
+                result_data = {}
+                for child in table:
+                    if child.text is not None:
                         result_data[child.tag] = child.text.strip()
-                else:
-                    result_data[child.tag] = None
+                    else:
+                        result_data[child.tag] = None
+                
+                logger.warning(f"Using fallback result set (may be base procedure): {result_data}")
+                return result_data
             
-            # Map some fields for compatibility
-            if 'TotalPremium' in result_data:
-                result_data['NewPremium'] = result_data['TotalPremium']
-            if 'EndorsementPremium' in result_data and 'ExistingPremium' in result_data:
-                result_data['PremiumChange'] = result_data['EndorsementPremium']
-                result_data['OriginalPremium'] = result_data['ExistingPremium']
-            
-            # Log the parsed result
-            if result_data:
-                logger.debug(f"Parsed Triton_ProcessFlatEndorsement result: {result_data}")
-            
-            return result_data
+            return None
             
         except ET.ParseError as e:
             logger.error(f"Failed to parse Triton endorsement result XML: {str(e)}")
