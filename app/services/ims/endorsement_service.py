@@ -251,7 +251,12 @@ class IMSEndorsementService(BaseIMSService):
                     logger.error("Endorsement created but NewQuoteGuid not returned - likely base procedure was called directly")
                     return False, result_data, "Stored procedure Triton_ProcessFlatEndorsement_WS not found - please deploy it to the database"
             else:
-                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                # Check for ErrorMessage field (from base procedure errors)
+                if result_data and result_data.get("ErrorMessage"):
+                    error_msg = result_data.get("ErrorMessage")
+                else:
+                    error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                
                 if result_data:
                     logger.error(f"Failed to create endorsement. Result: {result_data.get('Result')}, Message: {error_msg}")
                     # Log all data for debugging
