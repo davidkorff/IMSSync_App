@@ -87,10 +87,33 @@ BEGIN
             RETURN
         END
         
-        -- Step 2: Get the total existing premium from invoices
-        SELECT @ExistingPremium = ISNULL(SUM(AnnualPremium), 0)
+        -- Step 2: Find the original quote (first in the chain) and get its premium
+        DECLARE @CurrentQuoteGuid UNIQUEIDENTIFIER = @LatestQuoteGuid
+        DECLARE @OriginalQuoteGuid UNIQUEIDENTIFIER
+        DECLARE @OriginalQuoteID INT
+        
+        -- Backtrack through the chain to find the original quote
+        WHILE 1=1
+        BEGIN
+            SELECT @OriginalQuoteGuid = OriginalQuoteGUID
+            FROM tblQuotes
+            WHERE QuoteGUID = @CurrentQuoteGuid
+            
+            IF @OriginalQuoteGuid IS NULL
+                BREAK  -- Found the original (no OriginalQuoteGUID)
+            
+            SET @CurrentQuoteGuid = @OriginalQuoteGuid
+        END
+        
+        -- Get the QuoteID of the original quote
+        SELECT @OriginalQuoteID = QuoteID
+        FROM tblQuotes
+        WHERE QuoteGUID = @CurrentQuoteGuid
+        
+        -- Get the original premium from the invoice
+        SELECT @ExistingPremium = ISNULL(AnnualPremium, 0)
         FROM tblFin_Invoices
-        WHERE QuoteControlNum = @ControlNo
+        WHERE QuoteID = @OriginalQuoteID
         
         -- Step 3: Calculate total premium
         SET @TotalPremium = @ExistingPremium + @EndorsementPremium
@@ -98,8 +121,10 @@ BEGIN
         PRINT 'Endorsement calculation:'
         PRINT '  Opportunity ID: ' + CAST(@OpportunityID AS VARCHAR(20))
         PRINT '  Latest Quote GUID: ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
+        PRINT '  Original Quote GUID: ' + CAST(@CurrentQuoteGuid AS VARCHAR(50))
+        PRINT '  Original Quote ID: ' + CAST(@OriginalQuoteID AS VARCHAR(20))
         PRINT '  Control No: ' + CAST(@ControlNo AS VARCHAR(20))
-        PRINT '  Existing Premium: $' + CAST(@ExistingPremium AS VARCHAR(20))
+        PRINT '  Original Policy Premium: $' + CAST(@ExistingPremium AS VARCHAR(20))
         PRINT '  Endorsement Premium: $' + CAST(@EndorsementPremium AS VARCHAR(20))
         PRINT '  Total Premium: $' + CAST(@TotalPremium AS VARCHAR(20))
         PRINT '  Effective Date: ' + @EndorsementEffectiveDate
