@@ -112,8 +112,9 @@ BEGIN
         -- Step 3: Calculate refund based on cancellation type
         IF @RefundAmount IS NOT NULL
         BEGIN
-            -- Use provided refund amount
-            SET @CalculatedRefund = @RefundAmount
+            -- Use provided refund amount (from policy_cancellation_premium)
+            -- The ProcessFlatCancellation expects a positive value
+            SET @CalculatedRefund = ABS(@RefundAmount)
         END
         ELSE IF @CancellationType = 'flat'
         BEGIN
@@ -141,10 +142,6 @@ BEGIN
                 SET @CalculatedRefund = 0
             END
         END
-        
-        -- Ensure refund is negative (it's a return of premium)
-        IF @CalculatedRefund > 0
-            SET @CalculatedRefund = -@CalculatedRefund
         
         PRINT 'Cancellation calculation:'
         PRINT '  Opportunity ID: ' + CAST(@OpportunityID AS VARCHAR(20))
@@ -182,7 +179,7 @@ BEGIN
                 SET cancellation_id = @CancellationID,
                     QuoteOptionGuid = @NewQuoteOptionGuid,
                     transaction_type = 'cancellation',
-                    gross_premium = @CalculatedRefund,
+                    gross_premium = -ABS(@CalculatedRefund),  -- Store as negative for refund
                     last_updated = GETDATE()
                 WHERE QuoteGuid = @NewQuoteGuid
             END
@@ -206,7 +203,7 @@ BEGIN
                     @OpportunityID,
                     @CancellationID,
                     'cancellation',
-                    @CalculatedRefund,
+                    -ABS(@CalculatedRefund),  -- Store as negative for refund
                     'cancelled',
                     GETDATE(),
                     GETDATE()

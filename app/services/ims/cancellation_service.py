@@ -77,8 +77,8 @@ class IMSCancellationService(BaseIMSService):
                 "Comment", comment
             ]
             
-            # Add refund amount if provided (for flat cancellations)
-            if refund_amount is not None and cancellation_type == "flat":
+            # Add refund amount if provided
+            if refund_amount is not None:
                 params.extend(["RefundAmount", str(refund_amount)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
@@ -168,8 +168,8 @@ class IMSCancellationService(BaseIMSService):
                 "Comment", comment
             ]
             
-            # Add refund amount if provided (for flat cancellations)
-            if refund_amount is not None and cancellation_type == "flat":
+            # Add refund amount if provided
+            if refund_amount is not None:
                 params.extend(["RefundAmount", str(refund_amount)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
