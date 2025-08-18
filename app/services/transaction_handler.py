@@ -264,11 +264,11 @@ class TransactionHandler:
                     
                     logger.info(f"Using endorsement effective date: {effective_date}")
                     
-                    # Step 5: Create flat endorsement using ProcessFlatEndorsement
-                    logger.info("Creating flat endorsement using ProcessFlatEndorsement")
-                    success, endorsement_result, message = self.endorsement_service.create_flat_endorsement(
-                        original_quote_guid=latest_quote_guid,
-                        total_premium=total_premium,
+                    # Step 5: Create endorsement using Triton_ProcessFlatEndorsement wrapper
+                    logger.info("Creating endorsement using Triton_ProcessFlatEndorsement wrapper")
+                    success, endorsement_result, message = self.endorsement_service.create_flat_endorsement_triton(
+                        opportunity_id=int(option_id),
+                        endorsement_premium=new_endorsement_premium,
                         effective_date=effective_date,
                         comment=endorsement_comment
                     )

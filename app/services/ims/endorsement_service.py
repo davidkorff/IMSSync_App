@@ -161,6 +161,81 @@ class IMSEndorsementService(BaseIMSService):
             logger.error(error_msg, exc_info=True)
             return False, {}, error_msg
     
+    def create_flat_endorsement_triton(
+        self,
+        opportunity_id: int,
+        endorsement_premium: float,
+        effective_date: str,
+        comment: str = "Midterm Endorsement",
+        user_guid: Optional[str] = None
+    ) -> Tuple[bool, Dict[str, Any], str]:
+        """
+        Create an endorsement using Triton_ProcessFlatEndorsement wrapper procedure.
+        This wrapper calculates the total premium and calls the base ProcessFlatEndorsement.
+        
+        Args:
+            opportunity_id: The opportunity ID for the policy
+            endorsement_premium: The CHANGE in premium (can be positive or negative)
+            effective_date: The effective date of the endorsement (MM/DD/YYYY format)
+            comment: Description of the endorsement
+            user_guid: Optional user GUID for the endorsement
+            
+        Returns:
+            Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
+            result_data contains NewQuoteGuid, ControlNo, ExistingPremium, TotalPremium, etc.
+        """
+        try:
+            # Get user guid from auth service if not provided
+            if not user_guid:
+                user_guid = self.auth_service.user_guid
+            
+            logger.info(f"Creating endorsement for opportunity_id: {opportunity_id}")
+            logger.info(f"Endorsement premium change: ${endorsement_premium:,.2f}, Effective: {effective_date}")
+            
+            # Prepare parameters for the wrapper stored procedure
+            params = [
+                "OpportunityID", str(opportunity_id),
+                "EndorsementPremium", str(endorsement_premium),
+                "EndorsementEffectiveDate", effective_date,
+                "EndorsementComment", comment
+            ]
+            
+            # Add user guid if available
+            if user_guid:
+                params.extend(["UserGuid", str(user_guid)])
+            
+            # Call the wrapper procedure (which calculates total and calls base procedure)
+            success, result_xml, message = self.data_service.execute_dataset(
+                procedure_name="Triton_ProcessFlatEndorsement",
+                parameters=params
+            )
+            
+            if not success:
+                return False, {}, f"Failed to execute Triton_ProcessFlatEndorsement: {message}"
+            
+            # Parse the result
+            result_data = self._parse_triton_endorsement_result(result_xml)
+            
+            if result_data and result_data.get("Result") == "1":
+                new_quote_guid = result_data.get("NewQuoteGuid")
+                control_no = result_data.get("ControlNo")
+                existing_premium = result_data.get("ExistingPremium")
+                total_premium = result_data.get("TotalPremium")
+                
+                logger.info(f"Successfully created endorsement. NewQuoteGuid: {new_quote_guid}, "
+                          f"ControlNo: {control_no}, Existing: ${existing_premium}, Total: ${total_premium}")
+                
+                return True, result_data, result_data.get("Message", "Endorsement created successfully")
+            else:
+                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
+                logger.error(f"Failed to create endorsement: {error_msg}")
+                return False, result_data or {}, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error creating endorsement via wrapper: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return False, {}, error_msg
+    
     def create_flat_endorsement(
         self,
         original_quote_guid: str,
@@ -204,9 +279,9 @@ class IMSEndorsementService(BaseIMSService):
             if user_guid:
                 params.extend(["UserGuid", str(user_guid)])
             
-            # Call the stored procedure
+            # Call the wrapper procedure (which will call the base procedure)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="ProcessFlatEndorsement",
+                procedure_name="Triton_ProcessFlatEndorsement",
                 parameters=params
             )
             
@@ -234,6 +309,69 @@ class IMSEndorsementService(BaseIMSService):
             error_msg = f"Error creating flat endorsement: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return False, {}, error_msg
+    
+    def _parse_triton_endorsement_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse the result from Triton_ProcessFlatEndorsement wrapper procedure.
+        
+        Args:
+            result_xml: The XML result from ExecuteDataSet
+            
+        Returns:
+            Dict containing the result data or None if parsing fails
+        """
+        try:
+            if not result_xml:
+                return None
+                
+            # Parse the XML
+            root = ET.fromstring(result_xml)
+            
+            # Look for the result table
+            table = root.find('.//Table')
+            if table is None:
+                return None
+            
+            result_data = {}
+            
+            # Extract all fields from the result
+            for child in table:
+                if child.text is not None:
+                    # Convert numeric fields
+                    if child.tag in ['Result', 'ControlNo']:
+                        try:
+                            result_data[child.tag] = str(int(child.text.strip()))
+                        except:
+                            result_data[child.tag] = child.text.strip()
+                    elif child.tag in ['ExistingPremium', 'EndorsementPremium', 'TotalPremium']:
+                        try:
+                            result_data[child.tag] = float(child.text.strip())
+                        except:
+                            result_data[child.tag] = child.text.strip()
+                    else:
+                        result_data[child.tag] = child.text.strip()
+                else:
+                    result_data[child.tag] = None
+            
+            # Map some fields for compatibility
+            if 'TotalPremium' in result_data:
+                result_data['NewPremium'] = result_data['TotalPremium']
+            if 'EndorsementPremium' in result_data and 'ExistingPremium' in result_data:
+                result_data['PremiumChange'] = result_data['EndorsementPremium']
+                result_data['OriginalPremium'] = result_data['ExistingPremium']
+            
+            # Log the parsed result
+            if result_data:
+                logger.debug(f"Parsed Triton_ProcessFlatEndorsement result: {result_data}")
+            
+            return result_data
+            
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse Triton endorsement result XML: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Error parsing Triton endorsement result: {str(e)}")
+            return None
     
     def _parse_flat_endorsement_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
         """
