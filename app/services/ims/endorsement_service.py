@@ -216,7 +216,12 @@ class IMSEndorsementService(BaseIMSService):
             # Parse the result
             result_data = self._parse_triton_endorsement_result(result_xml)
             
-            if result_data and result_data.get("Result") == "1":
+            # Log the raw XML if debug is needed
+            if not result_data:
+                logger.error(f"Failed to parse result. Raw XML: {result_xml[:500] if result_xml else 'None'}")
+            
+            # Check for success - Result could be 1 (int) or "1" (string)
+            if result_data and str(result_data.get("Result")) == "1":
                 new_quote_guid = result_data.get("NewQuoteGuid")
                 control_no = result_data.get("ControlNo")
                 existing_premium = result_data.get("ExistingPremium")
@@ -228,7 +233,12 @@ class IMSEndorsementService(BaseIMSService):
                 return True, result_data, result_data.get("Message", "Endorsement created successfully")
             else:
                 error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
-                logger.error(f"Failed to create endorsement: {error_msg}")
+                if result_data:
+                    logger.error(f"Failed to create endorsement. Result: {result_data.get('Result')}, Message: {error_msg}")
+                    # Log all data for debugging
+                    logger.debug(f"Full result data: {result_data}")
+                else:
+                    logger.error(f"Failed to create endorsement: {error_msg}")
                 return False, result_data or {}, error_msg
                 
         except Exception as e:
