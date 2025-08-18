@@ -1,0 +1,112 @@
+# UAT Test Scenarios
+
+## Executive Summary
+This document outlines comprehensive UAT test scenarios for the RSG_Integration_2 application, focusing on built-in failure points and error validations. Each scenario includes the expected system response when validation fails. All Failures will be sent to Triton to be monitored by Triton's admin. 
+
+---
+
+## 1. BIND POLICY - Failure Points and Validations
+
+### 1.1 Producer Validation Failures
+- **Test Case**: Attempt to bind with invalid/non-existent producer code
+- **Expected Error**: "Producer not found" or similar validation message
+
+### 1.2 License Validation
+- **Test Case**: Bind with expired producer license
+- **Expected Error**: Producer license validation failure
+
+### 1.3 Binding Requirements Check
+- **Test Case**: Bind without meeting all requirements
+- **Expected Error**: Missing binding requirements
+
+### 1.4 Soft Stop Validation
+- **Test Case**: Bind with soft stop binding rules triggered
+- **Expected Error**: Soft stop warning (may allow override)
+
+### 1.5 Commercial Deregulation Validation
+- **Test Case**: Bind commercial policy in deregulated state without proper setup
+- **Expected Error**: Commercial deregulation validation failure
+
+---
+
+## 2. UNBIND POLICY - Failure Points
+
+### 2.1 Policy Status Check
+- **Test Case**: Attempt to unbind already cancelled policy
+- **Expected Error**: Invalid policy status for unbind operation
+
+---
+
+## 3. ENDORSE POLICY - Failure Points
+
+### 3.1 Effective Date Validation
+- **Test Case**: Endorse with effective date before policy inception
+- **Expected Error**: Invalid endorsement effective date
+
+### 3.2 Policy Period Validation
+- **Test Case**: Endorse expired policy
+- **Expected Error**: Cannot endorse expired policy
+
+### 3.3 Quote Status Validation
+- **Test Case**: Endorse policy in invalid status
+- **Expected Error**: Invalid quote status for endorsement
+
+### 3.4 Transaction Date Issues
+- **Test Case**: Endorsement with transaction date in closed period
+- **Expected Error**: Transaction date in closed accounting period
+
+---
+
+## 4. CANCEL POLICY - Failure Points
+
+### 4.1 Active Policy Check
+- **Test Case**: Cancel already cancelled policy
+- **Expected Error**: Policy already cancelled
+
+### 4.2 Outstanding Requirements
+- **Test Case**: Cancel with outstanding binding requirements
+- **Expected Error**: Cannot cancel - outstanding requirements exist
+
+---
+
+## 5. RATE/QUOTE - Failure Points
+
+### 5.1 Invalid State/Territory
+- **Test Case**: Quote for non-admitted state
+- **Expected Error**: Product not available in selected state
+
+---
+
+## 6. PRODUCER/INSURED VALIDATION - Failure Points
+
+### 6.1 Producer Not Found
+- **Test Case**: Quote with non-existent producer code
+- **Expected Error**: Producer not found in system
+
+### 6.2 Producer Location Invalid
+- **Test Case**: Invalid producer location code
+- **Expected Error**: Producer location not found
+
+### 6.3 Duplicate Insured
+- **Test Case**: Create quote for existing insured with active policy
+- **Expected Error**: Duplicate insured warning
+
+### 6.4 Producer Line Blocking
+- **Test Case**: Quote for blocked line of business
+- **Expected Error**: Producer not authorized for this line
+
+---
+
+## 7. COMMISSION AND FEES - Failure Points
+
+### 7.1 Missing Commission Setup
+- **Test Case**: Bind with 0% Company commission
+- **Expected Error**: Company Commission cannot be below Producer Commission
+
+---
+
+## 8. RENEWAL SPECIFIC - Failure Points
+
+### 8.1 Renewal Status Check
+- **Test Case**: Renew cancelled policy
+- **Expected Error**: Cannot renew cancelled policy

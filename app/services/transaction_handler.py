@@ -14,6 +14,7 @@ from app.services.ims.issue_service import get_issue_service
 from app.services.ims.unbind_service import get_unbind_service
 from app.services.ims.endorsement_service import get_endorsement_service
 from app.services.ims.cancellation_service import get_cancellation_service
+from app.services.ims.reinstatement_service import get_reinstatement_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ class TransactionHandler:
         self.unbind_service = get_unbind_service()
         self.endorsement_service = get_endorsement_service()
         self.cancellation_service = get_cancellation_service()
+        self.reinstatement_service = get_reinstatement_service()
     
     def process_transaction(self, payload: Dict[str, Any]) -> Tuple[bool, Dict[str, Any], str]:
         """
@@ -133,8 +135,8 @@ class TransactionHandler:
                 
                 # No existing quote - continue with normal flow to create new quote
             
-            # For issue, unbind, midterm_endorsement, and cancellation transactions, we need to find the existing quote
-            elif transaction_type in ["issue", "unbind", "midterm_endorsement", "cancellation"]:
+            # For issue, unbind, midterm_endorsement, cancellation, and reinstatement transactions, we need to find the existing quote
+            elif transaction_type in ["issue", "unbind", "midterm_endorsement", "cancellation", "reinstatement"]:
                 # First try to find by option_id if provided
                 option_id = payload.get("opportunity_id") or payload.get("option_id")
                 policy_number = payload.get("policy_number")
@@ -417,6 +419,99 @@ class TransactionHandler:
                     
                     logger.info(f"Successfully cancelled policy {results.get('policy_number', policy_number)}")
                 
+                elif transaction_type == "reinstatement":
+                    # Process the reinstatement
+                    logger.info(f"Processing reinstatement for opportunity_id {option_id}")
+                    
+                    # Get reinstatement details from payload
+                    reinstatement_premium = payload.get("gross_premium", 0)
+                    
+                    # Use transaction_date as the reinstatement effective date
+                    transaction_date_str = payload.get("transaction_date")
+                    if transaction_date_str:
+                        try:
+                            # Parse ISO format date
+                            from dateutil import parser
+                            transaction_dt = parser.parse(transaction_date_str)
+                            effective_date = transaction_dt.strftime("%m/%d/%Y")
+                        except:
+                            effective_date = datetime.now().strftime("%m/%d/%Y")
+                    else:
+                        effective_date = datetime.now().strftime("%m/%d/%Y")
+                    
+                    reinstatement_comment = payload.get("reinstatement_reason", "Policy Reinstatement")
+                    
+                    logger.info(f"Reinstatement details - Premium: ${reinstatement_premium:,.2f}, Effective: {effective_date}")
+                    
+                    # Create the reinstatement
+                    if option_id:
+                        # Use opportunity_id if available
+                        success, reinstatement_result, message = self.reinstatement_service.reinstate_policy_by_opportunity_id(
+                            opportunity_id=int(option_id),
+                            reinstatement_premium=reinstatement_premium,
+                            effective_date=effective_date,
+                            comment=reinstatement_comment
+                        )
+                    else:
+                        # This shouldn't happen for reinstatement, but handle it
+                        return False, results, "Reinstatement requires opportunity_id"
+                    
+                    if not success:
+                        return False, results, f"Reinstatement failed: {message}"
+                    
+                    # Update results with reinstatement information
+                    reinstatement_quote_guid = reinstatement_result.get("NewQuoteGuid")
+                    
+                    results["reinstatement_quote_guid"] = reinstatement_quote_guid
+                    results["reinstatement_quote_option_guid"] = reinstatement_result.get("QuoteOptionGuid")
+                    results["original_quote_guid"] = reinstatement_result.get("OriginalQuoteGuid")
+                    results["cancellation_quote_guid"] = reinstatement_result.get("CancellationQuoteGuid")
+                    results["reinstatement_status"] = "unbound"
+                    results["reinstatement_effective_date"] = effective_date
+                    results["reinstatement_premium"] = reinstatement_result.get("ReinstatementPremium")
+                    results["cancellation_refund"] = reinstatement_result.get("CancellationRefund")
+                    results["net_premium_change"] = reinstatement_result.get("NetPremiumChange")
+                    results["reinstatement_number"] = reinstatement_result.get("ReinstatementNumber")
+                    
+                    # Process the payload to register in Triton tables
+                    if reinstatement_quote_guid and reinstatement_result.get("QuoteOptionGuid"):
+                        logger.info("Processing reinstatement payload to register in Triton tables")
+                        success, process_result, message = self.payload_processor.process_payload(
+                            payload=payload,
+                            quote_guid=reinstatement_quote_guid,
+                            quote_option_guid=reinstatement_result.get("QuoteOptionGuid")
+                        )
+                        if not success:
+                            logger.warning(f"Failed to process reinstatement payload: {message}")
+                    
+                    # Bind the reinstatement
+                    logger.info(f"Binding reinstatement quote {reinstatement_quote_guid}")
+                    success, bind_result, message = self.bind_service.bind_quote(reinstatement_quote_guid)
+                    
+                    if success:
+                        results["reinstatement_policy_number"] = bind_result.get("policy_number")
+                        results["reinstatement_status"] = "completed"
+                        logger.info(f"Successfully bound reinstatement: {bind_result.get('policy_number')}")
+                    else:
+                        logger.error(f"Failed to bind reinstatement: {message}")
+                        return False, results, f"Reinstatement bind failed: {message}"
+                    
+                    # Get invoice data after successful reinstatement
+                    if reinstatement_quote_guid:
+                        logger.info(f"Retrieving invoice data for reinstatement quote {reinstatement_quote_guid}")
+                        invoice_success, invoice_data, invoice_message = self.data_service.get_invoice_data(reinstatement_quote_guid)
+                        
+                        if invoice_success:
+                            results["invoice_data"] = invoice_data
+                            logger.info(f"Successfully retrieved invoice data for reinstatement")
+                        else:
+                            logger.warning(f"Failed to retrieve invoice data for reinstatement: {invoice_message}")
+                    
+                    results["end_time"] = datetime.utcnow().isoformat()
+                    results["status"] = "completed"
+                    
+                    logger.info(f"Successfully reinstated policy {results.get('policy_number', policy_number)}")
+                
                 summary_msg = self._build_summary_message(results, payload)
                 return True, results, summary_msg
             
@@ -552,6 +647,13 @@ class TransactionHandler:
             msg_parts.append(f"Effective Date: {results.get('cancellation_effective_date')}")
             if results.get("refund_amount"):
                 msg_parts.append(f"Refund Amount: ${abs(float(results.get('refund_amount', 0))):,.2f}")
+        elif transaction_type == "reinstatement" and results.get("reinstatement_status") == "completed":
+            msg_parts.append(f"Policy Number: {results.get('reinstatement_policy_number', payload.get('policy_number'))}")
+            msg_parts.append(f"Reinstatement Number: {results.get('reinstatement_number')}")
+            msg_parts.append(f"Reinstatement Premium: ${results.get('reinstatement_premium', 0):,.2f}")
+            msg_parts.append(f"Effective Date: {results.get('reinstatement_effective_date')}")
+            if results.get("net_premium_change"):
+                msg_parts.append(f"Net Premium Change: ${results.get('net_premium_change', 0):,.2f}")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         

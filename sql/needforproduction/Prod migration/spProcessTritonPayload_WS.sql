@@ -74,7 +74,8 @@ BEGIN
                 @prior_transaction_id NVARCHAR(100),
                 @transaction_type NVARCHAR(100),
                 @transaction_date NVARCHAR(50),
-                @source_system NVARCHAR(50);
+                @source_system NVARCHAR(50),
+                @market_segment_code NVARCHAR(10);
        
         -- Parse JSON values
         SET @transaction_id = JSON_VALUE(@full_payload_json, '$.transaction_id');
@@ -128,6 +129,7 @@ BEGIN
         SET @transaction_type = JSON_VALUE(@full_payload_json, '$.transaction_type');
         SET @transaction_date = JSON_VALUE(@full_payload_json, '$.transaction_date');
         SET @source_system = JSON_VALUE(@full_payload_json, '$.source_system');
+        SET @market_segment_code = JSON_VALUE(@full_payload_json, '$.market_segment_code');
        
         -- Handle empty strings as NULL for certain fields
         IF @surplus_lines_tax = '' SET @surplus_lines_tax = NULL;
@@ -341,8 +343,9 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on commission_percent and CompanyLineGuid
+        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid
         -- This must happen before binding
+        -- Market segment codes: RT (Retail) or WL (Wholesale)
         DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
         
         -- Get the CompanyLineGuid from tblQuotes
@@ -350,40 +353,44 @@ BEGIN
         FROM tblQuotes
         WHERE QuoteGuid = @QuoteGuid;
         
-        -- Set ProgramID based on commission and line combinations
+        -- Set ProgramID based on market segment and line combinations
         IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
         BEGIN
-            -- commission_percent = 25, lineguid = 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11615
-            IF @commission_percent = 25 AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+            -- RT + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11615
+            IF @market_segment_code = 'RT' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
             BEGIN
                 UPDATE tblQuoteDetails
                 SET ProgramID = 11615
                 WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11615 (25% commission, LineGuid 07564291)';
+                PRINT 'Set ProgramID to 11615 (RT market segment, LineGuid 07564291)';
             END
-            -- commission_percent = 30, lineguid = 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11613
-            ELSE IF @commission_percent = 30 AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+            -- WL + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11613
+            ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
             BEGIN
                 UPDATE tblQuoteDetails
                 SET ProgramID = 11613
                 WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11613 (30% commission, LineGuid 07564291)';
+                PRINT 'Set ProgramID to 11613 (WL market segment, LineGuid 07564291)';
             END
-            -- commission_percent = 25, lineguid = 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11612
-            ELSE IF @commission_percent = 25 AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
+            -- RT + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11612
+            ELSE IF @market_segment_code = 'RT' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
             BEGIN
                 UPDATE tblQuoteDetails
                 SET ProgramID = 11612
                 WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11612 (25% commission, LineGuid 08798559)';
+                PRINT 'Set ProgramID to 11612 (RT market segment, LineGuid 08798559)';
             END
-            -- commission_percent = 23, lineguid = 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11614
-            ELSE IF @commission_percent = 23 AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
+            -- WL + LineGuid 08798559-321C-4FC0-98ED-A61B92215F31 -> ProgramID = 11614
+            ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuid = '08798559-321C-4FC0-98ED-A61B92215F31'
             BEGIN
                 UPDATE tblQuoteDetails
                 SET ProgramID = 11614
                 WHERE QuoteGuid = @QuoteGuid;
-                PRINT 'Set ProgramID to 11614 (23% commission, LineGuid 08798559)';
+                PRINT 'Set ProgramID to 11614 (WL market segment, LineGuid 08798559)';
+            END
+            ELSE
+            BEGIN
+                PRINT 'Warning: No matching ProgramID rule for market_segment_code ''' + ISNULL(@market_segment_code, 'NULL') + ''' and LineGuid ''' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50)) + '''';
             END
         END
         
