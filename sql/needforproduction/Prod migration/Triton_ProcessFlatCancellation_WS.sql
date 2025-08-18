@@ -24,13 +24,43 @@ BEGIN
     DECLARE @NewQuoteOptionGuid UNIQUEIDENTIFIER
     
     BEGIN TRY
+        PRINT '=========================================='
+        PRINT 'Triton_ProcessFlatCancellation_WS START'
+        PRINT '=========================================='
+        PRINT 'Input Parameters:'
+        PRINT '  OpportunityID: ' + CAST(@OpportunityID AS VARCHAR(20))
+        PRINT '  CancellationDate: ' + @CancellationDate
+        PRINT '  ReturnPremium: $' + CAST(@ReturnPremium AS VARCHAR(20))
+        PRINT '  CancellationReason: ' + ISNULL(@CancellationReason, 'NULL')
+        PRINT '  UserGuid: ' + ISNULL(CAST(@UserGuid AS VARCHAR(50)), 'NULL')
+        PRINT ''
+        
         -- Convert date string to datetime
         SET @CancellationDateTime = CONVERT(DATETIME, @CancellationDate, 101)
+        PRINT 'Converted CancellationDate to: ' + CAST(@CancellationDateTime AS VARCHAR(50))
+        PRINT ''
         
         -- Step 1: Find the latest quote in the chain for this opportunity_id
         -- First find ANY quote to get the ControlNo
         DECLARE @QuoteStatusID INT
         DECLARE @TransactionTypeID CHAR(1)
+        DECLARE @QuoteCount INT
+        
+        PRINT 'STEP 1: Looking for ControlNo using OpportunityID ' + CAST(@OpportunityID AS VARCHAR(20))
+        PRINT 'Searching in tblTritonQuoteData joined with tblQuotes...'
+        
+        -- First, let's see what's in tblTritonQuoteData for this opportunity
+        SELECT @QuoteCount = COUNT(*)
+        FROM tblTritonQuoteData
+        WHERE opportunity_id = @OpportunityID
+        
+        PRINT 'Found ' + CAST(@QuoteCount AS VARCHAR(10)) + ' records in tblTritonQuoteData for OpportunityID ' + CAST(@OpportunityID AS VARCHAR(20))
+        
+        -- Show what we find
+        PRINT 'Records in tblTritonQuoteData for this opportunity:'
+        SELECT QuoteGuid, opportunity_id, transaction_type, status
+        FROM tblTritonQuoteData
+        WHERE opportunity_id = @OpportunityID
         
         -- Get the ControlNo from any quote associated with this opportunity
         SELECT TOP 1 @ControlNo = q.ControlNo
@@ -40,11 +70,33 @@ BEGIN
         
         IF @ControlNo IS NULL
         BEGIN
+            PRINT 'ERROR: No ControlNo found for OpportunityID ' + CAST(@OpportunityID AS VARCHAR(20))
+            PRINT 'This means no quotes in tblQuotes match the QuoteGuids in tblTritonQuoteData'
             SELECT 
                 0 AS Result,
                 'No quotes found for opportunity_id ' + CAST(@OpportunityID AS VARCHAR(20)) AS Message
             RETURN
         END
+        
+        PRINT 'Found ControlNo: ' + CAST(@ControlNo AS VARCHAR(20))
+        PRINT ''
+        
+        PRINT 'STEP 2: Finding latest quote in chain for ControlNo ' + CAST(@ControlNo AS VARCHAR(20))
+        PRINT 'Looking for quote that is NOT an OriginalQuoteGuid for any other quote...'
+        
+        -- Show all quotes in the chain for debugging
+        PRINT 'All quotes in chain for ControlNo ' + CAST(@ControlNo AS VARCHAR(20)) + ':'
+        SELECT 
+            QuoteGUID,
+            OriginalQuoteGUID,
+            QuoteStatusID,
+            TransactionTypeID,
+            EndorsementNum,
+            PolicyNumber,
+            DateCreated
+        FROM tblQuotes
+        WHERE ControlNo = @ControlNo
+        ORDER BY QuoteID
         
         -- Now find the ACTUAL latest quote in the chain (including cancelled ones)
         SELECT TOP 1 
@@ -61,6 +113,14 @@ BEGIN
             WHERE q3.OriginalQuoteGUID = q.QuoteGUID
         )
         ORDER BY q.QuoteID DESC
+        
+        PRINT ''
+        PRINT 'Found Latest Quote:'
+        PRINT '  QuoteGuid: ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
+        PRINT '  QuoteStatusID: ' + CAST(@QuoteStatusID AS VARCHAR(10))
+        PRINT '  TransactionTypeID: ' + ISNULL(@TransactionTypeID, 'NULL')
+        PRINT '  PolicyNumber: ' + @PolicyNumber
+        PRINT ''
         
         -- Check if already cancelled
         IF @TransactionTypeID = 'C' OR @QuoteStatusID = 7
@@ -92,13 +152,13 @@ BEGIN
             RETURN
         END
         
-        PRINT 'Cancellation calculation:'
-        PRINT '  Opportunity ID: ' + CAST(@OpportunityID AS VARCHAR(20))
-        PRINT '  Latest Quote GUID: ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
-        PRINT '  Control No: ' + CAST(@ControlNo AS VARCHAR(20))
-        PRINT '  Policy Number: ' + ISNULL(@PolicyNumber, 'N/A')
-        PRINT '  Cancellation Date: ' + @CancellationDate
-        PRINT '  Return Premium: $' + CAST(@ReturnPremium AS VARCHAR(20))
+        PRINT 'STEP 3: Calling ProcessFlatCancellation with:'
+        PRINT '  @OriginalQuoteGuid = ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
+        PRINT '  @CancellationDate = ' + CAST(@CancellationDateTime AS VARCHAR(50))
+        PRINT '  @ReturnPremium = ' + CAST(@ReturnPremium AS VARCHAR(20))
+        PRINT '  @CancellationReason = ' + @CancellationReason
+        PRINT '  @UserGuid = ' + ISNULL(CAST(@UserGuid AS VARCHAR(50)), 'NULL')
+        PRINT ''
         
         -- Step 2: Call the base ProcessFlatCancellation procedure
         EXEC [dbo].[ProcessFlatCancellation]
@@ -109,14 +169,24 @@ BEGIN
             @UserGuid = @UserGuid,
             @NewQuoteGuid = @NewQuoteGuid OUTPUT
         
+        PRINT 'ProcessFlatCancellation completed.'
+        PRINT '  NewQuoteGuid returned: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
+        PRINT ''
+        
         -- Step 3: Retrieve the QuoteOptionGuid for the new cancellation quote
         -- The ProcessFlatCancellation procedure creates a new QuoteOption record
+        PRINT 'STEP 4: Looking for QuoteOptionGuid for NewQuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
+        
         SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
         FROM tblQuoteOptions
         WHERE QuoteGuid = @NewQuoteGuid
         ORDER BY DateCreated DESC  -- Get the most recently created one
         
+        PRINT '  Found QuoteOptionGuid: ' + ISNULL(CAST(@NewQuoteOptionGuid AS VARCHAR(50)), 'NULL')
+        PRINT ''
+        
         -- Step 4: Store the cancellation result in tblTritonQuoteData
+        PRINT 'STEP 5: Storing result in tblTritonQuoteData'
         IF @NewQuoteGuid IS NOT NULL
         BEGIN
             -- Check if record exists for this quote
@@ -154,6 +224,12 @@ BEGIN
             END
         END
         
+        PRINT 'STEP 6: Returning results'
+        PRINT '=========================================='
+        PRINT 'Triton_ProcessFlatCancellation_WS END'
+        PRINT '=========================================='
+        PRINT ''
+        
         -- Return success with the new quote guid AND QuoteOptionGuid
         SELECT 
             1 AS Result,
@@ -186,8 +262,7 @@ EXEC [dbo].[Triton_ProcessFlatCancellation_WS]
     @OpportunityID = 106208,
     @CancellationDate = '08/18/2025',
     @ReturnPremium = 1125,
-    @CancellationReason = 'Policy Cancellation',
-    @CancellationID = 12345
+    @CancellationReason = 'Policy Cancellation'
 
 -- Expected result:
 -- Should return Result = 1 with NewQuoteGuid and NewQuoteOptionGuid
