@@ -90,7 +90,7 @@ BEGIN
         PRINT ''
         
         -- Check if the latest quote is cancelled
-        -- Status 7 = standard cancelled, Status 12 = custom cancelled status
+        -- Status 7 = Pending Cancellation (unbound), Status 12 = Cancelled (bound)
         IF @TransactionTypeID != 'C' OR @QuoteStatusID NOT IN (7, 12)
         BEGIN
             SELECT 
@@ -210,7 +210,7 @@ BEGIN
             FROM tblQuotes
             WHERE QuoteGuid = @CancelledQuoteGuid
             
-            IF @QuoteStatusID NOT IN (7, 12)  -- No longer cancelled
+            IF @QuoteStatusID NOT IN (7, 12)  -- No longer cancelled (7=Pending Cancel, 12=Cancelled)
             BEGIN
                 PRINT '  Cancelled quote status changed to: ' + CAST(@QuoteStatusID AS VARCHAR(10))
                 PRINT '  Policy may have been directly reinstated without creating new quote'
