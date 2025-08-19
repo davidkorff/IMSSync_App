@@ -152,31 +152,47 @@ BEGIN
         PRINT ''
         
         PRINT 'STEP 5: Calling ProcessFlatReinstatement with:'
-        PRINT '  @OpportunityID = NULL (using CancelledQuoteGuid instead)'
-        PRINT '  @CancelledQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
+        PRINT '  @OriginalQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
         PRINT '  @ReinstatementPremium = ' + CAST(@ReinstatementPremium AS VARCHAR(20))
         PRINT '  @ReinstatementEffectiveDate = ' + @ReinstatementEffectiveDateStr
-        PRINT '  @ReinstatementComment = ' + @ReinstatementComment
-        PRINT '  @UserGuid = ' + ISNULL(CAST(@UserGuid AS VARCHAR(50)), 'NULL')
         PRINT ''
         
         -- Step 5: Call the base ProcessFlatReinstatement procedure
-        -- Pass NULL for OpportunityID since we're using CancelledQuoteGuid
+        -- The procedure expects @OriginalQuoteGuid (the cancelled quote to reinstate)
         EXEC [dbo].[ProcessFlatReinstatement]
-            @OpportunityID = NULL,
-            @CancelledQuoteGuid = @CancelledQuoteGuid,
+            @OriginalQuoteGuid = @CancelledQuoteGuid,
             @ReinstatementPremium = @ReinstatementPremium,
-            @ReinstatementEffectiveDate = @ReinstatementEffectiveDate,
-            @ReinstatementComment = @ReinstatementComment,
-            @UserGuid = @UserGuid,
-            @NewQuoteGuid = @NewQuoteGuid OUTPUT
+            @ReinstatementEffectiveDate = @ReinstatementEffectiveDate
         
+        -- Note: This procedure may not return NewQuoteGuid directly
+        -- Need to find the newly created reinstatement quote
         PRINT 'ProcessFlatReinstatement completed.'
-        PRINT '  NewQuoteGuid returned: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
+        PRINT ''
+        
+        -- Step 5b: Find the newly created reinstatement quote
+        -- It should be the latest quote with OriginalQuoteGuid = @CancelledQuoteGuid and TransactionTypeID = 'W'
+        SELECT TOP 1 @NewQuoteGuid = QuoteGuid
+        FROM tblQuotes
+        WHERE OriginalQuoteGuid = @CancelledQuoteGuid
+        AND TransactionTypeID = 'W'  -- W = Reinstatement
+        ORDER BY QuoteID DESC
+        
+        IF @NewQuoteGuid IS NULL
+        BEGIN
+            -- If not found by OriginalQuoteGuid, try finding by ControlNo
+            SELECT TOP 1 @NewQuoteGuid = QuoteGuid
+            FROM tblQuotes
+            WHERE ControlNo = @ControlNo
+            AND TransactionTypeID = 'W'
+            AND QuoteID > @QuoteID  -- Must be newer than the cancelled quote
+            ORDER BY QuoteID DESC
+        END
+        
+        PRINT '  Found NewQuoteGuid: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
         PRINT ''
         
         -- Step 6: Retrieve the QuoteOptionGuid for the new reinstatement quote
-        PRINT 'STEP 6: Looking for QuoteOptionGuid for NewQuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
+        PRINT 'STEP 6: Looking for QuoteOptionGuid for NewQuoteGuid: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NOT FOUND')
         
         SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
         FROM tblQuoteOptions
