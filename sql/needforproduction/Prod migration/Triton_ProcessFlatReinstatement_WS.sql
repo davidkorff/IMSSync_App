@@ -90,7 +90,8 @@ BEGIN
         PRINT ''
         
         -- Check if the latest quote is cancelled
-        IF @TransactionTypeID != 'C' OR @QuoteStatusID != 7
+        -- Status 7 = standard cancelled, Status 12 = custom cancelled status
+        IF @TransactionTypeID != 'C' OR @QuoteStatusID NOT IN (7, 12)
         BEGIN
             SELECT 
                 0 AS Result,
