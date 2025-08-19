@@ -816,10 +816,17 @@ class TransactionHandler:
         elif transaction_type == "reinstatement" and results.get("reinstatement_status") == "completed":
             msg_parts.append(f"Policy Number: {results.get('reinstatement_policy_number', payload.get('policy_number'))}")
             msg_parts.append(f"Reinstatement Number: {results.get('reinstatement_number')}")
-            msg_parts.append(f"Reinstatement Premium: ${results.get('reinstatement_premium', 0):,.2f}")
+            # Convert reinstatement_premium to float if it's a string
+            reinstatement_premium = results.get('reinstatement_premium', 0)
+            if isinstance(reinstatement_premium, str):
+                reinstatement_premium = float(reinstatement_premium) if reinstatement_premium else 0
+            msg_parts.append(f"Reinstatement Premium: ${reinstatement_premium:,.2f}")
             msg_parts.append(f"Effective Date: {results.get('reinstatement_effective_date')}")
             if results.get("net_premium_change"):
-                msg_parts.append(f"Net Premium Change: ${results.get('net_premium_change', 0):,.2f}")
+                net_change = results.get('net_premium_change', 0)
+                if isinstance(net_change, str):
+                    net_change = float(net_change) if net_change else 0
+                msg_parts.append(f"Net Premium Change: ${net_change:,.2f}")
         else:
             msg_parts.append(f"Policy Number (stored): {payload.get('policy_number')}")
         

@@ -1,11 +1,10 @@
 -- =============================================
--- Flat Reinstatement Procedure
--- Reinstates a cancelled policy
+-- FINAL Flat Reinstatement Procedure V1 - PRODUCTION READY
+-- Following exact pattern from endorsement and cancellation procedures
 -- =============================================
 
 CREATE OR ALTER PROCEDURE [dbo].[ProcessFlatReinstatement]
-    @OpportunityID INT = NULL,
-    @CancelledQuoteGuid UNIQUEIDENTIFIER = NULL,
+    @OriginalQuoteGuid UNIQUEIDENTIFIER,
     @ReinstatementPremium MONEY,
     @ReinstatementEffectiveDate DATETIME,
     @ReinstatementComment VARCHAR(500) = 'Policy Reinstatement',
@@ -22,8 +21,7 @@ BEGIN
         -- VALIDATION SECTION
         -- =============================================
         
-        -- Variables to store quote information
-        DECLARE @OriginalQuoteGuid UNIQUEIDENTIFIER;
+        -- Get original quote details
         DECLARE @ControlNo INT;
         DECLARE @ControlGuid UNIQUEIDENTIFIER;
         DECLARE @PolicyNumber VARCHAR(50);
@@ -34,6 +32,7 @@ BEGIN
         DECLARE @ProducerLocationID INT;
         DECLARE @EffectiveDate DATETIME;
         DECLARE @ExpirationDate DATETIME;
+        DECLARE @OriginalExpirationDate DATETIME;
         DECLARE @CurrentQuoteStatusID INT;
         DECLARE @PolicyTypeID TINYINT;
         DECLARE @QuotingLocationGuid UNIQUEIDENTIFIER;
@@ -49,7 +48,6 @@ BEGIN
         DECLARE @CostCenterID INT;
         DECLARE @CompanyInstallmentID INT;
         DECLARE @QuoteID INT;
-        DECLARE @CancellationQuoteGuid UNIQUEIDENTIFIER;
         
         -- Insured information
         DECLARE @SIC_Code VARCHAR(10);
@@ -75,56 +73,11 @@ BEGIN
         DECLARE @InsuredPhone VARCHAR(20);
         DECLARE @InsuredFax VARCHAR(20);
         
-        -- Find the cancelled quote
-        IF @OpportunityID IS NOT NULL
-        BEGIN
-            -- Find by opportunity_id - get the most recent cancelled quote
-            SELECT TOP 1 
-                @CancellationQuoteGuid = q.QuoteGuid,
-                @ControlNo = q.ControlNo,
-                @PolicyNumber = q.PolicyNumber,
-                @OriginalQuoteGuid = q.OriginalQuoteGuid
-            FROM tblTritonQuoteData tq
-            INNER JOIN tblQuotes q ON q.QuoteGUID = tq.QuoteGuid
-            WHERE tq.opportunity_id = @OpportunityID
-            AND q.QuoteStatusID = 7  -- Cancelled status
-            AND q.TransactionTypeID = 'C'  -- Cancellation transaction
-            ORDER BY q.QuoteID DESC
-        END
-        ELSE IF @CancelledQuoteGuid IS NOT NULL
-        BEGIN
-            -- Find by QuoteGuid
-            SELECT 
-                @CancellationQuoteGuid = QuoteGuid,
-                @ControlNo = ControlNo,
-                @PolicyNumber = PolicyNumber,
-                @OriginalQuoteGuid = OriginalQuoteGuid
-            FROM tblQuotes
-            WHERE QuoteGuid = @CancelledQuoteGuid
-            AND QuoteStatusID = 7  -- Cancelled status
-        END
-        
-        IF @CancellationQuoteGuid IS NULL
-        BEGIN
-            RAISERROR('No cancelled policy found for reinstatement', 16, 1);
-            RETURN;
-        END
-        
-        -- Get details from the original (pre-cancellation) quote
-        IF @OriginalQuoteGuid IS NULL
-        BEGIN
-            -- If no OriginalQuoteGuid in cancellation, find the last bound quote before cancellation
-            SELECT TOP 1 @OriginalQuoteGuid = QuoteGuid
-            FROM tblQuotes
-            WHERE ControlNo = @ControlNo
-            AND QuoteStatusID IN (3, 4)  -- Bound or Issued
-            AND TransactionTypeID IN ('N', 'R', 'E')  -- New, Renewal, or Endorsement
-            ORDER BY QuoteID DESC
-        END
-        
-        -- Get all details from the original quote
+        -- Get the cancelled quote details
         SELECT 
+            @ControlNo = ControlNo,
             @ControlGuid = ControlGuid,
+            @PolicyNumber = PolicyNumber,
             @CompanyLocationGuid = CompanyLocationGuid,
             @LineGuid = LineGuid,
             @CompanyLineGuid = CompanyLineGuid,
@@ -133,6 +86,7 @@ BEGIN
             @ProducerLocationID = ProducerLocationID,
             @EffectiveDate = EffectiveDate,
             @ExpirationDate = ExpirationDate,
+            @CurrentQuoteStatusID = QuoteStatusID,
             @PolicyTypeID = PolicyTypeID,
             @QuotingLocationGuid = QuotingLocationGuid,
             @IssuingLocationGuid = IssuingLocationGuid,
@@ -171,9 +125,29 @@ BEGIN
         
         IF @ControlNo IS NULL
         BEGIN
-            RAISERROR('Original quote details not found', 16, 1);
+            RAISERROR('Original quote not found', 16, 1);
             RETURN;
         END
+        
+        -- Verify quote is cancelled (Status 7=Pending Cancel, 12=Cancelled) to allow reinstatement
+        IF @CurrentQuoteStatusID NOT IN (7, 12)
+        BEGIN
+            RAISERROR('Quote must be in cancelled status to reinstate', 16, 1);
+            RETURN;
+        END
+        
+        -- Store original expiration date from the original bound policy
+        -- Find the original bound quote to get the true expiration date
+        SELECT TOP 1 @OriginalExpirationDate = ExpirationDate
+        FROM tblQuotes
+        WHERE ControlNo = @ControlNo
+            AND QuoteStatusID IN (3, 4)  -- Bound status
+            AND TransactionTypeID IN ('N', 'R')  -- New business or renewal
+        ORDER BY DateCreated DESC;
+        
+        -- If no original expiration found, use the expiration from cancelled quote
+        IF @OriginalExpirationDate IS NULL
+            SET @OriginalExpirationDate = @ExpirationDate;
         
         -- Get Office ID for premium records
         SELECT @OfficeID = OfficeID 
@@ -191,23 +165,29 @@ BEGIN
             AND Bound = 1;
         
         -- Validate reinstatement date
-        IF @ReinstatementEffectiveDate < @EffectiveDate OR @ReinstatementEffectiveDate > @ExpirationDate
+        IF @ReinstatementEffectiveDate < @EffectiveDate
         BEGIN
-            RAISERROR('Reinstatement date must be within policy period', 16, 1);
+            RAISERROR('Reinstatement date cannot be before original policy effective date', 16, 1);
+            RETURN;
+        END
+        
+        IF @ReinstatementEffectiveDate > @OriginalExpirationDate
+        BEGIN
+            RAISERROR('Reinstatement date cannot be after original policy expiration date', 16, 1);
             RETURN;
         END
         
         -- =============================================
-        -- CALCULATE REINSTATEMENT NUMBER
+        -- CALCULATE ENDORSEMENT NUMBER
         -- =============================================
         
-        DECLARE @NextReinstatementNum INT;
-        SELECT @NextReinstatementNum = ISNULL(MAX(EndorsementNum), 0) + 1
+        DECLARE @NextEndorsementNum INT;
+        SELECT @NextEndorsementNum = ISNULL(MAX(EndorsementNum), 0) + 1
         FROM tblQuotes
         WHERE ControlNo = @ControlNo;
         
         -- =============================================
-        -- CREATE NEW QUOTE FOR REINSTATEMENT (AS UNBOUND!)
+        -- CREATE NEW QUOTE FOR REINSTATEMENT
         -- =============================================
         
         IF @NewQuoteGuid IS NULL
@@ -218,7 +198,7 @@ BEGIN
         IF @UserGuid IS NOT NULL
             SELECT @UserID = UserID FROM tblUsers WHERE UserGuid = @UserGuid;
         
-        -- Insert the reinstatement quote as UNBOUND (Status 8 = Pending Reinstatement)
+        -- Insert the reinstatement quote as PENDING REINSTATEMENT (Status 8)
         INSERT INTO tblQuotes (
             QuoteGuid,
             ControlNo,
@@ -279,8 +259,8 @@ BEGIN
             @ControlNo,
             @ControlGuid,
             @OriginalQuoteGuid,
-            @NextReinstatementNum,
-            'W',                         -- W = Reinstatement
+            @NextEndorsementNum,
+            'R',                         -- TransactionTypeID = 'R' for Reinstatement
             @SubmissionGroupGuid,
             @CompanyLocationGuid,
             @CompanyLineGuid,
@@ -290,15 +270,15 @@ BEGIN
             @ProducerLocationID,
             @UnderwriterUserGuid,
             @RetailerGuid,
-            8,                           -- STATUS 8 = PENDING REINSTATEMENT
-            NULL,
-            @EffectiveDate,
-            @ExpirationDate,
+            8,                           -- QuoteStatusID = 8 (Pending Reinstatement)
+            NULL,                        -- No status reason needed for reinstatement
+            @ReinstatementEffectiveDate, -- Effective date is reinstatement date
+            @OriginalExpirationDate,     -- Use original policy expiration
             @PolicyTypeID,
             @PolicyNumber,
             @QuotingLocationGuid,
             @IssuingLocationGuid,
-            @ReinstatementEffectiveDate,
+            @ReinstatementEffectiveDate, -- Endorsement effective = reinstatement date
             'F',                         -- Flat calculation
             @ReinstatementComment,
             GETDATE(),
@@ -339,140 +319,191 @@ BEGIN
         -- =============================================
         
         DECLARE @NewQuoteOptionGuid UNIQUEIDENTIFIER = NEWID();
+        DECLARE @OriginalQuoteOptionGuid UNIQUEIDENTIFIER;
+        DECLARE @CompanyLocationID INT;
         
-        -- Get Line details for quote option
-        DECLARE @LineName VARCHAR(100);
-        DECLARE @LineID INT;
-        SELECT @LineName = LineName, @LineID = LineID 
-        FROM lstLines 
-        WHERE LineGuid = @LineGuid;
+        -- Get original quote option info
+        SELECT TOP 1 
+            @OriginalQuoteOptionGuid = QuoteOptionGuid,
+            @CompanyLocationID = CompanyLocationID,
+            @CompanyInstallmentID = CompanyInstallmentID
+        FROM tblQuoteOptions
+        WHERE QuoteGuid = @OriginalQuoteGuid
+            AND Bound = 1;
         
+        -- Insert new quote option as UNBOUND initially
         INSERT INTO tblQuoteOptions (
             QuoteOptionGuid,
+            OriginalQuoteOptionGuid,
             QuoteGuid,
             LineGuid,
-            LineName,
-            CompanyLocationGuid,
-            PolicyNumber,
-            Premium,
-            Taxes,
-            Fees,
-            OtherCharges,
-            CompanyInstallmentID,
+            CompanyLocationID,
             DateCreated,
             Bound,
-            FullyEarned
+            Quote,
+            AdditionalComments,
+            CompanyInstallmentID
         )
         VALUES (
             @NewQuoteOptionGuid,
+            @OriginalQuoteOptionGuid,
             @NewQuoteGuid,
             @LineGuid,
-            @LineName,
-            @CompanyLocationGuid,
-            @PolicyNumber,
-            @ReinstatementPremium,       -- Use the reinstatement premium
-            0,                           -- Taxes
-            0,                           -- Fees
-            0,                           -- OtherCharges
-            @CompanyInstallmentID,
+            @CompanyLocationID,
             GETDATE(),
-            0,                           -- Not bound yet
-            0                            -- Not fully earned
+            0,                           -- NOT BOUND YET (to avoid trigger)
+            0,
+            'Flat Reinstatement - ' + @ReinstatementComment,
+            @CompanyInstallmentID
         );
         
         -- =============================================
-        -- CREATE PREMIUM RECORD
+        -- SET UP REINSTATEMENT PREMIUM
         -- =============================================
         
-        INSERT INTO tblPremiums (
+        -- Get the main charge code from original
+        DECLARE @MainChargeCode INT;
+        SELECT TOP 1 @MainChargeCode = qop.ChargeCode
+        FROM tblQuoteOptionPremiums qop
+        INNER JOIN tblQuoteOptions qo ON qop.QuoteOptionGuid = qo.QuoteOptionGuid
+        WHERE qo.QuoteGuid = @OriginalQuoteGuid
+            AND qo.Bound = 1
+        ORDER BY qop.Premium DESC;
+        
+        -- Default charge code if none found
+        IF @MainChargeCode IS NULL
+            SET @MainChargeCode = 1;
+        
+        -- Calculate prorated premium if needed
+        DECLARE @DaysRemaining INT;
+        DECLARE @TotalDays INT;
+        DECLARE @ProratedPremium MONEY;
+        
+        SET @DaysRemaining = DATEDIFF(DAY, @ReinstatementEffectiveDate, @OriginalExpirationDate);
+        SET @TotalDays = DATEDIFF(DAY, @EffectiveDate, @OriginalExpirationDate);
+        
+        -- Use provided premium or calculate prorated
+        IF @ReinstatementPremium IS NOT NULL
+            SET @ProratedPremium = @ReinstatementPremium;
+        ELSE
+        BEGIN
+            -- Calculate prorated premium based on original premium
+            DECLARE @OriginalPremium MONEY = 0;
+            SELECT @OriginalPremium = ISNULL(SUM(qop.Premium), 0)
+            FROM tblQuoteOptionPremiums qop
+            INNER JOIN tblQuoteOptions qo ON qop.QuoteOptionGuid = qo.QuoteOptionGuid
+            WHERE qo.QuoteGuid = @OriginalQuoteGuid 
+                AND qo.Bound = 1;
+            
+            SET @ProratedPremium = (@OriginalPremium * @DaysRemaining) / NULLIF(@TotalDays, 0);
+        END
+        
+        -- Insert the reinstatement premium record
+        INSERT INTO tblQuoteOptionPremiums (
             QuoteOptionGuid,
-            StateID,
-            Premium,
-            AgentCommission,
-            ProducerContactGuid,
-            ProducerLocationID,
-            CompanyLocationGuid,
+            ChargeCode,
             OfficeID,
-            CostCenterID,
-            PolicyNumber,
-            InsuredName,
-            OriginalQuoteGuid
+            Premium,
+            AnnualPremium,
+            Commissionable,
+            Added
         )
         VALUES (
             @NewQuoteOptionGuid,
-            @StateID,
-            @ReinstatementPremium,
-            0,                           -- Will be calculated separately
-            @ProducerContactGuid,
-            @ProducerLocationID,
-            @CompanyLocationGuid,
+            @MainChargeCode,
             @OfficeID,
-            @CostCenterID,
-            @PolicyNumber,
-            COALESCE(@InsuredCorporationName, @InsuredFirstName + ' ' + @InsuredLastName),
-            @OriginalQuoteGuid
+            @ProratedPremium,            -- Reinstatement premium
+            @ProratedPremium,            -- Annual = same as premium for flat
+            1,                           -- Commissionable
+            GETDATE()
         );
         
         -- =============================================
-        -- UNBIND CANCELLATION (Optional - based on business rules)
+        -- COPY QUOTE DETAILS (For commission tracking)
         -- =============================================
         
-        -- Uncomment if you need to unbind the cancellation
-        /*
-        UPDATE tblQuoteOptions 
-        SET Bound = 0, DateBound = NULL
-        WHERE QuoteGuid = @CancellationQuoteGuid;
-        
-        UPDATE tblQuotes
-        SET QuoteStatusID = 7  -- Keep as cancelled but unbound
-        WHERE QuoteGuid = @CancellationQuoteGuid;
-        */
-        
-        -- =============================================
-        -- RETURN RESULTS
-        -- =============================================
-        
-        -- Calculate premium change from cancellation
-        DECLARE @CancellationPremium MONEY = 0;
-        SELECT @CancellationPremium = ISNULL(Premium, 0)
-        FROM tblQuoteOptions
-        WHERE QuoteGuid = @CancellationQuoteGuid;
-        
-        -- Return success with details
-        SELECT 
-            1 AS Result,
-            'Reinstatement created successfully' AS Message,
-            @NewQuoteGuid AS NewQuoteGuid,
-            @NewQuoteOptionGuid AS QuoteOptionGuid,
-            @OriginalQuoteGuid AS OriginalQuoteGuid,
-            @CancellationQuoteGuid AS CancellationQuoteGuid,
-            @PolicyNumber AS PolicyNumber,
-            @NextReinstatementNum AS ReinstatementNumber,
-            @ReinstatementPremium AS ReinstatementPremium,
-            ABS(@CancellationPremium) AS CancellationRefund,
-            (@ReinstatementPremium + ABS(@CancellationPremium)) AS NetPremiumChange
+        IF OBJECT_ID('tblQuoteDetails', 'U') IS NOT NULL
+        BEGIN
+            -- Copy quote details with existing commission rates
+            INSERT INTO tblQuoteDetails (
+                QuoteGuid,
+                CompanyLineGuid,
+                CompanyContactGuid,
+                CompanyCommission,
+                ProducerCommission,
+                RaterID,
+                TermsOfPayment,
+                ProgramID
+            )
+            SELECT 
+                @NewQuoteGuid,
+                CompanyLineGuid,
+                CompanyContactGuid,
+                CompanyCommission,
+                ProducerCommission,
+                RaterID,
+                TermsOfPayment,
+                ProgramID
+            FROM tblQuoteDetails
+            WHERE QuoteGuid = @OriginalQuoteGuid;
+        END
         
         COMMIT TRANSACTION;
         
+        -- Return success with detailed information
+        SELECT 
+            'Success' AS Result,
+            @PolicyNumber AS PolicyNumber,
+            @OriginalQuoteGuid AS OriginalQuoteGuid,
+            @NewQuoteGuid AS NewQuoteGuid,
+            @NextEndorsementNum AS EndorsementNumber,
+            @ProratedPremium AS ReinstatementPremium,
+            @ReinstatementEffectiveDate AS EffectiveDate,
+            @OriginalExpirationDate AS ExpirationDate,
+            @DaysRemaining AS DaysRemaining,
+            @MainChargeCode AS ChargeCode,
+            'Reinstatement created (Status 8 - Pending Reinstatement). Ready for binding via web service.' AS Instructions;
+            
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
-        
-        -- Return error
+            
+        -- Return error details
         SELECT 
-            0 AS Result,
-            ERROR_MESSAGE() AS Message,
-            NULL AS NewQuoteGuid,
-            NULL AS QuoteOptionGuid,
-            NULL AS OriginalQuoteGuid,
-            NULL AS CancellationQuoteGuid,
-            NULL AS PolicyNumber,
-            NULL AS ReinstatementNumber,
-            NULL AS ReinstatementPremium,
-            NULL AS CancellationRefund,
-            NULL AS NetPremiumChange
-        
+            'Error' AS Result,
+            ERROR_MESSAGE() AS ErrorMessage,
+            ERROR_LINE() AS ErrorLine,
+            ERROR_PROCEDURE() AS ErrorProcedure,
+            ERROR_NUMBER() AS ErrorNumber;
+            
+        -- Re-raise the error
         THROW;
     END CATCH
 END
+GO
+
+-- =============================================
+-- SAMPLE EXECUTION SCRIPT
+-- =============================================
+/*
+-- Test the procedure with specified premium
+DECLARE @NewQuoteGuid UNIQUEIDENTIFIER;
+
+EXEC [dbo].[ProcessFlatReinstatement]
+    @OriginalQuoteGuid = 'YOUR-CANCELLED-QUOTE-GUID',
+    @ReinstatementPremium = 3500.00,
+    @ReinstatementEffectiveDate = GETDATE(),
+    @ReinstatementComment = 'Customer requested reinstatement',
+    @NewQuoteGuid = @NewQuoteGuid OUTPUT;
+
+-- Display the output
+SELECT @NewQuoteGuid AS ReinstatementQuoteGuid;
+
+-- Test the procedure with auto-calculated prorated premium
+EXEC [dbo].[ProcessFlatReinstatement]
+    @OriginalQuoteGuid = 'YOUR-CANCELLED-QUOTE-GUID',
+    @ReinstatementPremium = NULL,  -- Will calculate prorated
+    @ReinstatementEffectiveDate = GETDATE(),
+    @ReinstatementComment = 'Customer requested reinstatement';
+*/
