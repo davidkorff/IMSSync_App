@@ -152,7 +152,7 @@ BEGIN
         PRINT ''
         
         PRINT 'STEP 5: Calling ProcessFlatReinstatement with:'
-        PRINT '  @OpportunityID = ' + CAST(@OpportunityID AS VARCHAR(20))
+        PRINT '  @OpportunityID = NULL (using CancelledQuoteGuid instead)'
         PRINT '  @CancelledQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
         PRINT '  @ReinstatementPremium = ' + CAST(@ReinstatementPremium AS VARCHAR(20))
         PRINT '  @ReinstatementEffectiveDate = ' + @ReinstatementEffectiveDateStr
@@ -161,8 +161,9 @@ BEGIN
         PRINT ''
         
         -- Step 5: Call the base ProcessFlatReinstatement procedure
+        -- Pass NULL for OpportunityID since we're using CancelledQuoteGuid
         EXEC [dbo].[ProcessFlatReinstatement]
-            @OpportunityID = @OpportunityID,
+            @OpportunityID = NULL,
             @CancelledQuoteGuid = @CancelledQuoteGuid,
             @ReinstatementPremium = @ReinstatementPremium,
             @ReinstatementEffectiveDate = @ReinstatementEffectiveDate,
