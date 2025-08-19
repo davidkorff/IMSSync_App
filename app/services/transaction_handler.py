@@ -626,17 +626,25 @@ class TransactionHandler:
                         if not success:
                             logger.warning(f"Failed to process reinstatement payload: {message}")
                     
-                    # Bind the reinstatement
-                    logger.info(f"Binding reinstatement quote {reinstatement_quote_guid}")
-                    success, bind_result, message = self.bind_service.bind_quote(reinstatement_quote_guid)
-                    
-                    if success:
-                        results["reinstatement_policy_number"] = bind_result.get("policy_number")
-                        results["reinstatement_status"] = "completed"
-                        logger.info(f"Successfully bound reinstatement: {bind_result.get('policy_number')}")
+                    # Bind the reinstatement if we have a quote GUID
+                    if reinstatement_quote_guid:
+                        logger.info(f"Binding reinstatement quote {reinstatement_quote_guid}")
+                        success, bind_result, message = self.bind_service.bind_quote(reinstatement_quote_guid)
+                        
+                        if success:
+                            results["reinstatement_policy_number"] = bind_result.get("policy_number")
+                            results["reinstatement_status"] = "completed"
+                            logger.info(f"Successfully bound reinstatement: {bind_result.get('policy_number')}")
+                        else:
+                            logger.error(f"Failed to bind reinstatement: {message}")
+                            return False, results, f"Reinstatement bind failed: {message}"
                     else:
-                        logger.error(f"Failed to bind reinstatement: {message}")
-                        return False, results, f"Reinstatement bind failed: {message}"
+                        # No reinstatement quote GUID returned - check if policy was directly reinstated
+                        logger.warning("No reinstatement quote GUID returned - policy may have been directly reinstated")
+                        results["reinstatement_status"] = "possibly_completed"
+                        results["message"] = "Reinstatement processed but no quote GUID returned - check policy status manually"
+                        # Don't fail the transaction - the reinstatement may have succeeded directly
+                        return True, results, "Reinstatement processed - no binding required"
                     
                     # Get invoice data after successful reinstatement
                     if reinstatement_quote_guid:

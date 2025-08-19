@@ -151,10 +151,17 @@ BEGIN
         PRINT '  ReinstatementPremium: $' + CAST(@ReinstatementPremium AS VARCHAR(20))
         PRINT ''
         
+        -- Store the current max QuoteID BEFORE calling the procedure
+        DECLARE @MaxQuoteIDBeforeCall INT
+        SELECT @MaxQuoteIDBeforeCall = ISNULL(MAX(QuoteID), 0)
+        FROM tblQuotes 
+        WHERE ControlNo = @ControlNo
+        
         PRINT 'STEP 5: Calling ProcessFlatReinstatement with:'
         PRINT '  @OriginalQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
         PRINT '  @ReinstatementPremium = ' + CAST(@ReinstatementPremium AS VARCHAR(20))
         PRINT '  @ReinstatementEffectiveDate = ' + @ReinstatementEffectiveDateStr
+        PRINT '  Max QuoteID before call: ' + CAST(@MaxQuoteIDBeforeCall AS VARCHAR(20))
         PRINT ''
         
         -- Step 5: Call the base ProcessFlatReinstatement procedure
@@ -174,39 +181,42 @@ BEGIN
         
         -- Debug: Show what we're looking for
         PRINT '  Looking for quote with:'
-        PRINT '    OriginalQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
-        PRINT '    TransactionTypeID = W (Reinstatement)'
-        PRINT '    OR ControlNo = ' + CAST(@ControlNo AS VARCHAR(20))
+        PRINT '    ControlNo = ' + CAST(@ControlNo AS VARCHAR(20))
+        PRINT '    QuoteID > ' + CAST(@MaxQuoteIDBeforeCall AS VARCHAR(20))
+        PRINT '    Created after ProcessFlatReinstatement call'
         
-        -- First try: Look for quote with OriginalQuoteGuid matching the cancelled quote
-        SELECT TOP 1 @NewQuoteGuid = QuoteGuid
+        -- Look for ANY new quote created for this ControlNo after our procedure call
+        SELECT TOP 1 
+            @NewQuoteGuid = QuoteGuid,
+            @TransactionTypeID = TransactionTypeID,
+            @QuoteStatusID = QuoteStatusID
         FROM tblQuotes
-        WHERE OriginalQuoteGuid = @CancelledQuoteGuid
-        AND TransactionTypeID = 'W'  -- W = Reinstatement
+        WHERE ControlNo = @ControlNo
+        AND QuoteID > @MaxQuoteIDBeforeCall  -- Must be newer than what existed before
         ORDER BY QuoteID DESC
         
-        IF @NewQuoteGuid IS NULL
+        IF @NewQuoteGuid IS NOT NULL
         BEGIN
-            PRINT '  Not found by OriginalQuoteGuid, trying by ControlNo...'
-            -- Second try: Find by ControlNo
-            SELECT TOP 1 @NewQuoteGuid = QuoteGuid
-            FROM tblQuotes
-            WHERE ControlNo = @ControlNo
-            AND TransactionTypeID = 'W'
-            AND QuoteID > @QuoteID  -- Must be newer than the cancelled quote
-            ORDER BY QuoteID DESC
+            PRINT '  Found new quote!'
+            PRINT '    QuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
+            PRINT '    TransactionTypeID: ' + ISNULL(@TransactionTypeID, 'NULL')
+            PRINT '    QuoteStatusID: ' + CAST(@QuoteStatusID AS VARCHAR(10))
         END
-        
-        IF @NewQuoteGuid IS NULL
+        ELSE
         BEGIN
-            PRINT '  Still not found, checking for any new quote with same ControlNo...'
-            -- Third try: Any new quote with same ControlNo created after the cancellation
-            SELECT TOP 1 @NewQuoteGuid = QuoteGuid
+            PRINT '  No new quote found after ProcessFlatReinstatement'
+            -- Try looking for the cancelled quote being updated to reinstated status
+            SELECT @QuoteStatusID = QuoteStatusID
             FROM tblQuotes
-            WHERE ControlNo = @ControlNo
-            AND QuoteID > @QuoteID
-            AND QuoteStatusID = 8  -- Status 8 = Pending Reinstatement
-            ORDER BY QuoteID DESC
+            WHERE QuoteGuid = @CancelledQuoteGuid
+            
+            IF @QuoteStatusID NOT IN (7, 12)  -- No longer cancelled
+            BEGIN
+                PRINT '  Cancelled quote status changed to: ' + CAST(@QuoteStatusID AS VARCHAR(10))
+                PRINT '  Policy may have been directly reinstated without creating new quote'
+                -- Use the cancelled quote guid as the "reinstated" quote
+                SET @NewQuoteGuid = @CancelledQuoteGuid
+            END
         END
         
         IF @NewQuoteGuid IS NULL
