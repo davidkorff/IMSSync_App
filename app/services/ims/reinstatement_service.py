@@ -60,10 +60,10 @@ class IMSReinstatementService(BaseIMSService):
             logger.info(f"Reinstatement details - Premium: ${reinstatement_premium:,.2f}, Effective: {effective_date}")
             
             # Prepare parameters for stored procedure (as alternating name/value pairs)
+            # Note: Triton_ProcessFlatReinstatement_WS only takes 3 parameters
+            # It gets the premium and date from the database automatically
             params = [
                 "OpportunityID", str(opportunity_id),
-                "ReinstatementPremium", str(reinstatement_premium),
-                "ReinstatementEffectiveDate", effective_date,
                 "ReinstatementComment", comment,
                 "UserGuid", str(user_guid)
             ]
@@ -101,7 +101,10 @@ class IMSReinstatementService(BaseIMSService):
         comment: str = "Policy Reinstatement"
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
-        Reinstate a cancelled policy using the cancellation quote GUID via stored procedure.
+        Reinstate a cancelled policy using the cancellation quote GUID.
+        
+        Note: The Triton_ProcessFlatReinstatement_WS procedure only accepts OpportunityID,
+        so this method is currently not supported by the wrapper procedure.
         
         Args:
             cancelled_quote_guid: The GUID of the cancelled quote to reinstate
@@ -113,50 +116,16 @@ class IMSReinstatementService(BaseIMSService):
             Tuple[bool, Dict[str, Any], str]: (success, result_data, message)
         """
         try:
-            # Get user guid from auth service
-            user_guid = self.auth_service.user_guid
+            # The Triton wrapper doesn't support CancelledQuoteGuid parameter
+            # Would need to look up the opportunity_id from the quote first
+            logger.warning(f"reinstate_policy_by_cancelled_quote_guid not fully implemented for wrapper procedure")
+            logger.warning(f"Triton_ProcessFlatReinstatement_WS only accepts OpportunityID parameter")
             
-            if not user_guid:
-                return False, {}, "Authentication required - no user GUID available"
-            
-            # Default effective date to today if not provided
-            if not effective_date:
-                effective_date = datetime.now().strftime("%m/%d/%Y")
-            
-            logger.info(f"Reinstating cancelled policy quote: {cancelled_quote_guid}")
-            logger.info(f"Reinstatement details - Premium: ${reinstatement_premium:,.2f}, Effective: {effective_date}")
-            
-            # Prepare parameters for stored procedure (as alternating name/value pairs)
-            params = [
-                "CancelledQuoteGuid", str(cancelled_quote_guid),
-                "ReinstatementPremium", str(reinstatement_premium),
-                "ReinstatementEffectiveDate", effective_date,
-                "ReinstatementComment", comment,
-                "UserGuid", str(user_guid)
-            ]
-            
-            # Call the stored procedure (IMS adds _WS suffix automatically)
-            success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="Triton_ProcessFlatReinstatement",
-                parameters=params
-            )
-            
-            if not success:
-                return False, {}, f"Failed to execute reinstatement procedure: {message}"
-            
-            # Parse the result
-            result_data = self._parse_reinstatement_procedure_result(result_xml)
-            
-            if result_data and result_data.get("Result") == "1":
-                logger.info(f"Successfully reinstated policy. NewQuoteGuid: {result_data.get('NewQuoteGuid')}")
-                return True, result_data, result_data.get("Message", "Policy reinstated successfully")
-            else:
-                error_msg = result_data.get("Message", "Unknown error") if result_data else "No result returned"
-                logger.error(f"Failed to reinstate policy: {error_msg}")
-                return False, result_data or {}, error_msg
+            # For now, return an error indicating this method isn't supported
+            return False, {}, "This method requires OpportunityID. Use reinstate_policy_by_opportunity_id instead."
                 
         except Exception as e:
-            error_msg = f"Error reinstating policy: {str(e)}"
+            error_msg = f"Error reinstating policy by cancelled quote guid: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return False, {}, error_msg
     
