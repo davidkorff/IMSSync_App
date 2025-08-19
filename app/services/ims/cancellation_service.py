@@ -215,14 +215,26 @@ class IMSCancellationService(BaseIMSService):
             # Parse the XML
             root = ET.fromstring(result_xml)
             
-            # Check all Table elements - look for Table1 first (common for cancellations)
-            tables = root.findall('.//Table1')
-            if not tables:
-                tables = root.findall('.//Table2')  # Then Table2
-            if not tables:
-                tables = root.findall('.//Table')  # Fall back to Table
+            # Check all Table elements - collect all tables with different names
+            all_results = []
             
-            for table in tables:
+            # Check Table3 first (most complete for Triton cancellations)
+            for table in root.findall('.//Table3'):
+                all_results.append(('Table3', table))
+            # Then Table2
+            for table in root.findall('.//Table2'):
+                all_results.append(('Table2', table))
+            # Then Table1
+            for table in root.findall('.//Table1'):
+                all_results.append(('Table1', table))
+            # Finally plain Table
+            for table in root.findall('.//Table'):
+                all_results.append(('Table', table))
+            
+            best_result = None
+            best_score = 0
+            
+            for table_name, table in all_results:
                 # Try to extract structured fields
                 result_data = {}
                 
@@ -284,10 +296,35 @@ class IMSCancellationService(BaseIMSService):
                 if option_guid_elem is not None and option_guid_elem.text:
                     result_data['QuoteOptionGuid'] = option_guid_elem.text.strip()
                 
-                # If we got structured data with Result field, return it
+                # Score this result based on completeness
+                score = 0
                 if 'Result' in result_data:
-                    logger.debug(f"Parsed structured cancellation result: {result_data}")
-                    return result_data
+                    score += 10
+                if 'NewQuoteGuid' in result_data or 'CancellationQuoteGuid' in result_data:
+                    score += 5
+                if 'NewQuoteOptionGuid' in result_data or 'QuoteOptionGuid' in result_data:
+                    score += 5
+                if 'Message' in result_data:
+                    score += 2
+                if 'ReturnPremium' in result_data or 'RefundAmount' in result_data:
+                    score += 3
+                
+                # Prioritize Table3 and Table2 for Triton responses
+                if table_name == 'Table3':
+                    score += 20
+                elif table_name == 'Table2':
+                    score += 10
+                
+                # Keep the best result
+                if score > best_score:
+                    best_score = score
+                    best_result = result_data
+                    logger.debug(f"Found {table_name} with score {score}: {result_data}")
+            
+            # Return the best result we found
+            if best_result:
+                logger.debug(f"Selected best cancellation result (score {best_score}): {best_result}")
+                return best_result
             
             # If no recognized format, log what we found
             logger.warning(f"Unrecognized cancellation result format. XML: {result_xml}")
