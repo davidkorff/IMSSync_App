@@ -70,7 +70,7 @@ class IMSReinstatementService(BaseIMSService):
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="ProcessFlatReinstatement",
+                procedure_name="Triton_ProcessFlatReinstatement",
                 parameters=params
             )
             
@@ -137,7 +137,7 @@ class IMSReinstatementService(BaseIMSService):
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
             success, result_xml, message = self.data_service.execute_dataset(
-                procedure_name="ProcessFlatReinstatement",
+                procedure_name="Triton_ProcessFlatReinstatement",
                 parameters=params
             )
             
@@ -162,7 +162,7 @@ class IMSReinstatementService(BaseIMSService):
     
     def _parse_reinstatement_procedure_result(self, result_xml: str) -> Optional[Dict[str, Any]]:
         """
-        Parse the result from ProcessFlatReinstatement_WS stored procedure.
+        Parse the result from Triton_ProcessFlatReinstatement_WS stored procedure.
         
         Args:
             result_xml: The XML result from ExecuteDataSet
