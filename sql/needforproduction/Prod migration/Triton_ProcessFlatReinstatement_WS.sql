@@ -170,7 +170,15 @@ BEGIN
         PRINT ''
         
         -- Step 5b: Find the newly created reinstatement quote
-        -- It should be the latest quote with OriginalQuoteGuid = @CancelledQuoteGuid and TransactionTypeID = 'W'
+        PRINT 'STEP 5b: Finding newly created reinstatement quote...'
+        
+        -- Debug: Show what we're looking for
+        PRINT '  Looking for quote with:'
+        PRINT '    OriginalQuoteGuid = ' + CAST(@CancelledQuoteGuid AS VARCHAR(50))
+        PRINT '    TransactionTypeID = W (Reinstatement)'
+        PRINT '    OR ControlNo = ' + CAST(@ControlNo AS VARCHAR(20))
+        
+        -- First try: Look for quote with OriginalQuoteGuid matching the cancelled quote
         SELECT TOP 1 @NewQuoteGuid = QuoteGuid
         FROM tblQuotes
         WHERE OriginalQuoteGuid = @CancelledQuoteGuid
@@ -179,7 +187,8 @@ BEGIN
         
         IF @NewQuoteGuid IS NULL
         BEGIN
-            -- If not found by OriginalQuoteGuid, try finding by ControlNo
+            PRINT '  Not found by OriginalQuoteGuid, trying by ControlNo...'
+            -- Second try: Find by ControlNo
             SELECT TOP 1 @NewQuoteGuid = QuoteGuid
             FROM tblQuotes
             WHERE ControlNo = @ControlNo
@@ -188,7 +197,38 @@ BEGIN
             ORDER BY QuoteID DESC
         END
         
-        PRINT '  Found NewQuoteGuid: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
+        IF @NewQuoteGuid IS NULL
+        BEGIN
+            PRINT '  Still not found, checking for any new quote with same ControlNo...'
+            -- Third try: Any new quote with same ControlNo created after the cancellation
+            SELECT TOP 1 @NewQuoteGuid = QuoteGuid
+            FROM tblQuotes
+            WHERE ControlNo = @ControlNo
+            AND QuoteID > @QuoteID
+            AND QuoteStatusID = 8  -- Status 8 = Pending Reinstatement
+            ORDER BY QuoteID DESC
+        END
+        
+        IF @NewQuoteGuid IS NULL
+        BEGIN
+            PRINT '  WARNING: No reinstatement quote found!'
+            PRINT '  The ProcessFlatReinstatement procedure may not have created a new quote.'
+            
+            -- Return with warning message
+            SELECT 
+                1 AS Result,
+                'Reinstatement processed but no new quote found - may need manual binding' AS Message,
+                NULL AS NewQuoteGuid,
+                NULL AS NewQuoteOptionGuid,
+                @CancelledQuoteGuid AS CancelledQuoteGuid,
+                @ControlNo AS ControlNo,
+                @PolicyNumber AS PolicyNumber,
+                @ReinstatementPremium AS ReinstatementPremium,
+                @ReinstatementEffectiveDate AS ReinstatementEffectiveDate
+            RETURN
+        END
+        
+        PRINT '  Found NewQuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
         PRINT ''
         
         -- Step 6: Retrieve the QuoteOptionGuid for the new reinstatement quote
