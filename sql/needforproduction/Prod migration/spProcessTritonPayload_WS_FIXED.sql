@@ -317,13 +317,89 @@ BEGIN
             );
         END
        
-        -- 3. Update policy number in tblquotes (only for bind transactions)
+        -- 3. Update tblquotes fields (only for bind transactions)
+        -- This handles rebind scenarios where data may have changed between transactions
         IF @transaction_type = 'bind' AND EXISTS (SELECT 1 FROM tblquotes WHERE QuoteGuid = @QuoteGuid)
         BEGIN
+            -- Declare variables for date conversion and producer lookup
+            DECLARE @EffectiveDateConverted DATE = NULL;
+            DECLARE @ExpirationDateConverted DATE = NULL;
+            DECLARE @ProducerContactGuid UNIQUEIDENTIFIER = NULL;
+            
+            -- Convert date strings to DATE type
+            IF @effective_date IS NOT NULL AND @effective_date != ''
+            BEGIN
+                SET @EffectiveDateConverted = TRY_CONVERT(DATE, @effective_date);
+            END
+            
+            IF @expiration_date IS NOT NULL AND @expiration_date != ''
+            BEGIN
+                SET @ExpirationDateConverted = TRY_CONVERT(DATE, @expiration_date);
+            END
+            
+            -- Lookup producer by name or email using existing logic
+            DECLARE @producer_email NVARCHAR(200);
+            SET @producer_email = JSON_VALUE(@full_payload_json, '$.producer_email');
+            
+            -- Option 1: Use the existing getProducerGuid_WS procedure if it exists
+            IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'getProducerGuid_WS')
+            BEGIN
+                -- Create temp table to capture results
+                CREATE TABLE #ProducerLookup (
+                    ProducerContactGUID UNIQUEIDENTIFIER,
+                    ProducerLocationGUID UNIQUEIDENTIFIER
+                );
+                
+                INSERT INTO #ProducerLookup
+                EXEC getProducerGuid_WS @producer_email = @producer_email, @producer_name = @producer_name;
+                
+                SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
+                FROM #ProducerLookup;
+                
+                DROP TABLE #ProducerLookup;
+            END
+            ELSE
+            BEGIN
+                -- Option 2: Direct lookup matching the logic in getProducerGuid_WS
+                IF @producer_email IS NOT NULL AND @producer_email != ''
+                BEGIN
+                    -- Try to find producer by email first
+                    SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
+                    FROM tblproducercontacts 
+                    WHERE statusid = 1 
+                        AND email = @producer_email
+                    ORDER BY ProducerContactGUID DESC;
+                END
+                
+                -- If not found by email, try by name
+                IF @ProducerContactGuid IS NULL AND @producer_name IS NOT NULL AND @producer_name != ''
+                BEGIN
+                    SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
+                    FROM tblproducercontacts 
+                    WHERE LTRIM(RTRIM(fname)) + ' ' + LTRIM(RTRIM(lname)) = @producer_name
+                    ORDER BY fname, lname;
+                END
+            END
+            
+            -- Update tblquotes with new values
             UPDATE tblquotes
-            SET PolicyNumber = @policy_number
+            SET PolicyNumber = @policy_number,
+                EffectiveDate = ISNULL(@EffectiveDateConverted, EffectiveDate),
+                ExpirationDate = ISNULL(@ExpirationDateConverted, ExpirationDate),
+                ProducerContactGuid = ISNULL(@ProducerContactGuid, ProducerContactGuid)
             WHERE QuoteGuid = @QuoteGuid;
-            PRINT 'Updated policy number in tblquotes';
+            
+            -- Log what was updated
+            PRINT 'Updated tblquotes for rebind:';
+            PRINT '  - PolicyNumber: ' + ISNULL(@policy_number, 'NULL');
+            IF @EffectiveDateConverted IS NOT NULL
+                PRINT '  - EffectiveDate: ' + CONVERT(VARCHAR, @EffectiveDateConverted, 101);
+            IF @ExpirationDateConverted IS NOT NULL
+                PRINT '  - ExpirationDate: ' + CONVERT(VARCHAR, @ExpirationDateConverted, 101);
+            IF @ProducerContactGuid IS NOT NULL
+                PRINT '  - ProducerContactGuid: ' + CAST(@ProducerContactGuid AS VARCHAR(50));
+            ELSE IF @producer_name IS NOT NULL OR @producer_email IS NOT NULL
+                PRINT '  - WARNING: Producer not found for email: ' + ISNULL(@producer_email, 'N/A') + ', name: ' + ISNULL(@producer_name, 'N/A');
         END
        
         -- 4. Update commission rates in tblQuoteDetails (only for bind transactions)

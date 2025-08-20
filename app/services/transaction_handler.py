@@ -103,7 +103,18 @@ class TransactionHandler:
                         results["quote_guid"] = quote_guid
                         results["quote_option_guid"] = quote_info.get("QuoteOptionGuid")
                         
+                        # Validate producer exists before rebind
+                        # This ensures we fail fast if producer is invalid
+                        logger.info("Validating producer for rebind")
+                        success, producer_info, message = self.data_service.process_producer_from_payload(payload)
+                        if not success:
+                            return False, results, f"Producer lookup failed during rebind: {message}"
+                        results["producer_contact_guid"] = producer_info.get("ProducerContactGUID")
+                        results["producer_location_guid"] = producer_info.get("ProducerLocationGUID")
+                        logger.info(f"Producer validated for rebind: {producer_info.get('ProducerContactGUID')}")
+                        
                         # Process payload to update data and bind
+                        # The stored procedure will now update tblQuotes with new dates and producer
                         success, process_result, message = self.payload_processor.process_payload(
                             payload=payload,
                             quote_guid=quote_guid,
