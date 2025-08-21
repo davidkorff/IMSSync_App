@@ -1,6 +1,7 @@
 -- =============================================
 -- Triton Wrapper for ProcessFlatEndorsement
 -- Calculates total premium and calls base procedure
+-- FIXED: Now retrieves and returns QuoteOptionGuid
 -- =============================================
 
 CREATE OR ALTER PROCEDURE [dbo].[Triton_ProcessFlatEndorsement_WS]
@@ -22,6 +23,7 @@ BEGIN
     DECLARE @TotalPremium MONEY
     DECLARE @EffectiveDateTime DATETIME
     DECLARE @NewQuoteGuid UNIQUEIDENTIFIER
+    DECLARE @NewQuoteOptionGuid UNIQUEIDENTIFIER  -- Added to store the QuoteOptionGuid
     
     BEGIN TRY
         -- Convert date string to datetime
@@ -87,33 +89,18 @@ BEGIN
             RETURN
         END
         
-        -- Step 2: Find the original quote (first in the chain) and get its premium
-        DECLARE @CurrentQuoteGuid UNIQUEIDENTIFIER = @LatestQuoteGuid
-        DECLARE @OriginalQuoteGuid UNIQUEIDENTIFIER
-        DECLARE @OriginalQuoteID INT
+        -- Step 2: Get the premium from the LATEST quote (the one we're endorsing)
+        DECLARE @LatestQuoteID INT
         
-        -- Backtrack through the chain to find the original quote
-        WHILE 1=1
-        BEGIN
-            SELECT @OriginalQuoteGuid = OriginalQuoteGUID
-            FROM tblQuotes
-            WHERE QuoteGUID = @CurrentQuoteGuid
-            
-            IF @OriginalQuoteGuid IS NULL
-                BREAK  -- Found the original (no OriginalQuoteGUID)
-            
-            SET @CurrentQuoteGuid = @OriginalQuoteGuid
-        END
-        
-        -- Get the QuoteID of the original quote
-        SELECT @OriginalQuoteID = QuoteID
+        -- Get the QuoteID of the latest quote
+        SELECT @LatestQuoteID = QuoteID
         FROM tblQuotes
-        WHERE QuoteGUID = @CurrentQuoteGuid
+        WHERE QuoteGUID = @LatestQuoteGuid
         
-        -- Get the original premium from the invoice
+        -- Get the current premium from the latest quote's invoice
         SELECT @ExistingPremium = ISNULL(AnnualPremium, 0)
         FROM tblFin_Invoices
-        WHERE QuoteID = @OriginalQuoteID
+        WHERE QuoteID = @LatestQuoteID
         
         -- Step 3: Calculate total premium
         SET @TotalPremium = @ExistingPremium + @EndorsementPremium
@@ -121,10 +108,9 @@ BEGIN
         PRINT 'Endorsement calculation:'
         PRINT '  Opportunity ID: ' + CAST(@OpportunityID AS VARCHAR(20))
         PRINT '  Latest Quote GUID: ' + CAST(@LatestQuoteGuid AS VARCHAR(50))
-        PRINT '  Original Quote GUID: ' + CAST(@CurrentQuoteGuid AS VARCHAR(50))
-        PRINT '  Original Quote ID: ' + CAST(@OriginalQuoteID AS VARCHAR(20))
+        PRINT '  Latest Quote ID: ' + CAST(@LatestQuoteID AS VARCHAR(20))
         PRINT '  Control No: ' + CAST(@ControlNo AS VARCHAR(20))
-        PRINT '  Original Policy Premium: $' + CAST(@ExistingPremium AS VARCHAR(20))
+        PRINT '  Current Policy Premium: $' + CAST(@ExistingPremium AS VARCHAR(20))
         PRINT '  Endorsement Premium: $' + CAST(@EndorsementPremium AS VARCHAR(20))
         PRINT '  Total Premium: $' + CAST(@TotalPremium AS VARCHAR(20))
         PRINT '  Effective Date: ' + @EndorsementEffectiveDate
@@ -138,24 +124,33 @@ BEGIN
             @UserGuid = @UserGuid,
             @NewQuoteGuid = @NewQuoteGuid OUTPUT
         
+        -- Step 5: Retrieve the QuoteOptionGuid for the new endorsement quote
+        -- The ProcessFlatEndorsement procedure creates a new QuoteOption record
+        SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
+        FROM tblQuoteOptions
+        WHERE QuoteGuid = @NewQuoteGuid
+        ORDER BY DateCreated DESC  -- Get the most recently created one
+        
         -- Store the midterm_endt_id if provided to track this endorsement
         IF @MidtermEndtID IS NOT NULL AND @NewQuoteGuid IS NOT NULL
         BEGIN
             -- Check if record exists for this quote
             IF EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @NewQuoteGuid)
             BEGIN
-                -- Update existing record
+                -- Update existing record with QuoteOptionGuid
                 UPDATE tblTritonQuoteData 
                 SET midterm_endt_id = @MidtermEndtID,
+                    QuoteOptionGuid = @NewQuoteOptionGuid,  -- Store the QuoteOptionGuid
                     transaction_type = 'midterm_endorsement',
                     last_updated = GETDATE()
                 WHERE QuoteGuid = @NewQuoteGuid
             END
             ELSE
             BEGIN
-                -- Insert minimal record for tracking
+                -- Insert record with QuoteOptionGuid
                 INSERT INTO tblTritonQuoteData (
                     QuoteGuid,
+                    QuoteOptionGuid,  -- Include QuoteOptionGuid
                     opportunity_id,
                     midterm_endt_id,
                     transaction_type,
@@ -165,6 +160,7 @@ BEGIN
                 )
                 VALUES (
                     @NewQuoteGuid,
+                    @NewQuoteOptionGuid,  -- Store the QuoteOptionGuid
                     @OpportunityID,
                     @MidtermEndtID,
                     'midterm_endorsement',
@@ -175,11 +171,12 @@ BEGIN
             END
         END
         
-        -- Return success with the new quote guid
+        -- Return success with the new quote guid AND QuoteOptionGuid
         SELECT 
             1 AS Result,
             'Endorsement created successfully' AS Message,
             @NewQuoteGuid AS NewQuoteGuid,
+            @NewQuoteOptionGuid AS NewQuoteOptionGuid,  -- Return the QuoteOptionGuid
             @LatestQuoteGuid AS OriginalQuoteGuid,
             @ControlNo AS ControlNo,
             @ExistingPremium AS ExistingPremium,

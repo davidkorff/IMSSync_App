@@ -420,10 +420,11 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid (only for bind)
-        -- This must happen before binding
+        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid
+        -- This must happen before binding/processing
         -- Market segment codes: RT (Retail) or WL (Wholesale)
-        IF @transaction_type = 'bind'
+        -- Apply for bind, midterm_endorsement, cancellation, and reinstatement
+        IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
         BEGIN
             DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
            
@@ -490,10 +491,12 @@ BEGIN
             PRINT 'Skipping UpdatePremiumHistoricV3 for ' + @transaction_type + ' (rating already handled by transaction-specific procedures)';
         END
        
-        -- 7. Auto apply fees ONLY if stamping_fee OR surplus_lines_tax have values (bind only)
-        -- If Triton provides ANY fee values, we use auto-apply to calculate the rest
-        -- If all fees are blank/null, skip auto-apply (Triton has no fees for this policy)
-        IF @transaction_type = 'bind' AND ((@stamping_fee IS NOT NULL AND @stamping_fee != '') OR (@surplus_lines_tax IS NOT NULL AND @surplus_lines_tax != ''))
+        -- 7. Auto apply fees based on market_segment_code
+        -- RT (Retail) = Auto-apply fees
+        -- WL (Wholesale) = Do NOT auto-apply fees
+        -- Apply for bind, midterm_endorsement, cancellation, and reinstatement
+        IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement') 
+            AND @market_segment_code = 'RT'
         BEGIN
             -- Check if the stored procedure exists before calling
             IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
@@ -501,16 +504,22 @@ BEGIN
                 EXEC dbo.spAutoApplyFees
                     @quoteOptionGuid = @QuoteOptionGuid;
                    
-                PRINT 'Auto-applied fees because stamping_fee or surplus_lines_tax were provided';
+                PRINT 'Auto-applied fees for ' + @transaction_type + ' (RT market segment)';
             END
         END
-        ELSE IF @transaction_type = 'bind'
+        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
+            AND @market_segment_code = 'WL'
         BEGIN
-            PRINT 'Skipped auto-apply fees because stamping_fee and surplus_lines_tax were both blank/null';
+            PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (WL market segment - wholesale does not auto-apply fees)';
+        END
+        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
+        BEGIN
+            PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (market_segment_code: ' + ISNULL(@market_segment_code, 'NULL') + ')';
         END
        
-        -- 8. Apply Policy Fee from Triton if present (bind only)
-        -- This applies the policy_fee to all quote options using charge code 12374
+        -- 8. Apply Policy Fee from Triton if present
+        -- For bind: Apply policy_fee as positive
+        -- For cancellation: Apply as negative ONLY if flat cancel (policy_cancellation_date = effective_date)
         IF @transaction_type = 'bind' AND @policy_fee IS NOT NULL AND @policy_fee > 0
         BEGIN
             -- Check if the stored procedure exists before calling
@@ -519,7 +528,100 @@ BEGIN
                 EXEC dbo.spApplyTritonPolicyFee_WS
                     @QuoteGuid = @QuoteGuid;
                    
-                PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20));
+                PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for bind';
+            END
+        END
+        ELSE IF @transaction_type = 'cancellation' AND @policy_fee IS NOT NULL AND @policy_fee > 0
+        BEGIN
+            -- Check if this is a flat cancel (policy_cancellation_date = effective_date)
+            -- Note: policy_cancellation_date comes as YYYY-MM-DD, effective_date comes as MM/DD/YYYY
+            DECLARE @policy_cancellation_date NVARCHAR(50);
+            DECLARE @policy_cancellation_date_converted DATE;
+            DECLARE @effective_date_converted DATE;
+            
+            SET @policy_cancellation_date = JSON_VALUE(@full_payload_json, '$.policy_cancellation_date');
+            
+            -- Convert both dates to DATE type for proper comparison
+            IF @policy_cancellation_date IS NOT NULL
+            BEGIN
+                SET @policy_cancellation_date_converted = TRY_CONVERT(DATE, @policy_cancellation_date); -- Handles YYYY-MM-DD
+            END
+            
+            IF @effective_date IS NOT NULL
+            BEGIN
+                SET @effective_date_converted = TRY_CONVERT(DATE, @effective_date, 101); -- 101 = MM/DD/YYYY format
+            END
+            
+            -- Compare the converted dates
+            IF @policy_cancellation_date_converted IS NOT NULL 
+                AND @effective_date_converted IS NOT NULL 
+                AND @policy_cancellation_date_converted = @effective_date_converted
+            BEGIN
+                -- For flat cancels, apply negative policy fee
+                -- Need to modify the policy_fee value to negative before applying
+                SET @policy_fee = -1 * ABS(@policy_fee);
+                
+                IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
+                BEGIN
+                    EXEC dbo.spApplyTritonPolicyFee_WS
+                        @QuoteGuid = @QuoteGuid;
+                    
+                    PRINT 'Applied negative Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for flat cancellation';
+                END
+            END
+            ELSE
+            BEGIN
+                PRINT 'Skipped policy fee for cancellation (not a flat cancel)';
+            END
+        END
+        ELSE IF @transaction_type = 'reinstatement' AND @policy_fee IS NOT NULL AND @policy_fee > 0
+        BEGIN
+            -- For reinstatements, check if the cancelled policy had a policy fee that was refunded
+            -- If so, we need to reapply it
+            DECLARE @CancellationHadPolicyFee BIT = 0;
+            DECLARE @CancellationQuoteID INT;
+            
+            -- Find the cancellation quote in the chain (should be the OriginalQuoteGuid of current reinstatement)
+            -- First need to find our reinstatement quote in tblQuotes to get its OriginalQuoteGuid
+            DECLARE @CancellationQuoteGuid UNIQUEIDENTIFIER;
+            
+            SELECT @CancellationQuoteGuid = OriginalQuoteGuid
+            FROM tblQuotes
+            WHERE QuoteGuid = @QuoteGuid;
+            
+            IF @CancellationQuoteGuid IS NOT NULL
+            BEGIN
+                -- Get the QuoteID for the cancellation
+                SELECT @CancellationQuoteID = QuoteID
+                FROM tblQuotes
+                WHERE QuoteGuid = @CancellationQuoteGuid;
+                
+                -- Check if the cancellation invoice had a policy fee
+                IF @CancellationQuoteID IS NOT NULL
+                BEGIN
+                    SELECT @CancellationHadPolicyFee = 1
+                    FROM tblfin_invoices inv
+                    INNER JOIN tblfin_invoicedetails det ON inv.InvoiceNum = det.InvoiceNum
+                    WHERE inv.QuoteID = @CancellationQuoteID
+                        AND inv.Failed = 0
+                        AND det.ChargeName LIKE '%Policy Fee%';
+                END
+            END
+            
+            -- If cancellation had a policy fee refund, apply it to reinstatement
+            IF @CancellationHadPolicyFee = 1
+            BEGIN
+                IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
+                BEGIN
+                    EXEC dbo.spApplyTritonPolicyFee_WS
+                        @QuoteGuid = @QuoteGuid;
+                    
+                    PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for reinstatement (matching cancellation refund)';
+                END
+            END
+            ELSE
+            BEGIN
+                PRINT 'Skipped policy fee for reinstatement (cancellation did not have policy fee refund)';
             END
         END
         
