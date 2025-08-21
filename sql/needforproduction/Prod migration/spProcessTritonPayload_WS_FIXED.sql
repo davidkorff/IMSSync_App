@@ -541,6 +541,11 @@ BEGIN
             
             SET @policy_cancellation_date = JSON_VALUE(@full_payload_json, '$.policy_cancellation_date');
             
+            -- Debug: Log raw date values
+            PRINT '=== CANCELLATION POLICY FEE DATE COMPARISON DEBUG ===';
+            PRINT 'Raw policy_cancellation_date from JSON: ' + ISNULL(@policy_cancellation_date, 'NULL');
+            PRINT 'Raw effective_date from JSON: ' + ISNULL(@effective_date, 'NULL');
+            
             -- Convert both dates to DATE type for proper comparison
             IF @policy_cancellation_date IS NOT NULL
             BEGIN
@@ -551,6 +556,25 @@ BEGIN
             BEGIN
                 SET @effective_date_converted = TRY_CONVERT(DATE, @effective_date, 101); -- 101 = MM/DD/YYYY format
             END
+            
+            -- Debug: Log converted date values
+            PRINT 'Converted policy_cancellation_date: ' + ISNULL(CONVERT(VARCHAR, @policy_cancellation_date_converted, 120), 'NULL');
+            PRINT 'Converted effective_date: ' + ISNULL(CONVERT(VARCHAR, @effective_date_converted, 120), 'NULL');
+            
+            -- Debug: Check if dates match
+            IF @policy_cancellation_date_converted IS NOT NULL AND @effective_date_converted IS NOT NULL
+            BEGIN
+                PRINT 'Date comparison result: ' + 
+                    CASE 
+                        WHEN @policy_cancellation_date_converted = @effective_date_converted THEN 'MATCH - This is a flat cancel'
+                        ELSE 'NO MATCH - Not a flat cancel'
+                    END;
+            END
+            ELSE
+            BEGIN
+                PRINT 'Date comparison result: CANNOT COMPARE - One or both dates failed to convert';
+            END
+            PRINT '=== END DEBUG ===';
             
             -- Compare the converted dates
             IF @policy_cancellation_date_converted IS NOT NULL 
