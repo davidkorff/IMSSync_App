@@ -547,14 +547,50 @@ BEGIN
             PRINT 'Raw effective_date from JSON: ' + ISNULL(@effective_date, 'NULL');
             
             -- Convert both dates to DATE type for proper comparison
+            -- Using different approach since TRY_CONVERT doesn't support style parameter for DATE type
             IF @policy_cancellation_date IS NOT NULL
             BEGIN
-                SET @policy_cancellation_date_converted = TRY_CONVERT(DATE, @policy_cancellation_date); -- Handles YYYY-MM-DD
+                -- YYYY-MM-DD format works directly with CONVERT
+                SET @policy_cancellation_date_converted = TRY_CONVERT(DATE, @policy_cancellation_date);
             END
             
             IF @effective_date IS NOT NULL
             BEGIN
-                SET @effective_date_converted = TRY_CONVERT(DATE, @effective_date, 101); -- 101 = MM/DD/YYYY format
+                -- MM/DD/YYYY format needs to be converted to DATETIME first, then to DATE
+                -- Try multiple approaches to handle the conversion
+                BEGIN TRY
+                    -- First try: Direct conversion (might work if SQL Server recognizes the format)
+                    SET @effective_date_converted = TRY_CONVERT(DATE, @effective_date);
+                    
+                    -- If that returned NULL, try converting via DATETIME with style 101
+                    IF @effective_date_converted IS NULL
+                    BEGIN
+                        DECLARE @temp_datetime DATETIME;
+                        SET @temp_datetime = TRY_CONVERT(DATETIME, @effective_date, 101); -- 101 = MM/DD/YYYY
+                        IF @temp_datetime IS NOT NULL
+                        BEGIN
+                            SET @effective_date_converted = CAST(@temp_datetime AS DATE);
+                        END
+                    END
+                    
+                    -- If still NULL, try manual parsing (MM/DD/YYYY)
+                    IF @effective_date_converted IS NULL AND CHARINDEX('/', @effective_date) > 0
+                    BEGIN
+                        DECLARE @month INT, @day INT, @year INT;
+                        SET @month = CAST(SUBSTRING(@effective_date, 1, CHARINDEX('/', @effective_date) - 1) AS INT);
+                        SET @effective_date = SUBSTRING(@effective_date, CHARINDEX('/', @effective_date) + 1, LEN(@effective_date));
+                        SET @day = CAST(SUBSTRING(@effective_date, 1, CHARINDEX('/', @effective_date) - 1) AS INT);
+                        SET @year = CAST(SUBSTRING(@effective_date, CHARINDEX('/', @effective_date) + 1, LEN(@effective_date)) AS INT);
+                        
+                        -- Construct date from parts
+                        SET @effective_date_converted = DATEFROMPARTS(@year, @month, @day);
+                    END
+                END TRY
+                BEGIN CATCH
+                    -- If all conversions fail, log it
+                    PRINT 'ERROR: Failed to convert effective_date: ' + ISNULL(@effective_date, 'NULL');
+                    SET @effective_date_converted = NULL;
+                END CATCH
             END
             
             -- Debug: Log converted date values
