@@ -33,7 +33,10 @@ class IMSCancellationService(BaseIMSService):
         effective_date: str = None,
         reason_code: int = None,
         comment: str = "Policy Cancellation",
-        refund_amount: float = None
+        refund_amount: float = None,
+        policy_effective_date: str = None,  # For flat cancel detection
+        market_segment_code: str = None,    # For auto-apply fees
+        policy_fee: float = None            # Policy fee to apply as negative
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Cancel a policy using opportunity ID via stored procedure.
@@ -75,6 +78,14 @@ class IMSCancellationService(BaseIMSService):
                 "CancellationReason", comment,
                 "UserGuid", str(user_guid)
             ]
+            
+            # Add optional parameters for fee application
+            if policy_effective_date:
+                params.extend(["PolicyEffectiveDate", policy_effective_date])
+            if market_segment_code:
+                params.extend(["MarketSegmentCode", market_segment_code])
+            if policy_fee is not None:
+                params.extend(["PolicyFee", str(policy_fee)])
             
             # Call the stored procedure (IMS adds _WS suffix automatically)
             # Using ProcessFlatCancellation wrapper for consistency with endorsements

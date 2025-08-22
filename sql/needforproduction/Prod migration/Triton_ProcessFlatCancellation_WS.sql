@@ -9,7 +9,10 @@ CREATE OR ALTER PROCEDURE [dbo].[Triton_ProcessFlatCancellation_WS]
     @CancellationDate VARCHAR(50),
     @ReturnPremium MONEY,
     @CancellationReason VARCHAR(500) = 'Policy Cancellation',
-    @UserGuid UNIQUEIDENTIFIER = NULL
+    @UserGuid UNIQUEIDENTIFIER = NULL,
+    @PolicyEffectiveDate VARCHAR(50) = NULL,  -- For flat cancel detection
+    @MarketSegmentCode VARCHAR(10) = NULL,    -- For auto-apply fees (RT/WL)
+    @PolicyFee MONEY = NULL                   -- Policy fee to apply as negative if flat cancel
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -173,7 +176,83 @@ BEGIN
         PRINT '  NewQuoteGuid returned: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
         PRINT ''
         
-        -- Step 3: Retrieve the QuoteOptionGuid for the new cancellation quote
+        -- Step 3: Apply fees BEFORE the quote is bound (if applicable)
+        IF @NewQuoteGuid IS NOT NULL
+        BEGIN
+            PRINT 'STEP 3.5: Applying fees to cancellation quote (if applicable)'
+            
+            -- Get the QuoteOptionGuid first (needed for fee application)
+            SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
+            FROM tblQuoteOptions
+            WHERE QuoteGuid = @NewQuoteGuid
+            ORDER BY DateCreated DESC
+            
+            -- Apply negative policy fee for flat cancellations
+            IF @PolicyFee IS NOT NULL AND @PolicyFee > 0 
+                AND @PolicyEffectiveDate IS NOT NULL 
+                AND @CancellationDate IS NOT NULL
+            BEGIN
+                -- Check if this is a flat cancel (cancellation date = effective date)
+                DECLARE @CancellationDateConverted DATE;
+                DECLARE @EffectiveDateConverted DATE;
+                
+                -- Convert dates for comparison
+                SET @CancellationDateConverted = TRY_CONVERT(DATE, @CancellationDate, 101); -- MM/DD/YYYY
+                
+                -- Try to convert effective date (could be MM/DD/YYYY or YYYY-MM-DD)
+                SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate, 101); -- Try MM/DD/YYYY
+                IF @EffectiveDateConverted IS NULL
+                BEGIN
+                    SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate); -- Try YYYY-MM-DD
+                END
+                
+                -- If dates match, this is a flat cancel - apply negative policy fee
+                IF @CancellationDateConverted = @EffectiveDateConverted
+                BEGIN
+                    PRINT '  Flat cancel detected - applying negative policy fee of $' + CAST(@PolicyFee AS VARCHAR(20))
+                    
+                    -- Apply negative policy fee using existing procedure
+                    DECLARE @NegativePolicyFee MONEY = -1 * ABS(@PolicyFee);
+                    
+                    IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
+                    BEGIN
+                        -- Temporarily set the policy_fee value in context for the procedure
+                        UPDATE tblTritonQuoteData 
+                        SET policy_fee = @NegativePolicyFee
+                        WHERE QuoteGuid = @NewQuoteGuid;
+                        
+                        EXEC dbo.spApplyTritonPolicyFee_WS
+                            @QuoteGuid = @NewQuoteGuid;
+                        
+                        PRINT '  Applied negative policy fee to cancellation'
+                    END
+                END
+                ELSE
+                BEGIN
+                    PRINT '  Not a flat cancel (dates do not match) - skipping policy fee'
+                END
+            END
+            
+            -- Apply auto-fees for RT market segment
+            IF @MarketSegmentCode = 'RT' AND @NewQuoteOptionGuid IS NOT NULL
+            BEGIN
+                PRINT '  RT market segment - applying auto fees'
+                
+                IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
+                BEGIN
+                    EXEC dbo.spAutoApplyFees
+                        @quoteOptionGuid = @NewQuoteOptionGuid;
+                    
+                    PRINT '  Auto-applied fees for RT cancellation'
+                END
+            END
+            ELSE IF @MarketSegmentCode = 'WL'
+            BEGIN
+                PRINT '  WL market segment - skipping auto fees'
+            END
+        END
+        
+        -- Step 4: Retrieve the QuoteOptionGuid for the new cancellation quote
         -- The ProcessFlatCancellation procedure creates a new QuoteOption record
         PRINT 'STEP 4: Looking for QuoteOptionGuid for NewQuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
         

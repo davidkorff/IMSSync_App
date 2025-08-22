@@ -409,7 +409,8 @@ class TransactionHandler:
                         return False, results, f"Endorsement bind failed: {message}"
                     
                     # Step 10: Get invoice data after successful endorsement
-                    if endorsement_quote_guid:
+                    # Skip invoice retrieval for zero-premium endorsements (no invoice generated)
+                    if endorsement_quote_guid and new_endorsement_premium != 0:
                         logger.info(f"Retrieving invoice data for endorsement quote {endorsement_quote_guid}")
                         invoice_success, invoice_data, invoice_message = self.data_service.get_invoice_data(endorsement_quote_guid)
                         
@@ -418,6 +419,8 @@ class TransactionHandler:
                             logger.info(f"Successfully retrieved invoice data for endorsement")
                         else:
                             logger.warning(f"Failed to retrieve invoice data for endorsement: {invoice_message}")
+                    elif endorsement_quote_guid and new_endorsement_premium == 0:
+                        logger.info("Skipping invoice retrieval for zero-premium endorsement (no invoice generated)")
                     
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
@@ -484,13 +487,21 @@ class TransactionHandler:
                     # Create the cancellation
                     if option_id:
                         # Use opportunity_id if available
+                        # Extract additional parameters for fee application
+                        policy_effective_date = payload.get("effective_date")  # Original policy effective date
+                        market_segment_code = payload.get("market_segment_code")
+                        policy_fee = payload.get("policy_fee")
+                        
                         success, cancellation_result, message = self.cancellation_service.cancel_policy_by_opportunity_id(
                             opportunity_id=int(option_id),
                             cancellation_type=cancellation_type,
                             effective_date=effective_date,
                             reason_code=reason_code,
                             comment=cancellation_comment,
-                            refund_amount=refund_amount
+                            refund_amount=refund_amount,
+                            policy_effective_date=policy_effective_date,
+                            market_segment_code=market_segment_code,
+                            policy_fee=policy_fee
                         )
                     else:
                         # Fall back to using quote_guid

@@ -494,8 +494,8 @@ BEGIN
         -- 7. Auto apply fees based on market_segment_code
         -- RT (Retail) = Auto-apply fees
         -- WL (Wholesale) = Do NOT auto-apply fees
-        -- Apply for bind, midterm_endorsement, cancellation, and reinstatement
-        IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement') 
+        -- Apply for bind, midterm_endorsement, and reinstatement (NOT cancellation - already bound)
+        IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement') 
             AND @market_segment_code = 'RT'
         BEGIN
             -- Check if the stored procedure exists before calling
@@ -507,19 +507,19 @@ BEGIN
                 PRINT 'Auto-applied fees for ' + @transaction_type + ' (RT market segment)';
             END
         END
-        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
+        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement')
             AND @market_segment_code = 'WL'
         BEGIN
             PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (WL market segment - wholesale does not auto-apply fees)';
         END
-        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
+        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement')
         BEGIN
             PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (market_segment_code: ' + ISNULL(@market_segment_code, 'NULL') + ')';
         END
        
         -- 8. Apply Policy Fee from Triton if present
         -- For bind: Apply policy_fee as positive
-        -- For cancellation: Apply as negative ONLY if flat cancel (policy_cancellation_date = effective_date)
+        -- Note: Cancellations handle fees in Triton_ProcessFlatCancellation (already bound when we get here)
         IF @transaction_type = 'bind' AND @policy_fee IS NOT NULL AND @policy_fee > 0
         BEGIN
             -- Check if the stored procedure exists before calling
@@ -531,109 +531,8 @@ BEGIN
                 PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for bind';
             END
         END
-        ELSE IF @transaction_type = 'cancellation' AND @policy_fee IS NOT NULL AND @policy_fee > 0
-        BEGIN
-            -- Check if this is a flat cancel (policy_cancellation_date = effective_date)
-            -- Note: policy_cancellation_date comes as YYYY-MM-DD, effective_date comes as MM/DD/YYYY
-            DECLARE @policy_cancellation_date NVARCHAR(50);
-            DECLARE @policy_cancellation_date_converted DATE;
-            DECLARE @effective_date_converted DATE;
-            
-            SET @policy_cancellation_date = JSON_VALUE(@full_payload_json, '$.policy_cancellation_date');
-            
-            -- Debug: Log raw date values
-            PRINT '=== CANCELLATION POLICY FEE DATE COMPARISON DEBUG ===';
-            PRINT 'Raw policy_cancellation_date from JSON: ' + ISNULL(@policy_cancellation_date, 'NULL');
-            PRINT 'Raw effective_date from JSON: ' + ISNULL(@effective_date, 'NULL');
-            
-            -- Convert both dates to DATE type for proper comparison
-            -- Using different approach since TRY_CONVERT doesn't support style parameter for DATE type
-            IF @policy_cancellation_date IS NOT NULL
-            BEGIN
-                -- YYYY-MM-DD format works directly with CONVERT
-                SET @policy_cancellation_date_converted = TRY_CONVERT(DATE, @policy_cancellation_date);
-            END
-            
-            IF @effective_date IS NOT NULL
-            BEGIN
-                -- MM/DD/YYYY format needs to be converted to DATETIME first, then to DATE
-                -- Try multiple approaches to handle the conversion
-                BEGIN TRY
-                    -- First try: Direct conversion (might work if SQL Server recognizes the format)
-                    SET @effective_date_converted = TRY_CONVERT(DATE, @effective_date);
-                    
-                    -- If that returned NULL, try converting via DATETIME with style 101
-                    IF @effective_date_converted IS NULL
-                    BEGIN
-                        DECLARE @temp_datetime DATETIME;
-                        SET @temp_datetime = TRY_CONVERT(DATETIME, @effective_date, 101); -- 101 = MM/DD/YYYY
-                        IF @temp_datetime IS NOT NULL
-                        BEGIN
-                            SET @effective_date_converted = CAST(@temp_datetime AS DATE);
-                        END
-                    END
-                    
-                    -- If still NULL, try manual parsing (MM/DD/YYYY)
-                    IF @effective_date_converted IS NULL AND CHARINDEX('/', @effective_date) > 0
-                    BEGIN
-                        DECLARE @month INT, @day INT, @year INT;
-                        SET @month = CAST(SUBSTRING(@effective_date, 1, CHARINDEX('/', @effective_date) - 1) AS INT);
-                        SET @effective_date = SUBSTRING(@effective_date, CHARINDEX('/', @effective_date) + 1, LEN(@effective_date));
-                        SET @day = CAST(SUBSTRING(@effective_date, 1, CHARINDEX('/', @effective_date) - 1) AS INT);
-                        SET @year = CAST(SUBSTRING(@effective_date, CHARINDEX('/', @effective_date) + 1, LEN(@effective_date)) AS INT);
-                        
-                        -- Construct date from parts
-                        SET @effective_date_converted = DATEFROMPARTS(@year, @month, @day);
-                    END
-                END TRY
-                BEGIN CATCH
-                    -- If all conversions fail, log it
-                    PRINT 'ERROR: Failed to convert effective_date: ' + ISNULL(@effective_date, 'NULL');
-                    SET @effective_date_converted = NULL;
-                END CATCH
-            END
-            
-            -- Debug: Log converted date values
-            PRINT 'Converted policy_cancellation_date: ' + ISNULL(CONVERT(VARCHAR, @policy_cancellation_date_converted, 120), 'NULL');
-            PRINT 'Converted effective_date: ' + ISNULL(CONVERT(VARCHAR, @effective_date_converted, 120), 'NULL');
-            
-            -- Debug: Check if dates match
-            IF @policy_cancellation_date_converted IS NOT NULL AND @effective_date_converted IS NOT NULL
-            BEGIN
-                PRINT 'Date comparison result: ' + 
-                    CASE 
-                        WHEN @policy_cancellation_date_converted = @effective_date_converted THEN 'MATCH - This is a flat cancel'
-                        ELSE 'NO MATCH - Not a flat cancel'
-                    END;
-            END
-            ELSE
-            BEGIN
-                PRINT 'Date comparison result: CANNOT COMPARE - One or both dates failed to convert';
-            END
-            PRINT '=== END DEBUG ===';
-            
-            -- Compare the converted dates
-            IF @policy_cancellation_date_converted IS NOT NULL 
-                AND @effective_date_converted IS NOT NULL 
-                AND @policy_cancellation_date_converted = @effective_date_converted
-            BEGIN
-                -- For flat cancels, apply negative policy fee
-                -- Need to modify the policy_fee value to negative before applying
-                SET @policy_fee = -1 * ABS(@policy_fee);
-                
-                IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
-                BEGIN
-                    EXEC dbo.spApplyTritonPolicyFee_WS
-                        @QuoteGuid = @QuoteGuid;
-                    
-                    PRINT 'Applied negative Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for flat cancellation';
-                END
-            END
-            ELSE
-            BEGIN
-                PRINT 'Skipped policy fee for cancellation (not a flat cancel)';
-            END
-        END
+        -- Cancellation policy fee logic removed - cancellations are already bound when we get here
+        -- Fees must be applied during Triton_ProcessFlatCancellation instead
         ELSE IF @transaction_type = 'reinstatement' AND @policy_fee IS NOT NULL AND @policy_fee > 0
         BEGIN
             -- For reinstatements, check if the cancelled policy had a policy fee that was refunded
