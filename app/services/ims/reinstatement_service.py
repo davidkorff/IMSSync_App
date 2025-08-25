@@ -146,14 +146,26 @@ class IMSReinstatementService(BaseIMSService):
             # Parse the XML
             root = ET.fromstring(result_xml)
             
-            # Check all Table elements - look for Table1 first (common for reinstatements)
-            tables = root.findall('.//Table1')
-            if not tables:
-                tables = root.findall('.//Table2')  # Then Table2
-            if not tables:
-                tables = root.findall('.//Table')  # Fall back to Table
+            # Check all Table elements - collect all tables with different names
+            all_results = []
             
-            for table in tables:
+            # Check Table3 first (most complete for Triton responses)
+            for table in root.findall('.//Table3'):
+                all_results.append(('Table3', table))
+            # Then Table2
+            for table in root.findall('.//Table2'):
+                all_results.append(('Table2', table))
+            # Then Table1
+            for table in root.findall('.//Table1'):
+                all_results.append(('Table1', table))
+            # Finally plain Table
+            for table in root.findall('.//Table'):
+                all_results.append(('Table', table))
+            
+            best_result = None
+            best_score = 0
+            
+            for table_name, table in all_results:
                 # Try to extract structured fields
                 result_data = {}
                 
@@ -172,10 +184,16 @@ class IMSReinstatementService(BaseIMSService):
                 if new_guid_elem is not None and new_guid_elem.text:
                     result_data['NewQuoteGuid'] = new_guid_elem.text.strip()
                 
-                # Extract QuoteOptionGuid
-                option_guid_elem = table.find('QuoteOptionGuid')
+                # Extract QuoteOptionGuid or NewQuoteOptionGuid (stored procedure returns it as NewQuoteOptionGuid)
+                option_guid_elem = table.find('NewQuoteOptionGuid')
                 if option_guid_elem is not None and option_guid_elem.text:
                     result_data['QuoteOptionGuid'] = option_guid_elem.text.strip()
+                    result_data['NewQuoteOptionGuid'] = option_guid_elem.text.strip()
+                else:
+                    # Fallback to check for QuoteOptionGuid (alternative name)
+                    option_guid_elem = table.find('QuoteOptionGuid')
+                    if option_guid_elem is not None and option_guid_elem.text:
+                        result_data['QuoteOptionGuid'] = option_guid_elem.text.strip()
                 
                 # Extract OriginalQuoteGuid
                 original_guid_elem = table.find('OriginalQuoteGuid')
@@ -192,6 +210,11 @@ class IMSReinstatementService(BaseIMSService):
                 if policy_num_elem is not None and policy_num_elem.text:
                     result_data['PolicyNumber'] = policy_num_elem.text.strip()
                 
+                # Extract ControlNo
+                control_no_elem = table.find('ControlNo')
+                if control_no_elem is not None and control_no_elem.text:
+                    result_data['ControlNo'] = control_no_elem.text.strip()
+                
                 # Extract ReinstatementNumber
                 reinstatement_num_elem = table.find('ReinstatementNumber')
                 if reinstatement_num_elem is not None and reinstatement_num_elem.text:
@@ -201,6 +224,11 @@ class IMSReinstatementService(BaseIMSService):
                 reinstatement_premium_elem = table.find('ReinstatementPremium')
                 if reinstatement_premium_elem is not None and reinstatement_premium_elem.text:
                     result_data['ReinstatementPremium'] = reinstatement_premium_elem.text.strip()
+                
+                # Extract ReinstatementEffectiveDate
+                reinstatement_date_elem = table.find('ReinstatementEffectiveDate')
+                if reinstatement_date_elem is not None and reinstatement_date_elem.text:
+                    result_data['ReinstatementEffectiveDate'] = reinstatement_date_elem.text.strip()
                 
                 # Extract CancellationRefund
                 cancellation_refund_elem = table.find('CancellationRefund')
@@ -212,10 +240,37 @@ class IMSReinstatementService(BaseIMSService):
                 if net_change_elem is not None and net_change_elem.text:
                     result_data['NetPremiumChange'] = net_change_elem.text.strip()
                 
-                # If we got structured data with Result field, return it
+                # Score this result based on completeness
+                score = 0
                 if 'Result' in result_data:
-                    logger.debug(f"Parsed structured reinstatement result: {result_data}")
-                    return result_data
+                    score += 10
+                if 'NewQuoteGuid' in result_data:
+                    score += 5
+                if 'NewQuoteOptionGuid' in result_data or 'QuoteOptionGuid' in result_data:
+                    score += 5
+                if 'Message' in result_data:
+                    score += 2
+                if 'ReinstatementPremium' in result_data:
+                    score += 3
+                
+                # Prioritize Table3 and Table2 for Triton responses
+                if table_name == 'Table3':
+                    score += 20
+                elif table_name == 'Table2':
+                    score += 10
+                elif table_name == 'Table1':
+                    score += 5
+                
+                # Keep the best result
+                if score > best_score:
+                    best_score = score
+                    best_result = result_data
+                    logger.debug(f"Found {table_name} with score {score}: {result_data}")
+            
+            # Return the best result we found
+            if best_result:
+                logger.debug(f"Selected best reinstatement result (score {best_score}): {best_result}")
+                return best_result
             
             # If no recognized format, log what we found
             logger.warning(f"Unrecognized reinstatement result format. XML: {result_xml}")

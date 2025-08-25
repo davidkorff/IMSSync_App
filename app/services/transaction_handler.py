@@ -598,12 +598,19 @@ class TransactionHandler:
                     results["reinstatement_number"] = reinstatement_result.get("ReinstatementNumber")
                     
                     # Process the payload to register in Triton tables
-                    if reinstatement_quote_guid and reinstatement_result.get("QuoteOptionGuid"):
+                    if reinstatement_quote_guid:
+                        reinstatement_quote_option_guid = reinstatement_result.get("QuoteOptionGuid")
+                        if not reinstatement_quote_option_guid:
+                            logger.warning("No QuoteOptionGuid returned for reinstatement - using placeholder")
+                            reinstatement_quote_option_guid = "00000000-0000-0000-0000-000000000000"
+                        else:
+                            logger.info(f"Retrieved QuoteOptionGuid for reinstatement: {reinstatement_quote_option_guid}")
+                        
                         logger.info("Processing reinstatement payload to register in Triton tables")
                         success, process_result, message = self.payload_processor.process_payload(
                             payload=payload,
                             quote_guid=reinstatement_quote_guid,
-                            quote_option_guid=reinstatement_result.get("QuoteOptionGuid")
+                            quote_option_guid=reinstatement_quote_option_guid
                         )
                         if not success:
                             logger.warning(f"Failed to process reinstatement payload: {message}")
