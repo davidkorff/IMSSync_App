@@ -99,7 +99,8 @@ class InvoiceService(BaseIMSService):
                     # Try as option_id if opportunity_id lookup fails
                     try:
                         option_id_int = int(opportunity_id)
-                        success, quote_info, message = self.data_access_service.get_quote_by_option_id(option_id_int)
+                        # Note: option_id is actually opportunity_id (naming confusion in the system)
+                        success, quote_info, message = self.data_access_service.get_quote_by_opportunity_id(option_id_int)
                         if success and quote_info:
                             quote_guid = quote_info.get("QuoteGuid")
                             logger.info(f"Found quote_guid {quote_guid} for option_id {opportunity_id}")

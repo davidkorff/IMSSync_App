@@ -369,17 +369,20 @@ class IMSEndorsementService(BaseIMSService):
             
             tables = root.findall('.//Table')
             
-            # Look for the table that has Result=1 and ControlNo (wrapper's result)
+            # Look for the table that has NewQuoteOptionGuid (wrapper's result - second table)
+            # The wrapper returns TWO tables:
+            # 1. First table from ProcessFlatEndorsement (base) - no QuoteOptionGuid
+            # 2. Second table from Triton_ProcessFlatEndorsement_WS (wrapper) - has NewQuoteOptionGuid
             for table in tables:
                 result_data = {}
-                has_control_no = False
+                has_quote_option_guid = False
                 
                 # Extract all fields from this table
                 for child in table:
                     if child.text is not None:
-                        # Check if this table has ControlNo (wrapper's signature field)
-                        if child.tag == 'ControlNo':
-                            has_control_no = True
+                        # Check if this table has NewQuoteOptionGuid (wrapper's signature field)
+                        if child.tag == 'NewQuoteOptionGuid':
+                            has_quote_option_guid = True
                         
                         # Convert numeric fields
                         if child.tag in ['Result', 'ControlNo']:
@@ -397,7 +400,34 @@ class IMSEndorsementService(BaseIMSService):
                     else:
                         result_data[child.tag] = None
                 
-                # If this table has ControlNo and Result=1, it's the wrapper's result
+                # If this table has NewQuoteOptionGuid, it's the wrapper's result (second table)
+                if has_quote_option_guid:
+                    # Map some fields for compatibility
+                    if 'TotalPremium' in result_data:
+                        result_data['NewPremium'] = result_data['TotalPremium']
+                    if 'EndorsementPremium' in result_data and 'ExistingPremium' in result_data:
+                        result_data['PremiumChange'] = result_data['EndorsementPremium']
+                        result_data['OriginalPremium'] = result_data['ExistingPremium']
+                    
+                    logger.info(f"Found QuoteOptionGuid in wrapper result: {result_data.get('NewQuoteOptionGuid')}")
+                    logger.debug(f"Found wrapper result set with QuoteOptionGuid: {result_data}")
+                    return result_data
+            
+            # If we didn't find the wrapper result with QuoteOptionGuid, check for ControlNo as secondary indicator
+            for table in tables:
+                result_data = {}
+                has_control_no = False
+                
+                # Extract all fields from this table
+                for child in table:
+                    if child.text is not None:
+                        if child.tag == 'ControlNo':
+                            has_control_no = True
+                        result_data[child.tag] = child.text.strip()
+                    else:
+                        result_data[child.tag] = None
+                
+                # If this table has ControlNo and Result=1, it might be the wrapper's result
                 if has_control_no and str(result_data.get('Result')) == '1':
                     # Map some fields for compatibility
                     if 'TotalPremium' in result_data:
@@ -406,14 +436,10 @@ class IMSEndorsementService(BaseIMSService):
                         result_data['PremiumChange'] = result_data['EndorsementPremium']
                         result_data['OriginalPremium'] = result_data['ExistingPremium']
                     
-                    # Log if we found the QuoteOptionGuid
-                    if 'NewQuoteOptionGuid' in result_data:
-                        logger.info(f"Found QuoteOptionGuid in result: {result_data['NewQuoteOptionGuid']}")
-                    
-                    logger.debug(f"Found wrapper result set: {result_data}")
+                    logger.info(f"Found result with ControlNo (may be missing QuoteOptionGuid): {result_data}")
                     return result_data
             
-            # If we didn't find the wrapper result, try to use the first table (fallback)
+            # Last resort: use the first table (base procedure result)
             if tables:
                 table = tables[0]
                 result_data = {}
@@ -423,7 +449,7 @@ class IMSEndorsementService(BaseIMSService):
                     else:
                         result_data[child.tag] = None
                 
-                logger.warning(f"Using fallback result set (may be base procedure): {result_data}")
+                logger.warning(f"Using fallback result set (base procedure - no QuoteOptionGuid): {result_data}")
                 return result_data
             
             return None

@@ -189,6 +189,7 @@ def test_midterm_endorsement(json_file=None):
         print(f"  Transaction Type: {payload.get('transaction_type', 'N/A')}")
         print(f"  Opportunity ID: {payload.get('opportunity_id', 'N/A')}")
         print(f"  Policy Number: {payload.get('policy_number', 'N/A')}")
+        print(f"  Market Segment: {payload.get('market_segment_code', 'N/A')} {'(fees will auto-apply)' if payload.get('market_segment_code') == 'RT' else '(no auto-fees)'}")
         print(f"  Endorsement Premium: ${payload.get('gross_premium', 0):,.2f}")
         print(f"  Effective Date: {payload.get('midterm_endt_effective_from', 'N/A')}")
         print(f"  Description: {payload.get('midterm_endt_description', 'N/A')}")
@@ -270,10 +271,18 @@ def test_midterm_endorsement(json_file=None):
                         "endorsement_quote_option_guid": endorsement_option_guid
                     })
                     print(f"  ✓ Endorsement Quote Option GUID: {endorsement_option_guid}")
+                    logger.info(f"✓ Retrieved QuoteOptionGuid: {endorsement_option_guid}")
+                    
+                    # Check if it's a placeholder GUID
+                    if endorsement_option_guid == "00000000-0000-0000-0000-000000000000":
+                        print(f"  ⚠️ Warning: Using placeholder QuoteOptionGuid - fees may not apply correctly")
+                        logger.warning("Using placeholder QuoteOptionGuid - auto-apply fees will fail")
                 else:
                     test_result.add_step("Validate endorsement quote option", False, results, 
                                        "No endorsement quote option GUID")
                     print(f"  ✗ No endorsement quote option GUID")
+                    logger.error("Failed to retrieve QuoteOptionGuid from stored procedure")
+                    logger.error("Check that Triton_ProcessFlatEndorsement_WS returns second result set with NewQuoteOptionGuid")
                 
                 # Validate endorsement was bound
                 if endorsement_policy_number:
