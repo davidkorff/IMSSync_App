@@ -37,7 +37,8 @@ class IMSQuoteService:
         policy_type_id: int = 1,
         expiring_quote_guid: Optional[str] = None,
         expiring_policy_number: Optional[str] = None,
-        renewal_of_quote_guid: Optional[str] = None
+        renewal_of_quote_guid: Optional[str] = None,
+        line_guid: Optional[str] = None
     ) -> Tuple[bool, Optional[str], str]:
         """
         Add a new quote with submission using the AddQuoteWithSubmission method.
@@ -55,6 +56,7 @@ class IMSQuoteService:
             expiring_quote_guid: GUID of expiring quote (renewals only)
             expiring_policy_number: Expiring policy number (renewals only)
             renewal_of_quote_guid: GUID of quote being renewed (renewals only)
+            line_guid: Optional Line GUID (defaults to primary line from config)
             
         Returns:
             Tuple[bool, Optional[str], str]: (success, quote_guid, message)
@@ -68,6 +70,10 @@ class IMSQuoteService:
             # Use today's date if submission_date not provided
             if not submission_date:
                 submission_date = date.today().strftime("%Y-%m-%d")
+            
+            # Use provided line_guid or default from config
+            if not line_guid:
+                line_guid = self.quote_config["primary_line_guid"]
             
             # Format commission rates
             company_commission = self.quote_config["default_company_commission"]
@@ -108,7 +114,7 @@ class IMSQuoteService:
         <QuotingLocation>{self.quote_config["quoting_location"]}</QuotingLocation>
         <IssuingLocation>{self.quote_config["issuing_location"]}</IssuingLocation>
         <CompanyLocation>{self.quote_config["company_location"]}</CompanyLocation>
-        <Line>{self.quote_config["primary_line_guid"]}</Line>
+        <Line>{line_guid}</Line>
         <StateID>{self._escape_xml(state_id)}</StateID>
         <ProducerContact>{producer_contact_guid}</ProducerContact>
         <QuoteStatusID>{self.quote_config["default_quote_status_id"]}</QuoteStatusID>
@@ -118,7 +124,7 @@ class IMSQuoteService:
         <QuoteDetail>
           <CompanyCommission>{company_commission}</CompanyCommission>
           <ProducerCommission>{producer_commission_str}</ProducerCommission>
-          <LineGUID>{self.quote_config["primary_line_guid"]}</LineGUID>
+          <LineGUID>{line_guid}</LineGUID>
           <CompanyLocationGUID>{self.quote_config["company_location"]}</CompanyLocationGUID>
         </QuoteDetail>
         <Underwriter>{underwriter_guid}</Underwriter>
@@ -224,6 +230,50 @@ class IMSQuoteService:
             logger.error(error_msg)
             return False, None, error_msg
     
+    def _determine_line_guid(self, payload: Dict) -> str:
+        """
+        Determine the appropriate Line GUID based on payload data.
+        
+        Current logic:
+        - Check class_of_business or program_name for indicators
+        - Default to primary line if no specific rule matches
+        
+        Args:
+            payload: The Triton transaction payload
+            
+        Returns:
+            str: The appropriate Line GUID
+        """
+        # Get potential determining fields
+        class_of_business = payload.get("class_of_business", "").lower()
+        program_name = payload.get("program_name", "").lower()
+        
+        # Get line GUIDs from environment
+        import os
+        primary_line_guid = os.getenv("TRITON_PRIMARY_LINE_GUID", "07564291-CBFE-4BBE-88D1-0548C88ACED4")
+        excess_line_guid = os.getenv("TRITON_EXCESS_LINE_GUID", "08798559-321C-4FC0-98ED-A61B92215F31")
+        
+        # Determine based on business rules
+        # TODO: Refine these rules based on actual business requirements
+        # Example rules (these need to be confirmed with business):
+        
+        # Check for excess indicators in program name
+        if "excess" in program_name or "umbrella" in program_name:
+            logger.info(f"Selected Excess Line GUID based on program_name: {program_name}")
+            return excess_line_guid
+        
+        # Check for excess indicators in class of business
+        if "excess" in class_of_business or "umbrella" in class_of_business:
+            logger.info(f"Selected Excess Line GUID based on class_of_business: {class_of_business}")
+            return excess_line_guid
+        
+        # Check for specific programs that should use excess line
+        # Add more specific rules as needed
+        
+        # Default to primary line
+        logger.info(f"Selected Primary Line GUID (default) for program: {program_name}, class: {class_of_business}")
+        return primary_line_guid
+    
     def create_quote_from_payload(
         self,
         payload: Dict,
@@ -246,6 +296,10 @@ class IMSQuoteService:
         Returns:
             Tuple[bool, Optional[str], str]: (success, quote_guid, message)
         """
+        # Determine the appropriate Line GUID
+        line_guid = self._determine_line_guid(payload)
+        logger.info(f"Using Line GUID: {line_guid}")
+        
         # Extract required fields from payload
         effective_date = payload.get("effective_date", "")
         expiration_date = payload.get("expiration_date", "")
@@ -305,7 +359,7 @@ class IMSQuoteService:
         policy_type_id = 2 if opportunity_type == "renewal" else 1
         expiring_policy_number = payload.get("expiring_policy_number")
         
-        # Create the quote
+        # Create the quote with the determined line GUID
         success, quote_guid, message = self.add_quote_with_submission(
             insured_guid=insured_guid,
             producer_contact_guid=producer_contact_guid,
@@ -317,7 +371,8 @@ class IMSQuoteService:
             policy_type_id=policy_type_id,
             expiring_quote_guid=renewal_of_quote_guid if policy_type_id == 2 else None,
             expiring_policy_number=expiring_policy_number if policy_type_id == 2 else None,
-            renewal_of_quote_guid=renewal_of_quote_guid if policy_type_id == 2 else None
+            renewal_of_quote_guid=renewal_of_quote_guid if policy_type_id == 2 else None,
+            line_guid=line_guid
         )
         
         # Return with any captured error details
