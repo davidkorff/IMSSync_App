@@ -367,12 +367,15 @@ class IMSEndorsementService(BaseIMSService):
             # Second result set is from the wrapper (Result=1)
             # We need to find the correct one
             
-            tables = root.findall('.//Table')
+            # Find all table elements - they can be named Table, Table1, Table2, etc.
+            tables = []
+            for table_name in ['Table', 'Table1', 'Table2']:
+                tables.extend(root.findall(f'.//{table_name}'))
             
             # Look for the table that has NewQuoteOptionGuid (wrapper's result - second table)
             # The wrapper returns TWO tables:
-            # 1. First table from ProcessFlatEndorsement (base) - no QuoteOptionGuid
-            # 2. Second table from Triton_ProcessFlatEndorsement_WS (wrapper) - has NewQuoteOptionGuid
+            # 1. First table (<Table>) from ProcessFlatEndorsement (base) - no QuoteOptionGuid
+            # 2. Second table (<Table1>) from Triton_ProcessFlatEndorsement_WS (wrapper) - has NewQuoteOptionGuid
             for table in tables:
                 result_data = {}
                 has_quote_option_guid = False
@@ -439,7 +442,27 @@ class IMSEndorsementService(BaseIMSService):
                     logger.info(f"Found result with ControlNo (may be missing QuoteOptionGuid): {result_data}")
                     return result_data
             
-            # Last resort: use the first table (base procedure result)
+            # Last resort: Look specifically for Table1 if we haven't found anything yet
+            table1 = root.find('.//Table1')
+            if table1 is not None:
+                result_data = {}
+                for child in table1:
+                    if child.text is not None:
+                        result_data[child.tag] = child.text.strip()
+                    else:
+                        result_data[child.tag] = None
+                
+                if 'NewQuoteOptionGuid' in result_data:
+                    logger.info(f"Found Table1 with QuoteOptionGuid: {result_data.get('NewQuoteOptionGuid')}")
+                    # Map fields for compatibility
+                    if 'TotalPremium' in result_data:
+                        result_data['NewPremium'] = result_data['TotalPremium']
+                    if 'EndorsementPremium' in result_data and 'ExistingPremium' in result_data:
+                        result_data['PremiumChange'] = result_data['EndorsementPremium']
+                        result_data['OriginalPremium'] = result_data['ExistingPremium']
+                    return result_data
+            
+            # Really last resort: use the first table found
             if tables:
                 table = tables[0]
                 result_data = {}
