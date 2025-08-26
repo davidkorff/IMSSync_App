@@ -528,6 +528,17 @@ class TransactionHandler:
                         else:
                             logger.info("Cancellation data stored in tblTritonQuoteData")
                     
+                    # Get invoice data after successful cancellation
+                    if cancellation_quote_guid:
+                        logger.info(f"Retrieving invoice data for cancellation quote {cancellation_quote_guid}")
+                        invoice_success, invoice_data, invoice_message = self.data_service.get_invoice_data(cancellation_quote_guid)
+                        
+                        if invoice_success:
+                            results["invoice_data"] = invoice_data
+                            logger.info(f"Successfully retrieved invoice data for cancellation")
+                        else:
+                            logger.warning(f"Failed to retrieve invoice data for cancellation: {invoice_message}")
+                    
                     results["end_time"] = datetime.utcnow().isoformat()
                     results["status"] = "completed"
                     

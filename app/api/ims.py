@@ -11,12 +11,14 @@ router = APIRouter(prefix="/api/ims", tags=["ims"])
 @router.get("/status")
 async def status():
     """Check IMS API status."""
+    logger.debug("IMS status check requested")
     return {"status": "operational", "api": "ims"}
 
 
 @router.get("/health")
 async def health_check():
     """IMS integration health check."""
+    logger.debug("IMS health check requested")
     # This could check IMS connectivity in the future
     return {
         "status": "healthy",

@@ -10,14 +10,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 
 # Copy application code
 COPY . .
 
-# Create data directory for policy store
-RUN mkdir -p data
+# Create data and logs directories
+RUN mkdir -p data logs
 
 # Expose port
 EXPOSE 8000
