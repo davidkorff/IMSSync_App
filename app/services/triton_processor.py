@@ -58,8 +58,8 @@ class TritonProcessor:
                 name=payload.insured_name,
                 address=payload.address_1,
                 city=payload.city,
-                state=payload.state,
-                zip_code=payload.zip
+                state=payload.insured_state,  # Use insured_state for insured's location
+                zip_code=payload.insured_zip   # Use insured_zip for insured's location
             )
             
             # Step 2: Create insured if not found
@@ -71,8 +71,8 @@ class TritonProcessor:
                     "address_1": payload.address_1,
                     "address_2": payload.address_2,
                     "city": payload.city,
-                    "state": payload.state,
-                    "zip": payload.zip
+                    "state": payload.insured_state,  # Use insured_state for insured's location
+                    "zip": payload.insured_zip        # Use insured_zip for insured's location
                 }
                 insured_guid = self.insured_service.create_with_location(insured_data)
                 ims_responses.append({
@@ -102,7 +102,7 @@ class TritonProcessor:
                 "producer_email": payload.producer_email,
                 "underwriter_name": payload.underwriter_name,
                 # Quote data
-                "state": payload.state,
+                "state": payload.state,  # Use state for the quote's state
                 "limit_amount": payload.limit_amount,
                 "deductible_amount": payload.deductible_amount,
                 "premium": payload.gross_premium,
@@ -112,7 +112,7 @@ class TritonProcessor:
                 "address_1": payload.address_1,
                 "address_2": payload.address_2,
                 "city": payload.city,
-                "zip": payload.zip,
+                "zip": payload.insured_zip,  # Use insured_zip for insured's location in quote
                 # Additional Triton data for AdditionalInformation field
                 "additional_data": {
                     "transaction_id": payload.transaction_id,

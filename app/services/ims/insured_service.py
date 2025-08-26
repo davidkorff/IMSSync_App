@@ -152,8 +152,8 @@ class IMSInsuredService:
         # Extract insured information from payload
         insured_name = payload.get("insured_name", "")
         city = payload.get("city", "")
-        state = payload.get("state", "")
-        zip_code = payload.get("zip", "")
+        state = payload.get("insured_state", "")  # Use insured_state for insured's location
+        zip_code = payload.get("insured_zip", "")  # Use insured_zip for insured's location
         
         if not insured_name:
             return False, None, "No insured name found in payload"
@@ -309,8 +309,8 @@ class IMSInsuredService:
         address1 = payload.get("address_1", "")
         address2 = payload.get("address_2", "")
         city = payload.get("city", "")
-        state = payload.get("state", "")
-        zip_code = payload.get("zip", "")
+        state = payload.get("insured_state", "")   # Use insured_state for insured's location
+        zip_code = payload.get("insured_zip", "")  # Use insured_zip for insured's location
         
         if not insured_name:
             return False, None, "No insured name found in payload"
