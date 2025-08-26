@@ -191,7 +191,8 @@ BEGIN
                 DECLARE @EffectiveDateConverted DATE;
                
                 -- Convert dates for comparison
-                SET @CancellationDateConverted = TRY_CONVERT(DATE, @CancellationDate, 101); -- MM/DD/YYYY
+                -- Use the already converted datetime for cancellation date
+                SET @CancellationDateConverted = CAST(@CancellationDateTime AS DATE);
                
                 -- Try to convert effective date (could be MM/DD/YYYY or YYYY-MM-DD)
                 SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate, 101); -- Try MM/DD/YYYY
@@ -199,6 +200,11 @@ BEGIN
                 BEGIN
                     SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate); -- Try YYYY-MM-DD
                 END
+                
+                -- Debug output
+                PRINT '  PolicyEffectiveDate input: ' + ISNULL(@PolicyEffectiveDate, 'NULL')
+                PRINT '  CancellationDate converted: ' + ISNULL(CAST(@CancellationDateConverted AS VARCHAR(20)), 'NULL')
+                PRINT '  EffectiveDate converted: ' + ISNULL(CAST(@EffectiveDateConverted AS VARCHAR(20)), 'NULL')
                
                 -- If dates match, this is a flat cancel - apply negative policy fee
                 IF @CancellationDateConverted = @EffectiveDateConverted
