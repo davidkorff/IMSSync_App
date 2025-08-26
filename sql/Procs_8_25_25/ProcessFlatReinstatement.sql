@@ -267,7 +267,7 @@ BEGIN
             @RetailerGuid,
             8,                           -- QuoteStatusID = 8 (Pending Reinstatement)
             NULL,                        -- No status reason needed for reinstatement
-            @ReinstatementEffectiveDate, -- Effective date is reinstatement date
+            @EffectiveDate,              -- Preserve original policy effective date
             @OriginalExpirationDate,     -- Use original policy expiration
             @PolicyTypeID,
             @PolicyNumber,
