@@ -303,7 +303,7 @@ class IMSQuoteService:
         # Extract required fields from payload
         effective_date = payload.get("effective_date", "")
         expiration_date = payload.get("expiration_date", "")
-        state_id = payload.get("insured_state", "")
+        state_id = payload.get("state", "")  # Use 'state' for the quote's state
         commission_rate = payload.get("commission_rate", 0)
         
         # Convert dates from MM/DD/YYYY to YYYY-MM-DD format
@@ -339,7 +339,7 @@ class IMSQuoteService:
             if not expiration_date:
                 missing.append("expiration_date")
             if not state_id:
-                missing.append("insured_state")
+                missing.append("state")
             return False, None, f"Missing required fields: {', '.join(missing)}"
         
         # Convert commission rate to decimal if needed
