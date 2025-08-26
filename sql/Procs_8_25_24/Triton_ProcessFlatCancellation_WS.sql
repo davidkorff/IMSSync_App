@@ -170,96 +170,18 @@ BEGIN
         PRINT '  NewQuoteGuid returned: ' + ISNULL(CAST(@NewQuoteGuid AS VARCHAR(50)), 'NULL')
         PRINT ''
        
-        -- Step 3: Apply fees BEFORE the quote is bound (if applicable)
+        -- Step 3: Get the QuoteOptionGuid first (needed for fee application later)
         IF @NewQuoteGuid IS NOT NULL
         BEGIN
-            PRINT 'STEP 3.5: Applying fees to cancellation quote (if applicable)'
+            PRINT 'STEP 3: Getting QuoteOptionGuid for fee application'
            
-            -- Get the QuoteOptionGuid first (needed for fee application)
+            -- Get the QuoteOptionGuid
             SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
             FROM tblQuoteOptions
             WHERE QuoteGuid = @NewQuoteGuid
             ORDER BY DateCreated DESC
-           
-            -- Apply negative policy fee for flat cancellations
-            IF @PolicyFee IS NOT NULL AND @PolicyFee > 0
-                AND @PolicyEffectiveDate IS NOT NULL
-                AND @CancellationDate IS NOT NULL
-            BEGIN
-                -- Check if this is a flat cancel (cancellation date = effective date)
-                DECLARE @CancellationDateConverted DATE;
-                DECLARE @EffectiveDateConverted DATE;
-               
-                -- Convert dates for comparison
-                -- Use the already converted datetime for cancellation date
-                SET @CancellationDateConverted = CAST(@CancellationDateTime AS DATE);
-               
-                -- Try to convert effective date (could be MM/DD/YYYY or YYYY-MM-DD)
-                SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate, 101); -- Try MM/DD/YYYY
-                IF @EffectiveDateConverted IS NULL
-                BEGIN
-                    SET @EffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate); -- Try YYYY-MM-DD
-                END
-                
-                -- Debug output
-                PRINT '  PolicyEffectiveDate input: ' + ISNULL(@PolicyEffectiveDate, 'NULL')
-                PRINT '  CancellationDate converted: ' + ISNULL(CAST(@CancellationDateConverted AS VARCHAR(20)), 'NULL')
-                PRINT '  EffectiveDate converted: ' + ISNULL(CAST(@EffectiveDateConverted AS VARCHAR(20)), 'NULL')
-               
-                -- If dates match, this is a flat cancel - apply negative policy fee
-                IF @CancellationDateConverted = @EffectiveDateConverted
-                BEGIN
-                    PRINT '  Flat cancel detected - applying negative policy fee of $' + CAST(@PolicyFee AS VARCHAR(20))
-                   
-                    -- Apply negative policy fee using existing procedure
-                    DECLARE @NegativePolicyFee MONEY = -1 * ABS(@PolicyFee);
-                   
-                    IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
-                    BEGIN
-                        -- Ensure the record exists in tblTritonQuoteData with the negative policy fee
-                        IF NOT EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @NewQuoteGuid)
-                        BEGIN
-                            -- Insert new record with negative policy fee
-                            INSERT INTO tblTritonQuoteData (
-                                QuoteGuid,
-                                QuoteOptionGuid,
-                                opportunity_id,
-                                transaction_type,
-                                status,
-                                policy_fee,
-                                created_date,
-                                last_updated
-                            )
-                            VALUES (
-                                @NewQuoteGuid,
-                                @NewQuoteOptionGuid,
-                                @OpportunityID,
-                                'cancellation',
-                                'cancelled',
-                                @NegativePolicyFee,
-                                GETDATE(),
-                                GETDATE()
-                            )
-                        END
-                        ELSE
-                        BEGIN
-                            -- Update existing record with negative policy fee
-                            UPDATE tblTritonQuoteData
-                            SET policy_fee = @NegativePolicyFee
-                            WHERE QuoteGuid = @NewQuoteGuid;
-                        END
-                       
-                        EXEC dbo.spApplyTritonPolicyFee_WS
-                            @QuoteGuid = @NewQuoteGuid;
-                       
-                        PRINT '  Applied negative policy fee to cancellation'
-                    END
-                END
-                ELSE
-                BEGIN
-                    PRINT '  Not a flat cancel (dates do not match) - skipping policy fee'
-                END
-            END
+            
+            PRINT '  Found QuoteOptionGuid: ' + ISNULL(CAST(@NewQuoteOptionGuid AS VARCHAR(50)), 'NULL')
            
             -- Apply auto-fees for RT market segment
             IF @MarketSegmentCode = 'RT' AND @NewQuoteOptionGuid IS NOT NULL
@@ -280,17 +202,7 @@ BEGIN
             END
         END
        
-        -- Step 4: Retrieve the QuoteOptionGuid for the new cancellation quote
-        -- The ProcessFlatCancellation procedure creates a new QuoteOption record
-        PRINT 'STEP 4: Looking for QuoteOptionGuid for NewQuoteGuid: ' + CAST(@NewQuoteGuid AS VARCHAR(50))
-       
-        SELECT TOP 1 @NewQuoteOptionGuid = QuoteOptionGuid
-        FROM tblQuoteOptions
-        WHERE QuoteGuid = @NewQuoteGuid
-        ORDER BY DateCreated DESC  -- Get the most recently created one
-       
-        PRINT '  Found QuoteOptionGuid: ' + ISNULL(CAST(@NewQuoteOptionGuid AS VARCHAR(50)), 'NULL')
-        PRINT ''
+        -- Step 4 removed - QuoteOptionGuid already retrieved in Step 3
        
         -- Step 4: Store the cancellation result in tblTritonQuoteData
         PRINT 'STEP 5: Storing result in tblTritonQuoteData'
@@ -331,7 +243,122 @@ BEGIN
             END
         END
        
-        PRINT 'STEP 6: Returning results'
+        -- STEP 6: Apply fees as the VERY LAST STEP before returning (so they're there when quote is bound)
+        IF @NewQuoteGuid IS NOT NULL
+        BEGIN
+            PRINT 'STEP 6: Final fee application before returning'
+            
+            -- Apply negative policy fee for flat cancellations
+            IF @PolicyFee IS NOT NULL AND @PolicyFee > 0
+                AND @PolicyEffectiveDate IS NOT NULL
+                AND @CancellationDate IS NOT NULL
+            BEGIN
+                -- Check if this is a flat cancel (cancellation date = effective date)
+                DECLARE @FinalCancellationDateConverted DATE;
+                DECLARE @FinalEffectiveDateConverted DATE;
+               
+                -- Convert dates for comparison
+                -- Use the already converted datetime for cancellation date
+                SET @FinalCancellationDateConverted = CAST(@CancellationDateTime AS DATE);
+               
+                -- Try to convert effective date (could be MM/DD/YYYY or YYYY-MM-DD)
+                SET @FinalEffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate, 101); -- Try MM/DD/YYYY
+                IF @FinalEffectiveDateConverted IS NULL
+                BEGIN
+                    SET @FinalEffectiveDateConverted = TRY_CONVERT(DATE, @PolicyEffectiveDate); -- Try YYYY-MM-DD
+                END
+                
+                -- Debug output
+                PRINT '  Final PolicyEffectiveDate input: ' + ISNULL(@PolicyEffectiveDate, 'NULL')
+                PRINT '  Final CancellationDate converted: ' + ISNULL(CAST(@FinalCancellationDateConverted AS VARCHAR(20)), 'NULL')
+                PRINT '  Final EffectiveDate converted: ' + ISNULL(CAST(@FinalEffectiveDateConverted AS VARCHAR(20)), 'NULL')
+               
+                -- If dates match, this is a flat cancel - apply negative policy fee
+                IF @FinalCancellationDateConverted = @FinalEffectiveDateConverted
+                BEGIN
+                    PRINT '  Flat cancel detected - applying negative policy fee of $' + CAST(@PolicyFee AS VARCHAR(20))
+                   
+                    -- Apply negative policy fee directly to tblQuoteOptionCharges
+                    DECLARE @FinalNegativePolicyFee MONEY = -1 * ABS(@PolicyFee);
+                    DECLARE @Policy_FeeCode SMALLINT = 12374;  -- Charge code for Policy Fee
+                    DECLARE @CompanyFeeID INT = 37277712;  -- Triton Policy Fee CompanyFeeID
+                    DECLARE @OfficeID INT;
+                    DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
+                    
+                    -- Get OfficeID from the quote
+                    SELECT @OfficeID = tblClientOffices.OfficeID
+                    FROM tblQuotes q
+                    INNER JOIN tblQuoteOptions qo ON q.QuoteGuid = qo.QuoteGuid
+                    INNER JOIN tblClientOffices ON q.QuotingLocationGuid = tblClientOffices.OfficeGuid
+                    WHERE qo.QuoteOptionGuid = @NewQuoteOptionGuid;
+                    
+                    -- Get CompanyLineGuid from the quote
+                    SELECT @CompanyLineGuid = CompanyLineGuid
+                    FROM tblQuotes
+                    WHERE QuoteGuid = @NewQuoteGuid;
+                    
+                    -- Check if the charge already exists
+                    IF EXISTS (
+                        SELECT 1
+                        FROM tblQuoteOptionCharges
+                        WHERE QuoteOptionGUID = @NewQuoteOptionGuid
+                        AND ChargeCode = @Policy_FeeCode
+                    )
+                    BEGIN
+                        -- Update existing charge with the negative fee value
+                        UPDATE tblQuoteOptionCharges
+                        SET FlatRate = @FinalNegativePolicyFee,
+                            CompanyFeeID = @CompanyFeeID,
+                            Payable = 1,
+                            AutoApplied = 0
+                        WHERE QuoteOptionGUID = @NewQuoteOptionGuid
+                        AND ChargeCode = @Policy_FeeCode;
+                       
+                        PRINT '  Updated Policy Fee to $' + CAST(@FinalNegativePolicyFee AS VARCHAR(20)) +
+                              ' for QuoteOption ' + CAST(@NewQuoteOptionGuid AS VARCHAR(50));
+                    END
+                    ELSE
+                    BEGIN
+                        -- Insert new charge record for the negative policy fee
+                        INSERT INTO tblQuoteOptionCharges (
+                            QuoteOptionGuid,
+                            CompanyFeeID,
+                            ChargeCode,
+                            OfficeID,
+                            CompanyLineGuid,
+                            FeeTypeID,
+                            Payable,
+                            FlatRate,
+                            Splittable,
+                            AutoApplied
+                        )
+                        VALUES (
+                            @NewQuoteOptionGuid,
+                            @CompanyFeeID,
+                            @Policy_FeeCode,
+                            ISNULL(@OfficeID, 1),  -- Default to 1 if not found
+                            @CompanyLineGuid,
+                            2,  -- Flat fee type
+                            1,  -- Payable
+                            @FinalNegativePolicyFee,
+                            0,  -- Not splittable
+                            0   -- Not auto-applied (manual)
+                        );
+                       
+                        PRINT '  Inserted Policy Fee of $' + CAST(@FinalNegativePolicyFee AS VARCHAR(20)) +
+                              ' for QuoteOption ' + CAST(@NewQuoteOptionGuid AS VARCHAR(50));
+                    END
+                    
+                    PRINT '  Applied negative policy fee to cancellation directly in tblQuoteOptionCharges'
+                END
+                ELSE
+                BEGIN
+                    PRINT '  Not a flat cancel (dates do not match) - skipping policy fee'
+                END
+            END
+        END
+        
+        PRINT 'STEP 7: Returning results'
         PRINT '=========================================='
         PRINT 'Triton_ProcessFlatCancellation_WS END'
         PRINT '=========================================='
