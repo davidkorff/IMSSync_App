@@ -216,10 +216,38 @@ BEGIN
                    
                     IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
                     BEGIN
-                        -- Temporarily set the policy_fee value in context for the procedure
-                        UPDATE tblTritonQuoteData
-                        SET policy_fee = @NegativePolicyFee
-                        WHERE QuoteGuid = @NewQuoteGuid;
+                        -- Ensure the record exists in tblTritonQuoteData with the negative policy fee
+                        IF NOT EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @NewQuoteGuid)
+                        BEGIN
+                            -- Insert new record with negative policy fee
+                            INSERT INTO tblTritonQuoteData (
+                                QuoteGuid,
+                                QuoteOptionGuid,
+                                opportunity_id,
+                                transaction_type,
+                                status,
+                                policy_fee,
+                                created_date,
+                                last_updated
+                            )
+                            VALUES (
+                                @NewQuoteGuid,
+                                @NewQuoteOptionGuid,
+                                @OpportunityID,
+                                'cancellation',
+                                'cancelled',
+                                @NegativePolicyFee,
+                                GETDATE(),
+                                GETDATE()
+                            )
+                        END
+                        ELSE
+                        BEGIN
+                            -- Update existing record with negative policy fee
+                            UPDATE tblTritonQuoteData
+                            SET policy_fee = @NegativePolicyFee
+                            WHERE QuoteGuid = @NewQuoteGuid;
+                        END
                        
                         EXEC dbo.spApplyTritonPolicyFee_WS
                             @QuoteGuid = @NewQuoteGuid;
