@@ -200,10 +200,19 @@ class IMSReinstatementService(BaseIMSService):
                 if original_guid_elem is not None and original_guid_elem.text:
                     result_data['OriginalQuoteGuid'] = original_guid_elem.text.strip()
                 
-                # Extract CancellationQuoteGuid
+                # Extract CancellationQuoteGuid or CancelledQuoteGuid
                 cancellation_guid_elem = table.find('CancellationQuoteGuid')
                 if cancellation_guid_elem is not None and cancellation_guid_elem.text:
                     result_data['CancellationQuoteGuid'] = cancellation_guid_elem.text.strip()
+                else:
+                    # Also check for CancelledQuoteGuid (from Triton_ProcessFlatReinstatement_WS)
+                    cancelled_guid_elem = table.find('CancelledQuoteGuid')
+                    if cancelled_guid_elem is not None and cancelled_guid_elem.text:
+                        # Map CancelledQuoteGuid to both CancellationQuoteGuid and OriginalQuoteGuid
+                        # Since for reinstatements, the cancelled quote IS the original
+                        result_data['CancellationQuoteGuid'] = cancelled_guid_elem.text.strip()
+                        result_data['OriginalQuoteGuid'] = cancelled_guid_elem.text.strip()
+                        result_data['CancelledQuoteGuid'] = cancelled_guid_elem.text.strip()
                 
                 # Extract PolicyNumber
                 policy_num_elem = table.find('PolicyNumber')

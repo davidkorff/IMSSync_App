@@ -409,18 +409,27 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid
-        -- This must happen before binding/processing
+        -- 5. Set ProgramID based on market_segment_code and LineGuid
+        -- Only apply for bind transactions
         -- Market segment codes: RT (Retail) or WL (Wholesale)
-        -- Apply for bind, midterm_endorsement, cancellation, and reinstatement
-        IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
+        IF @transaction_type = 'bind' AND @market_segment_code IS NOT NULL
         BEGIN
             DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
            
-            -- Get the CompanyLineGuid from tblQuotes
+            -- Get the LineGuid from tblQuotes (CompanyLineGuid field)
             SELECT @CompanyLineGuid = CompanyLineGuid
             FROM tblQuotes
             WHERE QuoteGuid = @QuoteGuid;
+           
+            -- If CompanyLineGuid is null, try to get it from tblQuoteOptions
+            IF @CompanyLineGuid IS NULL
+            BEGIN
+                SELECT TOP 1 @CompanyLineGuid = LineGuid
+                FROM tblQuoteOptions
+                WHERE QuoteOptionGuid = @QuoteOptionGuid;
+                
+                PRINT 'Retrieved LineGuid from tblQuoteOptions: ' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50));
+            END
            
             -- Set ProgramID based on market segment and line combinations
             IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)

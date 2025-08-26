@@ -1,5 +1,6 @@
 import logging
 import json
+import re
 import requests
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Tuple, Any
@@ -428,6 +429,12 @@ class IMSDataAccessService:
         try:
             if not result_xml:
                 return None
+            
+            # Fix common XML issues - escape unescaped ampersands
+            # This handles cases where data from SQL contains & characters
+            # that aren't properly escaped as &amp;
+            # Replace & that aren't part of existing entities
+            result_xml = re.sub(r'&(?!(?:amp|lt|gt|apos|quot);)', '&amp;', result_xml)
                 
             # Parse the XML
             root = ET.fromstring(result_xml)
@@ -447,6 +454,10 @@ class IMSDataAccessService:
                     
             return result if result else None
             
+        except ET.ParseError as e:
+            logger.error(f"XML Parse Error in single row result: {str(e)}")
+            logger.debug(f"Problematic XML (first 500 chars): {result_xml[:500] if result_xml else 'None'}")
+            return None
         except Exception as e:
             logger.error(f"Error parsing single row result: {str(e)}")
             return None
