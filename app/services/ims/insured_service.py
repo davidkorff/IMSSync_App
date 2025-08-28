@@ -226,6 +226,7 @@ class IMSInsuredService:
             # Make request - AddInsuredWithLocation uses /ims_one as specified
             url = f"{self.base_url}{self.login_env}{self.endpoint}"
             logger.info(f"Adding new insured: {insured_name}")
+            logger.info(f"DEBUG: add_insured_with_location - State being used: {state}")
             
             response = requests.post(
                 url,
@@ -311,6 +312,9 @@ class IMSInsuredService:
         city = payload.get("city", "")
         state = payload.get("insured_state", "")   # Use insured_state for insured's location
         zip_code = payload.get("insured_zip", "")  # Use insured_zip for insured's location
+        
+        logger.info(f"DEBUG: find_or_create_insured - Using state: {state} (from insured_state field)")
+        logger.info(f"DEBUG: Payload keys: {list(payload.keys())}")
         
         if not insured_name:
             return False, None, "No insured name found in payload"

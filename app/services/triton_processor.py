@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class TritonProcessor:
     def __init__(self):
         self.auth_service = AuthService()
-        self.insured_service = InsuredService(self.auth_service)
-        self.quote_service = QuoteService(self.auth_service)
+        self.insured_service = InsuredService()  # IMSInsuredService doesn't take auth_service parameter
+        self.quote_service = QuoteService()  # IMSQuoteService doesn't take auth_service parameter
         self.invoice_service = InvoiceService(self.auth_service)
-        self.data_access_service = DataAccessService(self.auth_service)
+        self.data_access_service = DataAccessService()  # IMSDataAccessService doesn't take auth_service parameter
     
     async def process_transaction(self, payload: TritonPayload) -> ProcessingResult:
         """Main entry point for processing Triton transactions"""
@@ -54,27 +54,33 @@ class TritonProcessor:
         
         try:
             # Step 1: Search for existing insured
-            insured_guid = self.insured_service.find_by_name_and_address(
-                name=payload.insured_name,
-                address=payload.address_1,
+            found, insured_guid, message = self.insured_service.find_insured_by_name(
+                insured_name=payload.insured_name,
                 city=payload.city,
                 state=payload.insured_state,  # Use insured_state for insured's location
                 zip_code=payload.insured_zip   # Use insured_zip for insured's location
             )
+            if not found:
+                insured_guid = None
             
             # Step 2: Create insured if not found
             if not insured_guid:
                 logger.info(f"Creating new insured: {payload.insured_name}")
+                logger.info(f"DEBUG: payload.state = {payload.state} (for quote)")
+                logger.info(f"DEBUG: payload.insured_state = {payload.insured_state} (for insured address)")
                 insured_data = {
                     "insured_name": payload.insured_name,
                     "business_type": payload.business_type,
                     "address_1": payload.address_1,
                     "address_2": payload.address_2,
                     "city": payload.city,
-                    "state": payload.insured_state,  # Use insured_state for insured's location
-                    "zip": payload.insured_zip        # Use insured_zip for insured's location
+                    "insured_state": payload.insured_state,  # Use insured_state for insured's location
+                    "insured_zip": payload.insured_zip       # Use insured_zip for insured's location
                 }
-                insured_guid = self.insured_service.create_with_location(insured_data)
+                success, insured_guid, message = self.insured_service.find_or_create_insured(insured_data)
+                if not success:
+                    raise Exception(f"Failed to create insured: {message}")
+                insured_guid = insured_guid  # Convert from string if needed
                 ims_responses.append({
                     "action": "create_insured",
                     "result": {"insured_guid": str(insured_guid)}
