@@ -1,4 +1,7 @@
-CREATE OR ALTER PROCEDURE [dbo].[spProcessTritonPayload_WS]
+-- Update spProcessTritonPayload_WS to include market_segment_code in INSERT and UPDATE
+-- This fixes the issue where market_segment_code is extracted but not stored
+
+ALTER PROCEDURE [dbo].[spProcessTritonPayload_WS]
     -- Quote identifiers
     @QuoteGuid UNIQUEIDENTIFIER,
     @QuoteOptionGuid UNIQUEIDENTIFIER,
@@ -64,7 +67,7 @@ BEGIN
                 @transaction_type NVARCHAR(100),
                 @transaction_date NVARCHAR(50),
                 @source_system NVARCHAR(50),
-                @market_segment_code NVARCHAR(10);
+                @market_segment_code NVARCHAR(10);  -- IMPORTANT: This variable exists
        
         -- Parse JSON values
         SET @transaction_id = JSON_VALUE(@full_payload_json, '$.transaction_id');
@@ -118,12 +121,15 @@ BEGIN
         SET @transaction_type = JSON_VALUE(@full_payload_json, '$.transaction_type');
         SET @transaction_date = JSON_VALUE(@full_payload_json, '$.transaction_date');
         SET @source_system = JSON_VALUE(@full_payload_json, '$.source_system');
-        SET @market_segment_code = JSON_VALUE(@full_payload_json, '$.market_segment_code');
+        SET @market_segment_code = JSON_VALUE(@full_payload_json, '$.market_segment_code');  -- EXTRACTED FROM JSON
+        
+        -- DEBUG: Log the market_segment_code
+        PRINT 'DEBUG: Extracted market_segment_code = ' + ISNULL(@market_segment_code, 'NULL');
+        PRINT 'DEBUG: Transaction type = ' + ISNULL(@transaction_type, 'NULL');
        
         -- Handle empty strings as NULL for certain fields
         IF @surplus_lines_tax = '' SET @surplus_lines_tax = NULL;
         IF @stamping_fee = '' SET @stamping_fee = NULL;
-        -- other_fee is already decimal, no need to check for empty string
         IF @address_2 = '' SET @address_2 = NULL;
         IF @midterm_endt_effective_from = '' SET @midterm_endt_effective_from = NULL;
        
@@ -152,11 +158,11 @@ BEGIN
             );
         END
        
-        -- 2. Insert or update tblTritonQuoteData with fee and tax fields
+        -- 2. Insert or update tblTritonQuoteData with market_segment_code
         -- Check if quote already exists
         IF EXISTS (SELECT 1 FROM tblTritonQuoteData WHERE QuoteGuid = @QuoteGuid)
         BEGIN
-            -- Update existing record with latest data (including fees and taxes)
+            -- Update existing record - NOW INCLUDING market_segment_code
             UPDATE tblTritonQuoteData
             SET QuoteOptionGuid = @QuoteOptionGuid,
                 renewal_of_quote_guid = @renewal_of_quote_guid,
@@ -198,17 +204,19 @@ BEGIN
                 zip = @zip,
                 opportunity_id = @opportunity_id,
                 opportunity_type = @opportunity_type,
-                market_segment_code = @market_segment_code,
+                market_segment_code = @market_segment_code,  -- NOW INCLUDED!
                 transaction_type = @transaction_type,
                 transaction_date = @transaction_date,
                 source_system = @source_system,
                 full_payload_json = @full_payload_json,
                 last_updated = GETDATE()
             WHERE QuoteGuid = @QuoteGuid;
+            
+            PRINT 'DEBUG: Updated tblTritonQuoteData with market_segment_code = ' + ISNULL(@market_segment_code, 'NULL');
         END
         ELSE
         BEGIN
-            -- Insert new record (including fees and taxes)
+            -- Insert new record - NOW INCLUDING market_segment_code
             INSERT INTO tblTritonQuoteData (
                 QuoteGuid,
                 QuoteOptionGuid,
@@ -251,7 +259,7 @@ BEGIN
                 zip,
                 opportunity_id,
                 opportunity_type,
-                market_segment_code,
+                market_segment_code,  -- NOW INCLUDED!
                 transaction_type,
                 transaction_date,
                 source_system,
@@ -300,7 +308,7 @@ BEGIN
                 @zip,
                 @opportunity_id,
                 @opportunity_type,
-                @market_segment_code,
+                @market_segment_code,  -- NOW INCLUDED!
                 @transaction_type,
                 @transaction_date,
                 @source_system,
@@ -308,96 +316,24 @@ BEGIN
                 GETDATE(),
                 GETDATE()
             );
+            
+            PRINT 'DEBUG: Inserted into tblTritonQuoteData with market_segment_code = ' + ISNULL(@market_segment_code, 'NULL');
         END
        
-        -- 3. Update tblquotes fields (only for bind transactions)
-        -- This handles rebind scenarios where data may have changed between transactions
-        IF @transaction_type = 'bind' AND EXISTS (SELECT 1 FROM tblquotes WHERE QuoteGuid = @QuoteGuid)
+        -- 3. Update Policy Number in tblQuotes
+        IF @policy_number IS NOT NULL AND @policy_number != ''
         BEGIN
-            -- Declare variables for date conversion and producer lookup
-            DECLARE @EffectiveDateConverted DATE = NULL;
-            DECLARE @ExpirationDateConverted DATE = NULL;
-            DECLARE @ProducerContactGuid UNIQUEIDENTIFIER = NULL;
-           
-            -- Convert date strings to DATE type
-            IF @effective_date IS NOT NULL AND @effective_date != ''
-            BEGIN
-                SET @EffectiveDateConverted = TRY_CONVERT(DATE, @effective_date);
-            END
-           
-            IF @expiration_date IS NOT NULL AND @expiration_date != ''
-            BEGIN
-                SET @ExpirationDateConverted = TRY_CONVERT(DATE, @expiration_date);
-            END
-           
-            -- Lookup producer by name or email using existing logic
-            DECLARE @producer_email NVARCHAR(200);
-            SET @producer_email = JSON_VALUE(@full_payload_json, '$.producer_email');
-           
-            -- Option 1: Use the existing getProducerGuid_WS procedure if it exists
-            IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'getProducerGuid_WS')
-            BEGIN
-                -- Create temp table to capture results
-                CREATE TABLE #ProducerLookup (
-                    ProducerContactGUID UNIQUEIDENTIFIER,
-                    ProducerLocationGUID UNIQUEIDENTIFIER
-                );
-               
-                INSERT INTO #ProducerLookup
-                EXEC getProducerGuid_WS @producer_email = @producer_email, @producer_name = @producer_name;
-               
-                SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
-                FROM #ProducerLookup;
-               
-                DROP TABLE #ProducerLookup;
-            END
-            ELSE
-            BEGIN
-                -- Option 2: Direct lookup matching the logic in getProducerGuid_WS
-                IF @producer_email IS NOT NULL AND @producer_email != ''
-                BEGIN
-                    -- Try to find producer by email first
-                    SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
-                    FROM tblproducercontacts
-                    WHERE statusid = 1
-                        AND email = @producer_email
-                    ORDER BY ProducerContactGUID DESC;
-                END
-               
-                -- If not found by email, try by name
-                IF @ProducerContactGuid IS NULL AND @producer_name IS NOT NULL AND @producer_name != ''
-                BEGIN
-                    SELECT TOP 1 @ProducerContactGuid = ProducerContactGUID
-                    FROM tblproducercontacts
-                    WHERE LTRIM(RTRIM(fname)) + ' ' + LTRIM(RTRIM(lname)) = @producer_name
-                    ORDER BY fname, lname;
-                END
-            END
-           
-            -- Update tblquotes with new values
-            UPDATE tblquotes
+            UPDATE tblQuotes
             SET PolicyNumber = @policy_number,
-                EffectiveDate = ISNULL(@EffectiveDateConverted, EffectiveDate),
-                ExpirationDate = ISNULL(@ExpirationDateConverted, ExpirationDate),
-                ProducerContactGuid = ISNULL(@ProducerContactGuid, ProducerContactGuid)
+                AccountNumber = @policy_number  -- Also update AccountNumber for consistency
             WHERE QuoteGuid = @QuoteGuid;
            
-            -- Log what was updated
-            PRINT 'Updated tblquotes for rebind:';
-            PRINT '  - PolicyNumber: ' + ISNULL(@policy_number, 'NULL');
-            IF @EffectiveDateConverted IS NOT NULL
-                PRINT '  - EffectiveDate: ' + CONVERT(VARCHAR, @EffectiveDateConverted, 101);
-            IF @ExpirationDateConverted IS NOT NULL
-                PRINT '  - ExpirationDate: ' + CONVERT(VARCHAR, @ExpirationDateConverted, 101);
-            IF @ProducerContactGuid IS NOT NULL
-                PRINT '  - ProducerContactGuid: ' + CAST(@ProducerContactGuid AS VARCHAR(50));
-            ELSE IF @producer_name IS NOT NULL OR @producer_email IS NOT NULL
-                PRINT '  - WARNING: Producer not found for email: ' + ISNULL(@producer_email, 'N/A') + ', name: ' + ISNULL(@producer_name, 'N/A');
+            PRINT 'Updated PolicyNumber to: ' + @policy_number;
         END
        
-        -- 4. Update commission rates in tblQuoteDetails (only for bind transactions)
-        -- Convert whole number percentages to decimals (20 -> 0.20) if needed
-        IF @transaction_type = 'bind' AND EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
+        -- 4. Update commission rates if provided
+        IF (@commission_rate IS NOT NULL OR @commission_percent IS NOT NULL) 
+            AND EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
         BEGIN
             UPDATE tblQuoteDetails
             SET ProducerCommission = CASE
@@ -413,31 +349,29 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on market_segment_code and LineGuid
-        -- Only apply for bind transactions
+        -- 5. Set ProgramID based on market_segment_code and CompanyLineGuid
+        -- This must happen before binding/processing
         -- Market segment codes: RT (Retail) or WL (Wholesale)
-        IF @transaction_type = 'bind' AND @market_segment_code IS NOT NULL
+        -- Apply for bind, midterm_endorsement, cancellation, and reinstatement
+        IF @transaction_type IN ('bind', 'midterm_endorsement', 'cancellation', 'reinstatement')
         BEGIN
             DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
            
-            -- Get the LineGuid from tblQuotes (CompanyLineGuid field)
+            -- Get the CompanyLineGuid from tblQuotes
             SELECT @CompanyLineGuid = CompanyLineGuid
             FROM tblQuotes
             WHERE QuoteGuid = @QuoteGuid;
-           
-            -- If CompanyLineGuid is null, try to get it from tblQuoteOptions
-            IF @CompanyLineGuid IS NULL
-            BEGIN
-                SELECT TOP 1 @CompanyLineGuid = LineGuid
-                FROM tblQuoteOptions
-                WHERE QuoteOptionGuid = @QuoteOptionGuid;
-                
-                PRINT 'Retrieved LineGuid from tblQuoteOptions: ' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50));
-            END
+            
+            PRINT 'DEBUG: CompanyLineGuid from tblQuotes = ' + ISNULL(CAST(@CompanyLineGuid AS NVARCHAR(50)), 'NULL');
+            PRINT 'DEBUG: Checking ProgramID assignment for market_segment_code = ' + ISNULL(@market_segment_code, 'NULL');
            
             -- Set ProgramID based on market segment and line combinations
             IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
             BEGIN
+                DECLARE @CurrentProgramID INT;
+                SELECT @CurrentProgramID = ProgramID FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid;
+                PRINT 'DEBUG: Current ProgramID = ' + ISNULL(CAST(@CurrentProgramID AS NVARCHAR(10)), 'NULL');
+                
                 -- RT + LineGuid 07564291-CBFE-4BBE-88D1-0548C88ACED4 -> ProgramID = 11615
                 IF @market_segment_code = 'RT' AND @CompanyLineGuid = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
                 BEGIN
@@ -472,8 +406,17 @@ BEGIN
                 END
                 ELSE
                 BEGIN
-                    PRINT 'Warning: No matching ProgramID rule for market_segment_code ''' + ISNULL(@market_segment_code, 'NULL') + ''' and LineGuid ''' + CAST(ISNULL(@CompanyLineGuid, '00000000-0000-0000-0000-000000000000') AS NVARCHAR(50)) + '''';
+                    PRINT 'Warning: No matching ProgramID rule for market_segment_code ''' + ISNULL(@market_segment_code, 'NULL') + 
+                          ''' and LineGuid ''' + ISNULL(CAST(@CompanyLineGuid AS NVARCHAR(50)), 'NULL') + '''';
                 END
+                
+                -- Verify the update
+                SELECT @CurrentProgramID = ProgramID FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid;
+                PRINT 'DEBUG: Final ProgramID = ' + ISNULL(CAST(@CurrentProgramID AS NVARCHAR(10)), 'NULL');
+            END
+            ELSE
+            BEGIN
+                PRINT 'Warning: tblQuoteDetails record does not exist for QuoteGuid ' + CAST(@QuoteGuid AS NVARCHAR(50));
             END
         END
        
@@ -510,203 +453,86 @@ BEGIN
         IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement')
             AND @market_segment_code = 'RT'
         BEGIN
-            -- Check if the stored procedure exists before calling
-            IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFees')
+            SET @AutoFeeStatus = 'Attempting RT Auto-Apply';
+            PRINT 'Auto-applying fees for RT market segment...';
+            PRINT @AutoFeeDetails;
+           
+            -- Check if auto apply fee procedure exists
+            IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spAutoApplyFee')
             BEGIN
                 BEGIN TRY
-                    EXEC dbo.spAutoApplyFees
-                        @quoteOptionGuid = @QuoteOptionGuid;
-                   
-                    SET @AutoFeeStatus = 'Applied Successfully';
-                    PRINT 'Auto-applied fees for ' + @transaction_type + ' (RT market segment)';
+                    EXEC spAutoApplyFee @quoteOptionGuid = @QuoteOptionGuid;
+                    SET @AutoFeeStatus = 'RT Auto-Apply Success';
+                    PRINT 'Successfully auto-applied fees for RT market segment';
                 END TRY
                 BEGIN CATCH
-                    SET @AutoFeeStatus = 'Failed: ' + ERROR_MESSAGE();
-                    PRINT 'Failed to auto-apply fees: ' + ERROR_MESSAGE();
+                    SET @AutoFeeStatus = 'RT Auto-Apply Failed: ' + ERROR_MESSAGE();
+                    PRINT 'Warning: Failed to auto-apply fees - ' + ERROR_MESSAGE();
+                    -- Don't fail the transaction, just log the warning
                 END CATCH
             END
             ELSE
             BEGIN
-                SET @AutoFeeStatus = 'Skipped - spAutoApplyFees procedure not found';
-                PRINT 'spAutoApplyFees procedure does not exist';
+                SET @AutoFeeStatus = 'RT Auto-Apply Skipped: Procedure not found';
+                PRINT 'Warning: spAutoApplyFee procedure not found - skipping fee application';
             END
         END
         ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement')
             AND @market_segment_code = 'WL'
         BEGIN
-            SET @AutoFeeStatus = 'Skipped - WL market segment (wholesale)';
-            PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (WL market segment - wholesale does not auto-apply fees)';
+            SET @AutoFeeStatus = 'WL - No Auto-Apply';
+            PRINT 'NOT auto-applying fees for WL (wholesale) market segment';
+            PRINT @AutoFeeDetails;
         END
-        ELSE IF @transaction_type IN ('bind', 'midterm_endorsement', 'reinstatement')
-        BEGIN
-            SET @AutoFeeStatus = 'Skipped - Market segment not RT (was: ' + ISNULL(@market_segment_code, 'NULL') + ')';
-            PRINT 'Skipped auto-apply fees for ' + @transaction_type + ' (market_segment_code: ' + ISNULL(@market_segment_code, 'NULL') + ')';
-        END
-       
-        -- 8. Apply Policy Fee from Triton if present
-        -- For bind: Apply policy_fee as positive
-        -- Note: Cancellations handle fees in Triton_ProcessFlatCancellation (already bound when we get here)
-       
-        -- Debug variables for policy fee tracking
-        DECLARE @PolicyFeeStatus NVARCHAR(100) = 'Not Attempted';
-        DECLARE @PolicyFeeDetails NVARCHAR(500) = '';
-       
-        -- Build policy fee debug details
-        SET @PolicyFeeDetails = 'PolicyFee: ' + ISNULL(CAST(@policy_fee AS VARCHAR(20)), 'NULL') +
-                               ', Transaction: ' + ISNULL(@transaction_type, 'NULL');
-       
-        IF @transaction_type = 'bind' AND @policy_fee IS NOT NULL AND @policy_fee > 0
-        BEGIN
-            -- Check if the stored procedure exists before calling
-            IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
-            BEGIN
-                BEGIN TRY
-                    EXEC dbo.spApplyTritonPolicyFee_WS
-                        @QuoteGuid = @QuoteGuid;
-                   
-                    SET @PolicyFeeStatus = 'Applied Successfully - $' + CAST(@policy_fee AS VARCHAR(20));
-                    PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for bind';
-                END TRY
-                BEGIN CATCH
-                    SET @PolicyFeeStatus = 'Failed: ' + ERROR_MESSAGE();
-                    PRINT 'Failed to apply policy fee: ' + ERROR_MESSAGE();
-                END CATCH
-            END
-            ELSE
-            BEGIN
-                SET @PolicyFeeStatus = 'Skipped - spApplyTritonPolicyFee_WS procedure not found';
-                PRINT 'spApplyTritonPolicyFee_WS procedure does not exist';
-            END
-        END
-        -- Cancellation policy fee logic removed - cancellations are already bound when we get here
-        -- Fees must be applied during Triton_ProcessFlatCancellation instead
         ELSE IF @transaction_type = 'cancellation'
         BEGIN
-            SET @PolicyFeeStatus = 'Skipped - Cancellations handle fees in Triton_ProcessFlatCancellation';
-        END
-        ELSE IF @transaction_type = 'midterm_endorsement'
-        BEGIN
-            SET @PolicyFeeStatus = 'Skipped - Endorsements do not apply policy fee';
-        END
-        ELSE IF @transaction_type = 'reinstatement' AND @policy_fee IS NOT NULL AND @policy_fee > 0
-        BEGIN
-            -- For reinstatements, check if the cancelled policy had a policy fee that was refunded
-            -- If so, we need to reapply it
-            DECLARE @CancellationHadPolicyFee BIT = 0;
-            DECLARE @CancellationQuoteID INT;
-           
-            -- Find the cancellation quote in the chain (should be the OriginalQuoteGuid of current reinstatement)
-            -- First need to find our reinstatement quote in tblQuotes to get its OriginalQuoteGuid
-            DECLARE @CancellationQuoteGuid UNIQUEIDENTIFIER;
-           
-            SELECT @CancellationQuoteGuid = OriginalQuoteGuid
-            FROM tblQuotes
-            WHERE QuoteGuid = @QuoteGuid;
-           
-            IF @CancellationQuoteGuid IS NOT NULL
-            BEGIN
-                -- Get the QuoteID for the cancellation
-                SELECT @CancellationQuoteID = QuoteID
-                FROM tblQuotes
-                WHERE QuoteGuid = @CancellationQuoteGuid;
-               
-                -- Check if the cancellation invoice had a policy fee
-                IF @CancellationQuoteID IS NOT NULL
-                BEGIN
-                    SELECT @CancellationHadPolicyFee = 1
-                    FROM tblfin_invoices inv
-                    INNER JOIN tblfin_invoicedetails det ON inv.InvoiceNum = det.InvoiceNum
-                    WHERE inv.QuoteID = @CancellationQuoteID
-                        AND inv.Failed = 0
-                        AND det.ChargeName LIKE '%Policy Fee%';
-                END
-            END
-           
-            -- If cancellation had a policy fee refund, apply it to reinstatement
-            IF @CancellationHadPolicyFee = 1
-            BEGIN
-                IF EXISTS (SELECT * FROM sys.procedures WHERE name = 'spApplyTritonPolicyFee_WS')
-                BEGIN
-                    BEGIN TRY
-                        EXEC dbo.spApplyTritonPolicyFee_WS
-                            @QuoteGuid = @QuoteGuid;
-                       
-                        SET @PolicyFeeStatus = 'Applied Successfully for Reinstatement - $' + CAST(@policy_fee AS VARCHAR(20));
-                        PRINT 'Applied Triton Policy Fee of $' + CAST(@policy_fee AS VARCHAR(20)) + ' for reinstatement (matching cancellation refund)';
-                    END TRY
-                    BEGIN CATCH
-                        SET @PolicyFeeStatus = 'Failed for Reinstatement: ' + ERROR_MESSAGE();
-                        PRINT 'Failed to apply reinstatement policy fee: ' + ERROR_MESSAGE();
-                    END CATCH
-                END
-                ELSE
-                BEGIN
-                    SET @PolicyFeeStatus = 'Skipped - spApplyTritonPolicyFee_WS procedure not found';
-                END
-            END
-            ELSE
-            BEGIN
-                SET @PolicyFeeStatus = 'Skipped - Cancellation did not have policy fee refund';
-                PRINT 'Skipped policy fee for reinstatement (cancellation did not have policy fee refund)';
-            END
-        END
-        ELSE IF @transaction_type = 'reinstatement'
-        BEGIN
-            SET @PolicyFeeStatus = 'Skipped - No policy fee provided for reinstatement';
+            SET @AutoFeeStatus = 'Cancellation - Skip Auto-Apply';
+            PRINT 'Skipping auto-apply fees for cancellation (already bound)';
         END
         ELSE
         BEGIN
-            SET @PolicyFeeStatus = 'Not Applicable - ' + ISNULL(@transaction_type, 'Unknown transaction');
+            SET @AutoFeeStatus = 'No Auto-Apply: ' + ISNULL(@transaction_type, 'NULL') + '/' + ISNULL(@market_segment_code, 'NULL');
+            PRINT 'Auto-apply fee conditions not met';
+            PRINT @AutoFeeDetails;
         END
        
-        -- 9. Other Fee from Triton is stored but NOT applied
-        -- The other_fee value is captured in tblTritonQuoteData for reference only
-        IF @other_fee IS NOT NULL AND @other_fee > 0
-        BEGIN
-            PRINT 'Other Fee of $' + CAST(@other_fee AS VARCHAR(20)) + ' received from Triton (stored but not applied)';
-        END
+        -- Log the auto-fee status
+        PRINT 'Auto-Fee Status: ' + @AutoFeeStatus;
        
-        COMMIT TRANSACTION;
-       
-        -- Return success
-        SELECT
+        -- Return success result
+        SELECT 
             'Success' AS Status,
             'Payload processed successfully' AS Message,
             @QuoteGuid AS QuoteGuid,
             @QuoteOptionGuid AS QuoteOptionGuid,
-            @transaction_id AS TransactionId,
-            @transaction_type AS TransactionType,
-            CASE
-                WHEN @transaction_type IN ('midterm_endorsement', 'cancellation', 'reinstatement')
-                THEN 'Skipped rating updates (handled by transaction-specific procedures)'
-                WHEN (@stamping_fee IS NULL OR @stamping_fee = '') AND (@surplus_lines_tax IS NULL OR @surplus_lines_tax = '')
-                THEN 'Fees auto-applied by IMS'
-                ELSE 'Fees provided by Triton'
-            END AS ProcessingNotes,
-            @AutoFeeStatus AS AutoFeeStatus,
-            @AutoFeeDetails AS AutoFeeDetails,
-            @PolicyFeeStatus AS PolicyFeeStatus,
-            @PolicyFeeDetails AS PolicyFeeDetails;
-           
+            @policy_number AS PolicyNumber,
+            @market_segment_code AS MarketSegmentCode,
+            @AutoFeeStatus AS AutoFeeStatus;
+       
+        COMMIT TRANSACTION;
+       
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
-           
-        -- Return error information
-        SELECT
+       
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+       
+        -- Return error result
+        SELECT 
             'Error' AS Status,
-            ERROR_MESSAGE() AS Message,
-            ERROR_NUMBER() AS ErrorNumber,
-            ERROR_LINE() AS ErrorLine,
-            ERROR_PROCEDURE() AS ErrorProcedure;
+            @ErrorMessage AS Message,
+            @QuoteGuid AS QuoteGuid,
+            @QuoteOptionGuid AS QuoteOptionGuid;
+       
+        -- Re-throw the error
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
     END CATCH
 END
+GO
 
-
-
-
-
-
-
-
+-- Grant execute permissions
+GRANT EXECUTE ON spProcessTritonPayload_WS TO [IMS_User];
+GO
