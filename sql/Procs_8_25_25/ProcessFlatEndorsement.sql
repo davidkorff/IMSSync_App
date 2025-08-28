@@ -122,10 +122,10 @@ BEGIN
             RETURN;
         END
        
-        -- Verify quote is bound (Status 3 or 4)
-        IF @CurrentQuoteStatusID NOT IN (3, 4)
+        -- Verify quote is bound (Status 3 or 4) or cancelled (Status 12)
+        IF @CurrentQuoteStatusID NOT IN (3, 4, 12)
         BEGIN
-            RAISERROR('Quote must be in bound status to endorse', 16, 1);
+            RAISERROR('Quote must be in bound or cancelled status to endorse', 16, 1);
             RETURN;
         END
        

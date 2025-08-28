@@ -37,7 +37,16 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION
         
-        -- First, update the ProducerContactGuid on the endorsement quote
+        -- First, update the SubmissionGroup's ProducerLocationGuid to match the new producer contact's location
+        -- This must be done BEFORE updating the quote to satisfy the ValidContactID trigger
+        UPDATE sg
+        SET ProducerLocationGuid = pc.ProducerLocationGuid
+        FROM tblSubmissionGroup sg
+        JOIN tblQuotes q ON q.SubmissionGroupGuid = sg.SubmissionGroupGUID
+        JOIN tblProducerContacts pc ON pc.ProducerContactGUID = @NewProducerContactGuid
+        WHERE q.QuoteGuid = @EndorsementQuoteGuid
+        
+        -- Now update the ProducerContactGuid on the endorsement quote
         UPDATE tblQuotes 
         SET ProducerContactGuid = @NewProducerContactGuid
         WHERE QuoteGuid = @EndorsementQuoteGuid
@@ -95,13 +104,8 @@ BEGIN
         WHERE 
             q.QuoteGuid = @EndorsementQuoteGuid
         
-        -- Update the SubmissionGroup's ProducerLocationGuid to match the new producer contact's location
-        UPDATE sg
-        SET ProducerLocationGuid = pc.ProducerLocationGuid
-        FROM tblSubmissionGroup sg
-        JOIN tblQuotes q ON q.SubmissionGroupGuid = sg.SubmissionGroupGUID
-        JOIN tblProducerContacts pc ON pc.ProducerContactGUID = @NewProducerContactGuid
-        WHERE q.QuoteGuid = @EndorsementQuoteGuid
+        -- The SubmissionGroup update is already done at the beginning of the transaction
+        -- No need to update it again
         
         -- Log the BOR change (optional - create audit table if needed)
         IF OBJECT_ID('tblBOR_AuditLog') IS NOT NULL

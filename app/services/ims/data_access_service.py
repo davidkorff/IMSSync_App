@@ -877,6 +877,86 @@ class IMSDataAccessService:
             logger.error(error_msg)
             return False, 0.0, error_msg
     
+    def get_quote_producer_contact_guid(self, quote_guid: str) -> Tuple[bool, Optional[str], str]:
+        """
+        Get the ProducerContactGuid from tblQuotes for a given QuoteGuid.
+        
+        Args:
+            quote_guid: The quote GUID to look up
+            
+        Returns:
+            Tuple[bool, Optional[str], str]: (success, producer_contact_guid, message)
+        """
+        try:
+            # Execute a simple query to get the ProducerContactGuid
+            query = """
+                SELECT ProducerContactGuid 
+                FROM tblQuotes 
+                WHERE QuoteGuid = @QuoteGuid
+            """
+            
+            success, result_xml, message = self.execute_dataset(
+                "ExecuteDataSet",
+                ["Query", query, "QuoteGuid", quote_guid]
+            )
+            
+            if not success:
+                return False, None, message
+            
+            # Parse the result
+            result_dict = self._parse_single_row_result(result_xml)
+            
+            if not result_dict:
+                return False, None, f"No quote found with QuoteGuid: {quote_guid}"
+            
+            producer_contact_guid = result_dict.get("ProducerContactGuid")
+            
+            if producer_contact_guid:
+                logger.info(f"Found ProducerContactGuid {producer_contact_guid} for quote {quote_guid}")
+                return True, producer_contact_guid, "Producer lookup successful"
+            else:
+                return False, None, f"No ProducerContactGuid found for quote {quote_guid}"
+                
+        except Exception as e:
+            error_msg = f"Error getting producer contact guid: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
+    def change_producer(self, quote_guid: str, new_producer_contact_guid: str) -> Tuple[bool, str]:
+        """
+        Change the producer for a quote using spChangeProducer_Triton.
+        
+        Args:
+            quote_guid: The quote to update
+            new_producer_contact_guid: The new producer contact GUID
+            
+        Returns:
+            Tuple[bool, str]: (success, message)
+        """
+        try:
+            logger.info(f"Changing producer for quote {quote_guid} to {new_producer_contact_guid}")
+            
+            # Execute the stored procedure - IMS will add the _WS suffix
+            success, result, message = self.execute_command(
+                "spChangeProducer_Triton",
+                [
+                    "QuoteGuid", quote_guid,
+                    "NewProducerContactGuid", new_producer_contact_guid
+                ]
+            )
+            
+            if success:
+                logger.info(f"Successfully changed producer for quote {quote_guid}")
+                return True, "Producer changed successfully"
+            else:
+                logger.error(f"Failed to change producer: {message}")
+                return False, message
+                
+        except Exception as e:
+            error_msg = f"Error changing producer: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg
+    
     def _clean_xml_for_parsing(self, xml_string: str) -> str:
         """
         Clean XML string to handle common issues that cause parsing errors.

@@ -64,12 +64,12 @@ BEGIN
         )
         ORDER BY q.QuoteID DESC  -- If somehow multiple, get the most recent
        
-        -- Check if the latest quote is bound
-        IF @QuoteStatusID <> 3  -- Not bound
+        -- Check if the latest quote is bound or cancelled
+        IF @QuoteStatusID NOT IN (3, 12)  -- Not bound (3) or cancelled (12)
         BEGIN
             SELECT
                 0 AS Result,
-                'Cannot create endorsement - latest quote in chain is not bound' AS Message,
+                'Cannot create endorsement - latest quote in chain must be bound or cancelled' AS Message,
                 @LatestQuoteGuid AS LatestQuoteGuid,
                 @QuoteStatusID AS QuoteStatusID
             RETURN

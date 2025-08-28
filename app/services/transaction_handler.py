@@ -315,7 +315,53 @@ class TransactionHandler:
                     results["endorsement_status"] = "unbound"
                     results["endorsement_effective_date"] = effective_date
                     
-                    # Step 6: Check if we got the quote option GUID from the stored procedure
+                    # PRODUCER VALIDATION CHECK - Added per requirement
+                    # Step 6a: Get the ProducerContactGuid from tblQuotes for the new endorsement quote
+                    logger.info(f"Checking producer for endorsement quote {endorsement_quote_guid}")
+                    success, current_producer_guid, message = self.data_service.get_quote_producer_contact_guid(endorsement_quote_guid)
+                    
+                    if success and current_producer_guid:
+                        logger.info(f"Current producer for endorsement quote: {current_producer_guid}")
+                        
+                        # Step 6b: Get the ProducerContactGuid from the payload using getProducerGuid_WS
+                        logger.info("Looking up producer from payload")
+                        success, payload_producer_info, message = self.data_service.process_producer_from_payload(payload)
+                        
+                        if success and payload_producer_info:
+                            payload_producer_guid = payload_producer_info.get("ProducerContactGUID")
+                            
+                            if payload_producer_guid:
+                                logger.info(f"Producer from payload: {payload_producer_guid}")
+                                
+                                # Step 6c: Compare the two ProducerContactGuids
+                                if current_producer_guid != payload_producer_guid:
+                                    logger.warning(f"Producer mismatch detected! Current: {current_producer_guid}, Payload: {payload_producer_guid}")
+                                    
+                                    # Step 6d: Change producer if they don't match
+                                    logger.info(f"Changing producer for endorsement quote {endorsement_quote_guid}")
+                                    success, message = self.data_service.change_producer(endorsement_quote_guid, payload_producer_guid)
+                                    
+                                    if success:
+                                        logger.info(f"Successfully changed producer to {payload_producer_guid}")
+                                        results["producer_changed"] = True
+                                        results["old_producer_guid"] = current_producer_guid
+                                        results["new_producer_guid"] = payload_producer_guid
+                                    else:
+                                        logger.error(f"Failed to change producer: {message}")
+                                        # Log the error but continue processing - don't fail the endorsement
+                                        results["producer_change_error"] = message
+                                else:
+                                    logger.info("Producer matches - no change needed")
+                                    results["producer_validated"] = True
+                            else:
+                                logger.warning("Could not extract ProducerContactGUID from payload producer info")
+                        else:
+                            logger.warning(f"Failed to get producer from payload: {message}")
+                            # Log warning but continue - don't fail the endorsement over producer lookup
+                    else:
+                        logger.warning(f"Failed to get current producer from quote: {message}")
+                    
+                    # Step 7: Check if we got the quote option GUID from the stored procedure
                     if not endorsement_quote_option_guid:
                         # The stored procedure should have returned NewQuoteOptionGuid
                         # If it didn't, that means our parsing needs to be fixed
@@ -329,10 +375,10 @@ class TransactionHandler:
                     else:
                         logger.warning("Could not retrieve quote option GUID - will use placeholder")
                     
-                    # Step 7: Apply fees if needed (check criteria)
+                    # Step 8: Apply fees if needed (check criteria)
                     # TODO: Add fee application logic here if needed
                     
-                    # Step 8: Process the payload to register in Triton tables
+                    # Step 9: Process the payload to register in Triton tables
                     if endorsement_quote_guid:
                         # Use the quote option GUID if we have it, otherwise use a placeholder
                         if not endorsement_quote_option_guid:
@@ -356,7 +402,7 @@ class TransactionHandler:
                             if process_result:
                                 logger.debug(f"Payload processing result: {process_result}")
                     
-                    # Step 9: Bind the endorsement
+                    # Step 10: Bind the endorsement
                     logger.info(f"Binding endorsement quote {endorsement_quote_guid}")
                     success, bind_result, message = self.bind_service.bind_quote(endorsement_quote_guid)
                     
@@ -368,7 +414,7 @@ class TransactionHandler:
                         logger.error(f"Failed to bind endorsement: {message}")
                         return False, results, f"Endorsement bind failed: {message}"
                     
-                    # Step 10: Get invoice data after successful endorsement
+                    # Step 11: Get invoice data after successful endorsement
                     # Skip invoice retrieval for zero-premium endorsements (no invoice generated)
                     if endorsement_quote_guid and new_endorsement_premium != 0:
                         logger.info(f"Retrieving invoice data for endorsement quote {endorsement_quote_guid}")
