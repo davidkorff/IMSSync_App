@@ -306,6 +306,9 @@ class IMSQuoteService:
         state_id = payload.get("state", "")  # Use 'state' for the quote's state
         commission_rate = payload.get("commission_rate", 0)
         
+        logger.info(f"DEBUG: create_quote_from_payload - Using state: {state_id} (from 'state' field)")
+        logger.info(f"DEBUG: Payload has state={payload.get('state')}, insured_state={payload.get('insured_state')}")
+        
         # Convert dates from MM/DD/YYYY to YYYY-MM-DD format
         if effective_date:
             try:
