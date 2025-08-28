@@ -112,6 +112,7 @@ class TritonProcessor:
                 "address_1": payload.address_1,
                 "address_2": payload.address_2,
                 "city": payload.city,
+                "insured_state": payload.insured_state,  # Use insured_state for risk location
                 "zip": payload.insured_zip,  # Use insured_zip for insured's location in quote
                 # Additional Triton data for AdditionalInformation field
                 "additional_data": {
