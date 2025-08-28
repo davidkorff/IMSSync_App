@@ -282,13 +282,21 @@ class TransactionHandler:
                     logger.info(f"Using endorsement effective date: {effective_date}")
                     
                     # Step 5: Create endorsement using Triton_ProcessFlatEndorsement wrapper
+                    # The wrapper will also validate and update the producer if needed
                     logger.info("Creating endorsement using Triton_ProcessFlatEndorsement wrapper")
+                    
+                    # Get producer info from payload for validation
+                    producer_email = payload.get("producer_email")
+                    producer_name = payload.get("producer_name")
+                    
                     success, endorsement_result, message = self.endorsement_service.create_flat_endorsement_triton(
                         opportunity_id=int(option_id),
                         endorsement_premium=new_endorsement_premium,
                         effective_date=effective_date,
                         comment=endorsement_comment,
-                        midterm_endt_id=midterm_endt_id
+                        midterm_endt_id=midterm_endt_id,
+                        producer_email=producer_email,
+                        producer_name=producer_name
                     )
                     
                     if not success:
@@ -315,51 +323,7 @@ class TransactionHandler:
                     results["endorsement_status"] = "unbound"
                     results["endorsement_effective_date"] = effective_date
                     
-                    # PRODUCER VALIDATION CHECK - Added per requirement
-                    # Step 6a: Get the ProducerContactGuid from tblQuotes for the new endorsement quote
-                    logger.info(f"Checking producer for endorsement quote {endorsement_quote_guid}")
-                    success, current_producer_guid, message = self.data_service.get_quote_producer_contact_guid(endorsement_quote_guid)
-                    
-                    if success and current_producer_guid:
-                        logger.info(f"Current producer for endorsement quote: {current_producer_guid}")
-                        
-                        # Step 6b: Get the ProducerContactGuid from the payload using getProducerGuid_WS
-                        logger.info("Looking up producer from payload")
-                        success, payload_producer_info, message = self.data_service.process_producer_from_payload(payload)
-                        
-                        if success and payload_producer_info:
-                            payload_producer_guid = payload_producer_info.get("ProducerContactGUID")
-                            
-                            if payload_producer_guid:
-                                logger.info(f"Producer from payload: {payload_producer_guid}")
-                                
-                                # Step 6c: Compare the two ProducerContactGuids
-                                if current_producer_guid != payload_producer_guid:
-                                    logger.warning(f"Producer mismatch detected! Current: {current_producer_guid}, Payload: {payload_producer_guid}")
-                                    
-                                    # Step 6d: Change producer if they don't match
-                                    logger.info(f"Changing producer for endorsement quote {endorsement_quote_guid}")
-                                    success, message = self.data_service.change_producer(endorsement_quote_guid, payload_producer_guid)
-                                    
-                                    if success:
-                                        logger.info(f"Successfully changed producer to {payload_producer_guid}")
-                                        results["producer_changed"] = True
-                                        results["old_producer_guid"] = current_producer_guid
-                                        results["new_producer_guid"] = payload_producer_guid
-                                    else:
-                                        logger.error(f"Failed to change producer: {message}")
-                                        # Log the error but continue processing - don't fail the endorsement
-                                        results["producer_change_error"] = message
-                                else:
-                                    logger.info("Producer matches - no change needed")
-                                    results["producer_validated"] = True
-                            else:
-                                logger.warning("Could not extract ProducerContactGUID from payload producer info")
-                        else:
-                            logger.warning(f"Failed to get producer from payload: {message}")
-                            # Log warning but continue - don't fail the endorsement over producer lookup
-                    else:
-                        logger.warning(f"Failed to get current producer from quote: {message}")
+                    # Note: Producer validation is now handled inside Triton_ProcessFlatEndorsement_WS
                     
                     # Step 7: Check if we got the quote option GUID from the stored procedure
                     if not endorsement_quote_option_guid:

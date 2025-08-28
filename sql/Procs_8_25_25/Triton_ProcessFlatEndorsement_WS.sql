@@ -4,7 +4,9 @@ CREATE or ALTER   PROCEDURE [dbo].[Triton_ProcessFlatEndorsement_WS]
     @EndorsementEffectiveDate VARCHAR(50),
     @EndorsementComment VARCHAR(500) = 'Midterm Endorsement',
     @UserGuid UNIQUEIDENTIFIER = NULL,
-    @MidtermEndtID INT = NULL
+    @MidtermEndtID INT = NULL,
+    @ProducerEmail VARCHAR(255) = NULL,
+    @ProducerName VARCHAR(255) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -162,6 +164,62 @@ BEGIN
                     GETDATE(),
                     GETDATE()
                 )
+            END
+        END
+        
+        -- PRODUCER VALIDATION CHECK
+        -- Check if producer info was provided and validate against current producer
+        IF (@ProducerEmail IS NOT NULL OR @ProducerName IS NOT NULL) AND @NewQuoteGuid IS NOT NULL
+        BEGIN
+            DECLARE @CurrentProducerContactGuid UNIQUEIDENTIFIER
+            DECLARE @NewProducerContactGuid UNIQUEIDENTIFIER
+            
+            -- Get the current producer from the new endorsement quote
+            SELECT @CurrentProducerContactGuid = ProducerContactGuid
+            FROM tblQuotes
+            WHERE QuoteGuid = @NewQuoteGuid
+            
+            -- Get the producer GUID from the payload using getProducerGuid_WS logic
+            EXEC getProducerGuid_WS 
+                @producer_email = @ProducerEmail,
+                @producer_name = @ProducerName
+            
+            -- The getProducerGuid_WS returns a result set, we need to capture it
+            -- Create temp table to capture the result
+            CREATE TABLE #ProducerResult (
+                ProducerContactGUID UNIQUEIDENTIFIER,
+                ProducerLocationGUID UNIQUEIDENTIFIER
+            )
+            
+            INSERT INTO #ProducerResult
+            EXEC getProducerGuid_WS 
+                @producer_email = @ProducerEmail,
+                @producer_name = @ProducerName
+            
+            SELECT TOP 1 @NewProducerContactGuid = ProducerContactGUID
+            FROM #ProducerResult
+            
+            DROP TABLE #ProducerResult
+            
+            -- Compare and update if different
+            IF @CurrentProducerContactGuid IS NOT NULL 
+               AND @NewProducerContactGuid IS NOT NULL 
+               AND @CurrentProducerContactGuid != @NewProducerContactGuid
+            BEGIN
+                PRINT 'Producer mismatch detected. Updating producer...'
+                PRINT '  Current Producer: ' + CAST(@CurrentProducerContactGuid AS VARCHAR(50))
+                PRINT '  New Producer: ' + CAST(@NewProducerContactGuid AS VARCHAR(50))
+                
+                -- Call spChangeProducer_Triton to update the producer
+                EXEC spChangeProducer_Triton
+                    @QuoteGuid = @NewQuoteGuid,
+                    @NewProducerContactGuid = @NewProducerContactGuid
+                    
+                PRINT 'Producer updated successfully'
+            END
+            ELSE IF @CurrentProducerContactGuid = @NewProducerContactGuid
+            BEGIN
+                PRINT 'Producer matches - no change needed'
             END
         END
        

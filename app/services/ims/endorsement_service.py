@@ -168,7 +168,9 @@ class IMSEndorsementService(BaseIMSService):
         effective_date: str,
         comment: str = "Midterm Endorsement",
         user_guid: Optional[str] = None,
-        midterm_endt_id: Optional[int] = None
+        midterm_endt_id: Optional[int] = None,
+        producer_email: Optional[str] = None,
+        producer_name: Optional[str] = None
     ) -> Tuple[bool, Dict[str, Any], str]:
         """
         Create an endorsement using Triton_ProcessFlatEndorsement wrapper procedure.
@@ -211,6 +213,13 @@ class IMSEndorsementService(BaseIMSService):
             # Add midterm_endt_id for duplicate check
             if midterm_endt_id:
                 params.extend(["MidtermEndtID", str(midterm_endt_id)])
+                
+            # Add producer parameters for validation
+            if producer_email:
+                params.extend(["ProducerEmail", producer_email])
+                
+            if producer_name:
+                params.extend(["ProducerName", producer_name])
             
             # Call the wrapper procedure (which calculates total and calls base procedure)
             success, result_xml, message = self.data_service.execute_dataset(

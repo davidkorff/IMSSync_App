@@ -1,156 +1,122 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateBOR_WS]
-(
-    @EndorsementQuoteGuid UNIQUEIDENTIFIER,
-    @NewProducerContactGuid UNIQUEIDENTIFIER
-)
+USE [OneIMS]
+GO
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:      Triton Integration
+-- Create Date: 2025-08-28
+-- Description: Change the producer for a quote during midterm endorsements
+--              Called internally from Triton_ProcessFlatEndorsement_WS, so no _WS suffix needed
+-- =============================================
+
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[spChangeProducer_Triton]') AND type in (N'P', N'PC'))
+    DROP PROCEDURE [dbo].[spChangeProducer_Triton]
+GO
+
+CREATE PROCEDURE [dbo].[spChangeProducer_Triton]
+    @QuoteGuid uniqueidentifier,
+    @NewProducerContactGuid uniqueidentifier
 AS
 BEGIN
     SET NOCOUNT ON;
     
-    -- Validate inputs
-    IF @EndorsementQuoteGuid IS NULL
-    BEGIN
-        RAISERROR('EndorsementQuoteGuid cannot be null', 16, 1)
-        RETURN
-    END
-    
-    IF @NewProducerContactGuid IS NULL
-    BEGIN
-        RAISERROR('NewProducerContactGuid cannot be null', 16, 1)
-        RETURN
-    END
-    
-    -- Validate the quote exists
-    IF NOT EXISTS (SELECT 1 FROM tblQuotes WHERE QuoteGuid = @EndorsementQuoteGuid)
-    BEGIN
-        RAISERROR('Quote not found', 16, 1)
-        RETURN
-    END
-    
-    -- Validate the producer contact exists
-    IF NOT EXISTS (SELECT 1 FROM tblProducerContacts WHERE ProducerContactGUID = @NewProducerContactGuid)
-    BEGIN
-        RAISERROR('Producer contact not found', 16, 1)
-        RETURN
-    END
+    DECLARE @ErrorMessage NVARCHAR(4000);
+    DECLARE @ErrorSeverity INT;
+    DECLARE @ErrorState INT;
+    DECLARE @OldProducerContactGuid uniqueidentifier;
     
     BEGIN TRY
+        -- Validate that the quote exists
+        IF NOT EXISTS (SELECT 1 FROM tblQuotes WHERE QuoteGuid = @QuoteGuid)
+        BEGIN
+            RAISERROR('Quote not found with QuoteGuid: %s', 16, 1, @QuoteGuid);
+            RETURN;
+        END
+        
+        -- Validate that the new producer exists
+        IF NOT EXISTS (SELECT 1 FROM tblProducerContacts WHERE ProducerContactGuid = @NewProducerContactGuid)
+        BEGIN
+            RAISERROR('Producer contact not found with ProducerContactGuid: %s', 16, 1, @NewProducerContactGuid);
+            RETURN;
+        END
+        
         BEGIN TRANSACTION
         
-        -- First, update the SubmissionGroup's ProducerLocationGuid to match the new producer contact's location
-        -- This must be done BEFORE updating the quote to satisfy the ValidContactID trigger
-        UPDATE sg
-        SET ProducerLocationGuid = pc.ProducerLocationGuid
-        FROM tblSubmissionGroup sg
-        JOIN tblQuotes q ON q.SubmissionGroupGuid = sg.SubmissionGroupGUID
-        JOIN tblProducerContacts pc ON pc.ProducerContactGUID = @NewProducerContactGuid
-        WHERE q.QuoteGuid = @EndorsementQuoteGuid
+        -- Get the current producer before change
+        SELECT @OldProducerContactGuid = ProducerContactGuid
+        FROM tblQuotes 
+        WHERE QuoteGuid = @QuoteGuid;
         
-        -- Now update the ProducerContactGuid on the endorsement quote
-        UPDATE tblQuotes 
-        SET ProducerContactGuid = @NewProducerContactGuid
-        WHERE QuoteGuid = @EndorsementQuoteGuid
+        -- Update the producer for the quote
+        UPDATE tblQuotes
+        SET ProducerContactGuid = @NewProducerContactGuid,
+            ModifiedDate = GETDATE()
+        WHERE QuoteGuid = @QuoteGuid;
         
-        -- Then update all the denormalized producer fields
-        -- This pulls from the new contact's location and producer info
-        UPDATE q 
-        SET 
-            q.ProducerName = p.ProducerName, 
-            q.ProducerLocationName = mailloc.Name, 
-            q.ProducerAddress1 = mailloc.Address1,
-            q.ProducerAddress2 = mailloc.Address2, 
-            q.ProducerCity = mailloc.City,
-            q.ProducerISOCountryCode = mailloc.ISOCountryCode, 
-            q.ProducerRegion = mailloc.Region,
-            q.ProducerCounty = mailloc.County, 
-            q.ProducerState = mailloc.State, 
-            q.ProducerZipCode = mailloc.ZipCode,
-            q.ProducerZipPlus = mailloc.ZipPlus, 
-            q.ProducerPhone = mailloc.Phone,
-            q.ProducerFax = COALESCE(pc.Fax, mailloc.Fax),
-            -- Billing address fields
-            q.ProducerAddress1_Billing = billloc.Address1,
-            q.ProducerAddress2_Billing = billloc.Address2, 
-            q.ProducerCity_Billing = billloc.City, 
-            q.ProducerState_Billing = billloc.State,
-            q.ProducerISOCountryCode_Billing = billloc.ISOCountryCode, 
-            q.ProducerRegion_Billing = billloc.Region,
-            q.ProducerZipCode_Billing = billloc.ZipCode, 
-            q.ProducerZipPlus_Billing = billloc.ZipPlus, 
-            q.ProducerPhone_Billing = billloc.Phone, 
-            q.ProducerFax_Billing = billloc.Fax,
-            q.ProducerCounty_Billing = billloc.County
-        FROM 
-            dbo.tblQuotes q
-            -- Get the producer contact info
-            JOIN dbo.tblProducerContacts pc ON pc.ProducerContactGUID = @NewProducerContactGuid
-            -- Get the producer location from the contact
-            JOIN dbo.tblProducerLocations pl ON pl.ProducerLocationGUID = pc.ProducerLocationGuid
-            -- Get the producer info
-            JOIN dbo.tblProducers p ON p.ProducerGUID = pl.ProducerGUID
-            -- Get mailing location
-            LEFT JOIN dbo.tblProducerLocations mailloc ON mailloc.ProducerLocationGUID = 
-                ISNULL(pl.MailToProducerLocationGuid, pl.ProducerLocationGUID)
-            -- Get billing location
-            OUTER APPLY (
-                SELECT TOP(1) ProducerLocationGUID 
-                FROM dbo.tblProducerLocations prodbill 
-                WHERE prodbill.ProducerGUID = p.ProducerGUID 
-                AND prodbill.LocationTypeID = 2 
-                ORDER BY prodbill.StatusID, prodbill.ProducerLocationID
-            ) prodbill
-            LEFT JOIN dbo.tblProducerLocations billloc ON billloc.ProducerLocationGUID = 
-                ISNULL(pl.BillToProducerLocationGuid, prodbill.ProducerLocationGUID)
-        WHERE 
-            q.QuoteGuid = @EndorsementQuoteGuid
+        -- Also update the producer location if we can determine it from the contact
+        DECLARE @NewProducerLocationGuid uniqueidentifier;
+        SELECT TOP 1 @NewProducerLocationGuid = pl.ProducerLocationGuid
+        FROM tblProducerLocations pl
+        INNER JOIN tblProducerContacts pc ON pl.ProducerGuid = pc.ProducerGuid
+        WHERE pc.ProducerContactGuid = @NewProducerContactGuid
+        ORDER BY pl.IsPrimary DESC, pl.CreatedDate DESC;
         
-        -- The SubmissionGroup update is already done at the beginning of the transaction
-        -- No need to update it again
-        
-        -- Log the BOR change (optional - create audit table if needed)
-        IF OBJECT_ID('tblBOR_AuditLog') IS NOT NULL
+        IF @NewProducerLocationGuid IS NOT NULL
         BEGIN
-            INSERT INTO tblBOR_AuditLog (
+            UPDATE tblQuotes
+            SET ProducerLocationGuid = @NewProducerLocationGuid
+            WHERE QuoteGuid = @QuoteGuid;
+        END
+        
+        -- Update the SubmissionGroup's ProducerLocationGuid if needed
+        UPDATE sg
+        SET ProducerLocationGuid = @NewProducerLocationGuid
+        FROM tblSubmissionGroup sg
+        INNER JOIN tblQuotes q ON q.SubmissionGroupGuid = sg.SubmissionGroupGUID
+        WHERE q.QuoteGuid = @QuoteGuid
+        AND @NewProducerLocationGuid IS NOT NULL;
+        
+        -- Log the change in an audit table if it exists
+        IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblProducerChangeAudit]') AND type in (N'U'))
+        BEGIN
+            INSERT INTO tblProducerChangeAudit (
                 QuoteGuid,
                 OldProducerContactGuid,
                 NewProducerContactGuid,
                 ChangeDate,
                 ChangedBy
             )
-            SELECT 
-                @EndorsementQuoteGuid,
-                ProducerContactGuid,
+            VALUES (
+                @QuoteGuid,
+                @OldProducerContactGuid,
                 @NewProducerContactGuid,
                 GETDATE(),
-                SYSTEM_USER
-            FROM tblQuotes 
-            WHERE QuoteGuid = @EndorsementQuoteGuid
+                'Triton Integration - Midterm Endorsement'
+            );
         END
         
         COMMIT TRANSACTION
         
-        -- Return success
-        SELECT 
-            'Success' as Result,
-            @EndorsementQuoteGuid as QuoteGuid,
-            @NewProducerContactGuid as NewProducerContactGuid,
-            p.ProducerName,
-            pc.LName + ', ' + pc.FName as ContactName
-        FROM tblProducerContacts pc
-        JOIN tblProducerLocations pl ON pl.ProducerLocationGUID = pc.ProducerLocationGuid
-        JOIN tblProducers p ON p.ProducerGUID = pl.ProducerGUID
-        WHERE pc.ProducerContactGUID = @NewProducerContactGuid
+        -- Return success indicator (optional, since this is called internally)
+        PRINT 'Producer changed from ' + CAST(@OldProducerContactGuid AS VARCHAR(50)) + 
+              ' to ' + CAST(@NewProducerContactGuid AS VARCHAR(50))
         
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION
             
-        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE()
-        DECLARE @ErrorSeverity INT = ERROR_SEVERITY()
-        DECLARE @ErrorState INT = ERROR_STATE()
+        SELECT 
+            @ErrorMessage = ERROR_MESSAGE(),
+            @ErrorSeverity = ERROR_SEVERITY(),
+            @ErrorState = ERROR_STATE();
         
-        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState)
+        -- Re-raise the error
+        RAISERROR(@ErrorMessage, @ErrorSeverity, @ErrorState);
     END CATCH
 END
 GO
