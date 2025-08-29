@@ -1,7 +1,7 @@
 # UAT Test Scenarios
 
 ## Executive Summary
-This document outlines comprehensive UAT test scenarios for the RSG_Integration_2 application, focusing on built-in failure points and error validations. Each scenario includes the expected system response when validation fails. All Failures will be sent to Triton to be monitored by Triton's admin. 
+This document outlines comprehensive UAT test scenarios for the RSG Triton -> IMS Integration, focusing on built-in failure points and error validations. Each scenario includes the expected system response when validation fails. All Failures will be sent to Triton to be monitored by Triton's admin. 
 
 ---
 

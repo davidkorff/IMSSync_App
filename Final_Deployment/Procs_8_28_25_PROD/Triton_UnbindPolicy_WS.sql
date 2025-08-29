@@ -1,4 +1,4 @@
-CREATE or ALTER   PROCEDURE [dbo].[Triton_UnbindPolicy_WS]
+CREATE OR ALTER   PROCEDURE [dbo].[Triton_UnbindPolicy_WS]
 (
     @QuoteGuid UNIQUEIDENTIFIER,
     @UserGuid UNIQUEIDENTIFIER,

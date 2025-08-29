@@ -1,0 +1,5 @@
+add tbltritonquotedata table
+add tbltritontransactiondata table
+add procedure spProcessTritonPayload_WS
+ - check hardcoded programIDs and lineguids
+add processflatcancellation, ProcessFlatReinstatement, ProccessFlatEndorsement
