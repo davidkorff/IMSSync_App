@@ -349,7 +349,7 @@ BEGIN
                             @NewQuoteOptionGuid,
                             @CompanyFeeID,
                             @Policy_FeeCode,
-                            ISNULL(@OfficeID, 1),  -- Default to 1 if not found
+                            ISNULL(@OfficeID, 118),  -- Default to 118 if not found
                             @CompanyLineGuid,
                             2,  -- Flat fee type
                             1,  -- Payable

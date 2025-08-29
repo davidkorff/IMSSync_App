@@ -136,7 +136,7 @@ BEGIN
        
         -- Default Office ID if not found
         IF @OfficeID IS NULL
-            SET @OfficeID = 1;
+            SET @OfficeID = 118;
        
         -- Get CompanyInstallmentID from original quote option
         SELECT TOP 1 @CompanyInstallmentID = CompanyInstallmentID
@@ -357,7 +357,7 @@ BEGIN
        
         -- Default charge code if none found
         IF @MainChargeCode IS NULL
-            SET @MainChargeCode = 1;
+            SET @MainChargeCode = 1224;
        
         -- Insert the premium change record
         INSERT INTO tblQuoteOptionPremiums (

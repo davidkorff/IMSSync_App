@@ -138,8 +138,8 @@ BEGIN
         -- If still no premium, use a default (this should rarely happen)
         IF @ReinstatementPremium IS NULL OR @ReinstatementPremium = 0
         BEGIN
-            PRINT '  WARNING: No premium found, using default value of 1000'
-            SET @ReinstatementPremium = 1000
+            PRINT '  WARNING: No premium found, using default value of 0'
+            SET @ReinstatementPremium = 0
         END
        
         PRINT '  ReinstatementPremium: $' + CAST(@ReinstatementPremium AS VARCHAR(20))

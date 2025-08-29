@@ -413,80 +413,38 @@ BEGIN
             PRINT 'Updated commission rates in tblQuoteDetails';
         END
        
-        -- 5. Set ProgramID based on market_segment_code and LineGuid
+        -- 5. Set ProgramID based on market_segment_code only
         -- Only apply for bind transactions
-        -- Market segment codes: RT (Retail) or WL (Wholesale)
+        -- Market segment codes: RT (Retail) = 16254, WL (Wholesale) = 16253
         IF @transaction_type = 'bind' AND @market_segment_code IS NOT NULL
         BEGIN
-            DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
-            DECLARE @CompanyLineGuidStr NVARCHAR(50);  -- String version for case-insensitive comparison
-           
-            -- Get the LineGuid from tblQuotes (CompanyLineGuid field)
-            SELECT @CompanyLineGuid = CompanyLineGuid
-            FROM tblQuotes
-            WHERE QuoteGuid = @QuoteGuid;
-            
-            -- Convert to uppercase string for comparison (handles case sensitivity issues)
-            SET @CompanyLineGuidStr = UPPER(CAST(@CompanyLineGuid AS NVARCHAR(50)));
-           
-            -- If CompanyLineGuid is null, try to get it from tblQuoteOptions
-            IF @CompanyLineGuid IS NULL
-            BEGIN
-                SELECT TOP 1 @CompanyLineGuid = LineGuid
-                FROM tblQuoteOptions
-                WHERE QuoteOptionGuid = @QuoteOptionGuid;
-                
-                SET @CompanyLineGuidStr = UPPER(CAST(@CompanyLineGuid AS NVARCHAR(50)));
-                PRINT 'Retrieved LineGuid from tblQuoteOptions: ' + ISNULL(@CompanyLineGuidStr, 'NULL');
-            END
-           
             -- Debug logging
             PRINT 'ProgramID Assignment Debug:';
             PRINT '  Market Segment: ' + ISNULL(@market_segment_code, 'NULL');
-            PRINT '  CompanyLineGuid: ' + ISNULL(@CompanyLineGuidStr, 'NULL');
            
-            -- Set ProgramID based on market segment and line combinations
+            -- Set ProgramID based on market segment only (no LineGuid check)
             IF EXISTS (SELECT 1 FROM tblQuoteDetails WHERE QuoteGuid = @QuoteGuid)
             BEGIN
-                -- RT + Primary LineGuid -> ProgramID = 11615
-                IF @market_segment_code = 'RT' AND @CompanyLineGuidStr = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+                -- RT market -> ProgramID = 16254
+                IF @market_segment_code = 'RT'
                 BEGIN
                     UPDATE tblQuoteDetails
-                    SET ProgramID = 11615
+                    SET ProgramID = 16254
                     WHERE QuoteGuid = @QuoteGuid;
-                    PRINT '  Set ProgramID to 11615 (RT market, Primary Line)';
+                    PRINT '  Set ProgramID to 16254 (RT market)';
                 END
-                -- WL + Primary LineGuid -> ProgramID = 11613
-                ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuidStr = '07564291-CBFE-4BBE-88D1-0548C88ACED4'
+                -- WL market -> ProgramID = 16253
+                ELSE IF @market_segment_code = 'WL'
                 BEGIN
                     UPDATE tblQuoteDetails
-                    SET ProgramID = 11613
+                    SET ProgramID = 16253
                     WHERE QuoteGuid = @QuoteGuid;
-                    PRINT '  Set ProgramID to 11613 (WL market, Primary Line)';
-                END
-                -- RT + Excess LineGuid -> ProgramID = 11612
-                ELSE IF @market_segment_code = 'RT' AND @CompanyLineGuidStr = '08798559-321C-4FC0-98ED-A61B92215F31'
-                BEGIN
-                    UPDATE tblQuoteDetails
-                    SET ProgramID = 11612
-                    WHERE QuoteGuid = @QuoteGuid;
-                    PRINT '  Set ProgramID to 11612 (RT market, Excess Line)';
-                END
-                -- WL + Excess LineGuid -> ProgramID = 11614
-                ELSE IF @market_segment_code = 'WL' AND @CompanyLineGuidStr = '08798559-321C-4FC0-98ED-A61B92215F31'
-                BEGIN
-                    UPDATE tblQuoteDetails
-                    SET ProgramID = 11614
-                    WHERE QuoteGuid = @QuoteGuid;
-                    PRINT '  Set ProgramID to 11614 (WL market, Excess Line)';
+                    PRINT '  Set ProgramID to 16253 (WL market)';
                 END
                 ELSE
                 BEGIN
-                    PRINT '  WARNING: No matching ProgramID rule';
-                    PRINT '    market_segment_code: ' + ISNULL(@market_segment_code, 'NULL');
-                    PRINT '    CompanyLineGuid: ' + ISNULL(@CompanyLineGuidStr, 'NULL');
-                    PRINT '    Expected Primary: 07564291-CBFE-4BBE-88D1-0548C88ACED4';
-                    PRINT '    Expected Excess:  08798559-321C-4FC0-98ED-A61B92215F31';
+                    PRINT '  WARNING: Unknown market_segment_code: ' + ISNULL(@market_segment_code, 'NULL');
+                    PRINT '    Expected values: RT or WL';
                 END
             END
             ELSE
