@@ -310,9 +310,9 @@ class BulkTransactionTester:
                                 print(f"\nStopping due to error: {error_msg}")
                                 break
                     
-                    # Add small delay between transactions to avoid overwhelming the API
+                    # Add delay between transactions to avoid overwhelming the API
                     if not self.step_through:
-                        time.sleep(0.5)
+                        time.sleep(10)
                     
         except FileNotFoundError:
             logger.error(f"CSV file not found: {self.csv_file}")
