@@ -280,8 +280,8 @@ BEGIN
                    
                     -- Apply negative policy fee directly to tblQuoteOptionCharges
                     DECLARE @FinalNegativePolicyFee MONEY = -1 * ABS(@PolicyFee);
-                    DECLARE @Policy_FeeCode SMALLINT = 12374;  -- Charge code for Policy Fee
-                    DECLARE @CompanyFeeID INT = 37277712;  -- Triton Policy Fee CompanyFeeID
+                    DECLARE @Policy_FeeCode SMALLINT = 1224;  -- Charge code for Policy Fee
+                    DECLARE @CompanyFeeID INT;  -- Will be retrieved dynamically
                     DECLARE @OfficeID INT;
                     DECLARE @CompanyLineGuid UNIQUEIDENTIFIER;
                     
@@ -296,6 +296,19 @@ BEGIN
                     SELECT @CompanyLineGuid = CompanyLineGuid
                     FROM tblQuotes
                     WHERE QuoteGuid = @NewQuoteGuid;
+                    
+                    -- Get CompanyFeeID dynamically using the lookup query
+                    SELECT TOP 1 @CompanyFeeID = cpc.companyfeeid
+                    FROM tblquotes q
+                    INNER JOIN tblclientoffices co 
+                        ON q.issuinglocationguid = co.officeguid
+                    INNER JOIN tblcompanypolicycharges cpc 
+                        ON q.lineguid = cpc.lineguid
+                        AND q.stateid = cpc.stateid
+                        AND q.companylocationguid = cpc.companylocationguid
+                        AND co.officeid = cpc.officeid
+                    WHERE q.quoteguid = @NewQuoteGuid
+                        AND cpc.chargecode = @Policy_FeeCode;
                     
                     -- Check if the charge already exists
                     IF EXISTS (

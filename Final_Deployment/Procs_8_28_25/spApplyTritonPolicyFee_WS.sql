@@ -7,7 +7,7 @@ BEGIN
     SET NOCOUNT ON;
    
     DECLARE
-        @Policy_FeeCode SMALLINT = 12374,  -- Charge code for Policy Fee
+        @Policy_FeeCode SMALLINT = 1224,  -- Charge code for Policy Fee
         @Policy_Fee MONEY,
         @QuoteOptionGuid UNIQUEIDENTIFIER;
    
@@ -46,10 +46,25 @@ BEGIN
                     AND ChargeCode = @Policy_FeeCode
                 )
                 BEGIN
+                    -- Get CompanyFeeID dynamically
+                    DECLARE @DynamicCompanyFeeID INT;
+                    
+                    SELECT TOP 1 @DynamicCompanyFeeID = cpc.companyfeeid
+                    FROM tblquotes q
+                    INNER JOIN tblclientoffices co 
+                        ON q.issuinglocationguid = co.officeguid
+                    INNER JOIN tblcompanypolicycharges cpc 
+                        ON q.lineguid = cpc.lineguid
+                        AND q.stateid = cpc.stateid
+                        AND q.companylocationguid = cpc.companylocationguid
+                        AND co.officeid = cpc.officeid
+                    WHERE q.quoteguid = @QuoteGuid
+                        AND cpc.chargecode = @Policy_FeeCode;
+                    
                     -- Update existing charge with the new fee value
                     UPDATE tblQuoteOptionCharges
                     SET FlatRate = @Policy_Fee,
-                        CompanyFeeID = 37277712,  -- Ensure correct CompanyFeeID
+                        CompanyFeeID = @DynamicCompanyFeeID,  -- Use dynamically retrieved CompanyFeeID
                         Payable = 1,
                         AutoApplied = 0
                     WHERE QuoteOptionGUID = @QuoteOptionGuid
@@ -75,8 +90,18 @@ BEGIN
                     FROM tblQuotes
                     WHERE QuoteGuid = @QuoteGuid;
                    
-                    -- Always use the specific CompanyFeeID for Triton Policy Fee
-                    SET @CompanyFeeID = 37277712;  -- Triton Policy Fee CompanyFeeID
+                    -- Get CompanyFeeID dynamically using the lookup query
+                    SELECT TOP 1 @CompanyFeeID = cpc.companyfeeid
+                    FROM tblquotes q
+                    INNER JOIN tblclientoffices co 
+                        ON q.issuinglocationguid = co.officeguid
+                    INNER JOIN tblcompanypolicycharges cpc 
+                        ON q.lineguid = cpc.lineguid
+                        AND q.stateid = cpc.stateid
+                        AND q.companylocationguid = cpc.companylocationguid
+                        AND co.officeid = cpc.officeid
+                    WHERE q.quoteguid = @QuoteGuid
+                        AND cpc.chargecode = @Policy_FeeCode;
                    
                     -- Insert new charge record for the policy fee
                     INSERT INTO tblQuoteOptionCharges (
